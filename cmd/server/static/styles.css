@@ -251,14 +251,13 @@ nav strong {
 }
 
 .bookmark-actions {
-    display: flex;
+    display: none;
     gap: 0.25rem;
-    opacity: 0;
-    transition: opacity 0.2s;
+    flex-shrink: 0;
 }
 
 .bookmark-item:hover .bookmark-actions {
-    opacity: 1;
+    display: flex;
 }
 
 .bookmark-action-btn {
