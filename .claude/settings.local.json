@@ -6,7 +6,13 @@
       "Bash(curl:*)",
       "Bash(go build:*)",
       "Bash(./bin/user create:*)",
-      "Bash(go mod tidy:*)"
+      "Bash(go mod tidy:*)",
+      "Bash(pkill:*)",
+      "Bash(DATABASE_PATH=./data/bookmarks.db ./bin/user:*)",
+      "Bash(sqlite3:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose down:*)",
+      "Bash(docker-compose up:*)"
     ],
     "deny": [],
     "ask": []

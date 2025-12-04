@@ -43,14 +43,14 @@ type ReorderListsRequest struct {
 }
 
 var validColors = []string{
-	"#0072ce", // Blue
-	"#61bd4f", // Green
-	"#ff9f1a", // Orange
-	"#eb5a46", // Red
-	"#c377e0", // Purple
-	"#ff78cb", // Pink
-	"#00c2e0", // Teal
-	"#b3bac5", // Gray
+	"#3D6D95", // Blue (darker)
+	"#4D7831", // Green (darker)
+	"#B85720", // Orange (darker)
+	"#A43529", // Red (darker)
+	"#6B3D7D", // Purple (darker)
+	"#924F7D", // Pink (darker)
+	"#358178", // Teal (darker)
+	"#697374", // Gray (darker)
 }
 
 // isValidColor checks if a color is in the valid palette

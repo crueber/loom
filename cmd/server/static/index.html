@@ -50,13 +50,23 @@
         <!-- Lists Container -->
         <div id="lists-container" class="lists-wrapper">
             <!-- Lists will be added here dynamically -->
-        </div>
-
-        <!-- Add List Button -->
-        <div id="add-list-container">
-            <button id="add-list-btn" class="add-list-button">+ Add List</button>
+            <!-- Add List Button -->
+            <div id="add-list-container">
+                <button id="add-list-btn" class="add-list-button">+ Add List</button>
+            </div>
         </div>
     </div>
+
+    <!-- Color Picker Modal -->
+    <dialog id="color-picker-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev" id="close-color-picker"></button>
+                <h3>Choose Color</h3>
+            </header>
+            <div id="color-picker-grid" class="color-grid"></div>
+        </article>
+    </dialog>
 
     <!-- Import Modal -->
     <dialog id="import-modal">

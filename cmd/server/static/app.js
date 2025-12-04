@@ -3,16 +3,16 @@ let currentUser = null;
 let lists = [];
 let bookmarks = {};
 
-// Color palette
+// Color palette - Darker, more readable colors
 const COLORS = [
-    { name: 'Blue', value: '#0072ce', class: 'color-blue' },
-    { name: 'Green', value: '#61bd4f', class: 'color-green' },
-    { name: 'Orange', value: '#ff9f1a', class: 'color-orange' },
-    { name: 'Red', value: '#eb5a46', class: 'color-red' },
-    { name: 'Purple', value: '#c377e0', class: 'color-purple' },
-    { name: 'Pink', value: '#ff78cb', class: 'color-pink' },
-    { name: 'Teal', value: '#00c2e0', class: 'color-teal' },
-    { name: 'Gray', value: '#b3bac5', class: 'color-gray' }
+    { name: 'Blue', value: '#3D6D95', class: 'color-blue' },
+    { name: 'Green', value: '#4D7831', class: 'color-green' },
+    { name: 'Orange', value: '#B85720', class: 'color-orange' },
+    { name: 'Red', value: '#A43529', class: 'color-red' },
+    { name: 'Purple', value: '#6B3D7D', class: 'color-purple' },
+    { name: 'Pink', value: '#924F7D', class: 'color-pink' },
+    { name: 'Teal', value: '#358178', class: 'color-teal' },
+    { name: 'Gray', value: '#697374', class: 'color-gray' }
 ];
 
 // API Helper Functions
@@ -161,17 +161,26 @@ function getColorClass(colorValue) {
 // Render Functions
 function renderLists() {
     const container = document.getElementById('lists-container');
-    container.innerHTML = '';
 
+    // Remove only list cards, keep the add-list-container
+    const listCards = container.querySelectorAll('.list-card');
+    listCards.forEach(card => card.remove());
+
+    // Insert lists before the add-list-container
+    const addListContainer = document.getElementById('add-list-container');
     lists.forEach(list => {
         const listEl = createListElement(list);
-        container.appendChild(listEl);
+        container.insertBefore(listEl, addListContainer);
     });
 
     // Initialize Sortable for lists
     new Sortable(container, {
         animation: 150,
         handle: '.list-header',
+        scroll: true,
+        scrollSensitivity: 100,
+        scrollSpeed: 20,
+        bubbleScroll: true,
         onEnd: handleListReorder
     });
 }
@@ -345,31 +354,45 @@ async function editListTitle(listId) {
     }
 }
 
+function showColorPicker(currentColor, callback) {
+    const modal = document.getElementById('color-picker-modal');
+    const grid = document.getElementById('color-picker-grid');
+
+    grid.innerHTML = '';
+    COLORS.forEach(color => {
+        const div = document.createElement('div');
+        div.className = `color-option ${color.class}`;
+        if (color.value === currentColor) {
+            div.classList.add('selected');
+        }
+        div.title = color.name;
+        div.addEventListener('click', () => {
+            callback(color);
+            modal.close();
+        });
+        grid.appendChild(div);
+    });
+
+    modal.showModal();
+}
+
 async function changeListColor(listId) {
     const list = lists.find(l => l.id === listId);
     if (!list) return;
 
-    const colorOptions = COLORS.map(c => `${c.name}`).join(', ');
-    const colorName = prompt(`Choose a color:\n${colorOptions}`, '');
-    if (!colorName) return;
+    showColorPicker(list.color, async (color) => {
+        try {
+            await updateList(listId, { color: color.value });
+            list.color = color.value;
 
-    const color = COLORS.find(c => c.name.toLowerCase() === colorName.toLowerCase());
-    if (!color) {
-        alert('Invalid color');
-        return;
-    }
-
-    try {
-        await updateList(listId, { color: color.value });
-        list.color = color.value;
-
-        const headerEl = document.querySelector(`.list-header[data-list-id="${listId}"]`);
-        COLORS.forEach(c => headerEl.classList.remove(c.class));
-        headerEl.classList.add(color.class);
-    } catch (error) {
-        console.error('Failed to update list color:', error);
-        alert('Failed to update list color');
-    }
+            const headerEl = document.querySelector(`.list-header[data-list-id="${listId}"]`);
+            COLORS.forEach(c => headerEl.classList.remove(c.class));
+            headerEl.classList.add(color.class);
+        } catch (error) {
+            console.error('Failed to update list color:', error);
+            alert('Failed to update list color');
+        }
+    });
 }
 
 async function deleteListConfirm(listId) {
@@ -593,6 +616,10 @@ document.getElementById('import-btn').addEventListener('click', () => {
     document.getElementById('import-modal').showModal();
 });
 
+document.getElementById('close-color-picker').addEventListener('click', () => {
+    document.getElementById('color-picker-modal').close();
+});
+
 document.getElementById('close-import-modal').addEventListener('click', () => {
     document.getElementById('import-modal').close();
 });
@@ -627,6 +654,50 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     }
 });
 
+// Initialize horizontal drag scrolling
+function initializeHorizontalDragScroll() {
+    const container = document.getElementById('lists-container');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    container.addEventListener('mousedown', (e) => {
+        // Only activate on container background or bookmarks-container whitespace
+        const target = e.target;
+        const isValidTarget = target === container ||
+                             target.classList.contains('bookmarks-container') ||
+                             target.classList.contains('lists-wrapper');
+
+        if (!isValidTarget) return;
+
+        isDown = true;
+        container.style.cursor = 'grabbing';
+        startX = e.pageX - container.offsetLeft;
+        scrollLeft = container.scrollLeft;
+    });
+
+    container.addEventListener('mouseleave', () => {
+        isDown = false;
+        container.style.cursor = 'grab';
+    });
+
+    container.addEventListener('mouseup', () => {
+        isDown = false;
+        container.style.cursor = 'grab';
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 2;
+        container.scrollLeft = scrollLeft - walk;
+    });
+
+    // Set initial cursor
+    container.style.cursor = 'grab';
+}
+
 // Initialize
 (async () => {
     try {
@@ -634,6 +705,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
         showScreen('app-screen');
         document.getElementById('user-name').textContent = currentUser.username;
         await loadData();
+        initializeHorizontalDragScroll();
     } catch (error) {
         showScreen('login-screen');
     }

@@ -44,15 +44,25 @@ func NewSessionManager(authKey, encryptionKey []byte, maxAge int, secureCookie b
 func (sm *SessionManager) CreateSession(w http.ResponseWriter, r *http.Request, userID int) error {
 	session, err := sm.store.Get(r, sessionName)
 	if err != nil {
+		println("DEBUG: Failed to get session:", err.Error())
 		// Create a new session if the existing one is invalid
 		session, err = sm.store.New(r, sessionName)
 		if err != nil {
+			println("DEBUG: Failed to create new session:", err.Error())
 			return err
 		}
+		println("DEBUG: Created new session successfully")
 	}
 
 	session.Values[sessionKey] = userID
-	return session.Save(r, w)
+	println("DEBUG: About to save session for user ID:", userID)
+	err = session.Save(r, w)
+	if err != nil {
+		println("DEBUG: Failed to save session:", err.Error())
+		return err
+	}
+	println("DEBUG: Session saved successfully")
+	return nil
 }
 
 // GetUserID retrieves the user ID from the session

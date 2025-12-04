@@ -5,11 +5,13 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 ## Features
 
 - **Trello-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
-- **Collapsible Lists**: Save screen space by collapsing lists horizontally
+- **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
+- **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
 - **Automatic Favicons**: Automatically fetches and displays favicons for your bookmarks
 - **Multi-user Support**: Each user has their own isolated bookmarks
 - **Import/Export**: Backup and restore your bookmarks as JSON
-- **Dark Mode**: Beautiful dark theme powered by Pico.css
+- **Dark Mode**: Beautiful dark theme with readable color palette
+- **Stealth UI**: Minimal, unobtrusive navigation that fades in when needed
 - **Minimal Footprint**: Docker image < 15MB
 - **Secure**: Argon2id password hashing, secure cookie-based sessions
 - **Fast**: Lightweight Go backend with SQLite database
@@ -149,9 +151,10 @@ docker exec -it home-links /user <command>
 
 ### Organizing
 
-- **Drag lists horizontally** to reorder them
+- **Drag lists horizontally** by their header to reorder them (auto-scrolls near edges)
+- **Drag-to-scroll**: Click and drag on list whitespace or container background to scroll horizontally
 - **Drag bookmarks vertically** within and between lists
-- **Click list header** to collapse/expand
+- **Click list header** to collapse/expand (lists collapse to vertical tabs)
 - **Edit items** using the edit icon (✏️)
 - **Change list colors** using the color palette icon (🎨)
 - **Delete items** using the trash icon (🗑️)
@@ -244,14 +247,16 @@ server {
 
 ## Color Palette
 
-- Blue: `#0072ce`
-- Green: `#61bd4f`
-- Orange: `#ff9f1a`
-- Red: `#eb5a46`
-- Purple: `#c377e0`
-- Pink: `#ff78cb`
-- Teal: `#00c2e0`
-- Gray: `#b3bac5`
+Darker, more readable colors optimized for dark mode:
+
+- Blue: `#3D6D95`
+- Green: `#4D7831`
+- Orange: `#B85720`
+- Red: `#A43529`
+- Purple: `#6B3D7D`
+- Pink: `#924F7D`
+- Teal: `#358178`
+- Gray: `#697374`
 
 ## Database Schema
 

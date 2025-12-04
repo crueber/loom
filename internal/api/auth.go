@@ -81,10 +81,12 @@ func (a *AuthAPI) HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Create session
 	if err := a.sessionManager.CreateSession(w, r, user.ID); err != nil {
+		println("DEBUG: Failed to create session:", err.Error())
 		respondError(w, http.StatusInternalServerError, "Failed to create session")
 		return
 	}
 
+	println("DEBUG: Session created successfully for user:", user.ID)
 	respondJSON(w, http.StatusOK, UserResponse{
 		ID:       user.ID,
 		Username: user.Username,

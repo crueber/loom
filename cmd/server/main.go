@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"encoding/hex"
 	"io/fs"
 	"log"
 	"net/http"
@@ -37,22 +38,40 @@ func main() {
 	defer database.Close()
 
 	// Generate or load session keys
-	authKey := []byte(getEnv("SESSION_KEY", ""))
-	if len(authKey) == 0 {
+	var authKey []byte
+	sessionKeyHex := getEnv("SESSION_KEY", "")
+	if sessionKeyHex == "" {
 		authKey, err = auth.GenerateKey(32)
 		if err != nil {
 			log.Fatalf("Failed to generate auth key: %v", err)
 		}
 		log.Println("WARNING: Using auto-generated session key. Set SESSION_KEY environment variable for production.")
+	} else {
+		authKey, err = hex.DecodeString(sessionKeyHex)
+		if err != nil {
+			log.Fatalf("Failed to decode SESSION_KEY: %v", err)
+		}
+		if len(authKey) != 32 && len(authKey) != 64 {
+			log.Fatalf("SESSION_KEY must be 32 or 64 bytes (64 or 128 hex characters), got %d bytes", len(authKey))
+		}
 	}
 
-	encryptionKey := []byte(getEnv("ENCRYPTION_KEY", ""))
-	if len(encryptionKey) == 0 {
+	var encryptionKey []byte
+	encryptionKeyHex := getEnv("ENCRYPTION_KEY", "")
+	if encryptionKeyHex == "" {
 		encryptionKey, err = auth.GenerateKey(32)
 		if err != nil {
 			log.Fatalf("Failed to generate encryption key: %v", err)
 		}
 		log.Println("WARNING: Using auto-generated encryption key. Set ENCRYPTION_KEY environment variable for production.")
+	} else {
+		encryptionKey, err = hex.DecodeString(encryptionKeyHex)
+		if err != nil {
+			log.Fatalf("Failed to decode ENCRYPTION_KEY: %v", err)
+		}
+		if len(encryptionKey) != 16 && len(encryptionKey) != 24 && len(encryptionKey) != 32 {
+			log.Fatalf("ENCRYPTION_KEY must be 16, 24, or 32 bytes (32, 48, or 64 hex characters), got %d bytes", len(encryptionKey))
+		}
 	}
 
 	// Initialize session manager
