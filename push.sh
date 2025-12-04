@@ -7,6 +7,7 @@ set -e
 REGISTRY="git.packden.us"
 OWNER="crueber"
 IMAGE_NAME="home-links"
+PLATFORM="linux/amd64,linux/arm64"
 
 # -------------------------------------------------------------------
 # SCRIPT START
@@ -27,12 +28,20 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-TAG="$REGISTRY/$OWNER/$IMAGE_NAME:$SHA"
-echo "Building $TAG ..."
-docker build -t "$TAG" .
+BUILDER="multiarch-builder"
+if ! docker buildx ls | grep -q "$BUILDER"; then
+  echo "Creating Buildx builder '$BUILDER'..."
+  docker buildx create --name "$BUILDER" --driver docker-container --use
+  docker buildx inspect --bootstrap
+fi
+docker buildx use "$BUILDER"
 
-echo "Pushing $TAG ..."
-docker push "$TAG"
+TAG="$REGISTRY/$OWNER/$IMAGE_NAME:$SHA"
+echo "Building and pushing $TAG for $PLATFORM ..."
+docker buildx build \
+  --platform "$PLATFORM" \
+  -t "$TAG" \
+  --push .
 
 docker tag "$TAG" "$REGISTRY/$OWNER/$IMAGE_NAME:latest"
 docker push "$REGISTRY/$OWNER/$IMAGE_NAME:latest"
