@@ -1,0 +1,292 @@
+/* Global Styles */
+:root {
+    --list-width: 300px;
+    --list-collapsed-width: 48px;
+    --list-gap: 16px;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+}
+
+.error {
+    color: var(--pico-del-color);
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Login Screen */
+#login-screen {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#login-screen article {
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* App Header */
+nav {
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+/* Lists Container */
+.lists-wrapper {
+    display: flex;
+    gap: var(--list-gap);
+    padding: 2rem;
+    min-height: calc(100vh - 80px);
+    overflow-x: auto;
+}
+
+/* List Card */
+.list-card {
+    flex-shrink: 0;
+    width: var(--list-width);
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: var(--pico-card-box-shadow);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 120px);
+    transition: width 0.3s ease;
+}
+
+.list-card.collapsed {
+    width: var(--list-collapsed-width);
+}
+
+/* List Header */
+.list-header {
+    padding: 1rem;
+    border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+}
+
+.list-card.collapsed .list-header {
+    flex-direction: column;
+    height: 100%;
+    justify-content: center;
+}
+
+.list-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    flex: 1;
+}
+
+.list-card.collapsed .list-header h3 {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+}
+
+.list-actions {
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.list-header:hover .list-actions {
+    opacity: 1;
+}
+
+.list-card.collapsed .list-actions {
+    flex-direction: column;
+    margin-top: 1rem;
+}
+
+.list-action-btn {
+    background: none;
+    border: none;
+    color: var(--pico-contrast);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.list-action-btn:hover {
+    opacity: 0.7;
+}
+
+/* Bookmarks Container */
+.bookmarks-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 1rem;
+}
+
+.list-card.collapsed .bookmarks-container {
+    display: none;
+}
+
+/* Bookmark Item */
+.bookmark-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--pico-background-color);
+    border-radius: var(--pico-border-radius);
+    cursor: pointer;
+    transition: transform 0.2s;
+    text-decoration: none;
+    color: var(--pico-color);
+}
+
+.bookmark-item:hover {
+    transform: translateX(4px);
+    background: var(--pico-secondary-background);
+}
+
+.bookmark-item.sortable-ghost {
+    opacity: 0.4;
+}
+
+.bookmark-favicon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.bookmark-favicon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.bookmark-favicon-placeholder {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pico-secondary-background);
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.bookmark-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.bookmark-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.bookmark-url {
+    font-size: 0.75rem;
+    color: var(--pico-muted-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.bookmark-actions {
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.bookmark-item:hover .bookmark-actions {
+    opacity: 1;
+}
+
+.bookmark-action-btn {
+    background: none;
+    border: none;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.bookmark-action-btn:hover {
+    color: var(--pico-contrast);
+}
+
+/* Add Bookmark Button */
+.add-bookmark-btn {
+    width: calc(100% - 2rem);
+    margin: 0.5rem 1rem 1rem;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.list-card.collapsed .add-bookmark-btn {
+    display: none;
+}
+
+/* Add List Button */
+#add-list-container {
+    flex-shrink: 0;
+    padding: 2rem 2rem 2rem 0;
+}
+
+.add-list-button {
+    width: var(--list-width);
+    min-height: 100px;
+    border: 2px dashed var(--pico-muted-border-color);
+    background: transparent;
+    border-radius: var(--pico-border-radius);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+.add-list-button:hover {
+    border-color: var(--pico-primary);
+    background: var(--pico-primary-background);
+}
+
+/* Color Palette Classes */
+.color-blue { background-color: #0072ce; }
+.color-green { background-color: #61bd4f; }
+.color-orange { background-color: #ff9f1a; }
+.color-red { background-color: #eb5a46; }
+.color-purple { background-color: #c377e0; }
+.color-pink { background-color: #ff78cb; }
+.color-teal { background-color: #00c2e0; }
+.color-gray { background-color: #b3bac5; }
+
+/* Sortable Dragging */
+.sortable-drag {
+    opacity: 0.5;
+}
+
+/* Modal Styles */
+dialog article {
+    max-width: 500px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    :root {
+        --list-width: 280px;
+        --list-collapsed-width: 40px;
+    }
+
+    .lists-wrapper {
+        padding: 1rem;
+    }
+}

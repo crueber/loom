@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home Links</title>
+    <link rel="stylesheet" href="/static/lib/pico.min.css">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="container">
+        <main>
+            <article>
+                <header>
+                    <h1>Home Links</h1>
+                    <p>Your personal bookmark manager</p>
+                </header>
+                <form id="login-form">
+                    <label>
+                        Username
+                        <input type="text" id="login-username" name="username" required autofocus>
+                    </label>
+                    <label>
+                        Password
+                        <input type="password" id="login-password" name="password" required>
+                    </label>
+                    <div id="login-error" class="error" style="display: none;"></div>
+                    <button type="submit">Log In</button>
+                </form>
+            </article>
+        </main>
+    </div>
+
+    <!-- Main App Screen -->
+    <div id="app-screen" style="display: none;">
+        <!-- Header -->
+        <nav class="container-fluid">
+            <ul>
+                <li><strong>Home Links</strong></li>
+            </ul>
+            <ul>
+                <li><span id="user-name"></span></li>
+                <li><button id="export-btn" class="secondary">Export</button></li>
+                <li><button id="import-btn" class="secondary">Import</button></li>
+                <li><button id="logout-btn" class="contrast">Logout</button></li>
+            </ul>
+        </nav>
+
+        <!-- Lists Container -->
+        <div id="lists-container" class="lists-wrapper">
+            <!-- Lists will be added here dynamically -->
+        </div>
+
+        <!-- Add List Button -->
+        <div id="add-list-container">
+            <button id="add-list-btn" class="add-list-button">+ Add List</button>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <dialog id="import-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev" id="close-import-modal"></button>
+                <h3>Import Data</h3>
+            </header>
+            <form id="import-form">
+                <label>
+                    Select JSON file
+                    <input type="file" id="import-file" accept=".json" required>
+                </label>
+                <label>
+                    <select id="import-mode" required>
+                        <option value="merge">Merge with existing data</option>
+                        <option value="replace">Replace all data</option>
+                    </select>
+                </label>
+                <div id="import-error" class="error" style="display: none;"></div>
+            </form>
+            <footer>
+                <button id="cancel-import-btn" class="secondary">Cancel</button>
+                <button id="confirm-import-btn">Import</button>
+            </footer>
+        </article>
+    </dialog>
+
+    <script src="/static/lib/sortable.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

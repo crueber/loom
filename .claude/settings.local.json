@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod init:*)",
+      "Bash(go get:*)",
+      "Bash(curl:*)",
+      "Bash(go build:*)",
+      "Bash(./bin/user create:*)",
+      "Bash(go mod tidy:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

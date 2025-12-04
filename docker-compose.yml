@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  home-links:
+    build: .
+    container_name: home-links
+    ports:
+      - "8080:8080"
+    volumes:
+      - home-links-data:/data
+    environment:
+      - DATABASE_PATH=/data/bookmarks.db
+      - PORT=8080
+      - SECURE_COOKIE=false
+      # Generate secure keys for production:
+      # SESSION_KEY: openssl rand -hex 32
+      # ENCRYPTION_KEY: openssl rand -hex 32
+      # - SESSION_KEY=your_session_key_here
+      # - ENCRYPTION_KEY=your_encryption_key_here
+      - SESSION_MAX_AGE=31536000
+    restart: unless-stopped
+
+volumes:
+  home-links-data:
