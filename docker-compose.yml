@@ -15,8 +15,8 @@ services:
       # Generate secure keys for production:
       # SESSION_KEY: openssl rand -hex 32
       # ENCRYPTION_KEY: openssl rand -hex 32
-      # - SESSION_KEY=your_session_key_here
-      # - ENCRYPTION_KEY=your_encryption_key_here
+      - SESSION_KEY=8ca5d929bfa2b7e0dbf936f26318b56ff9c8cbceb77b6505a3408651ec06aaaf
+      - ENCRYPTION_KEY=421e529b7a2bc9e3f4c7833b30f9d0df077c6c81af8b8f26eb32fe31df5092ea
       - SESSION_MAX_AGE=31536000
     restart: unless-stopped
 
