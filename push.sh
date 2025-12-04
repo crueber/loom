@@ -36,14 +36,13 @@ if ! docker buildx ls | grep -q "$BUILDER"; then
 fi
 docker buildx use "$BUILDER"
 
-TAG="$REGISTRY/$OWNER/$IMAGE_NAME:$SHA"
-echo "Building and pushing $TAG for $PLATFORM ..."
+TAG_SHA="$REGISTRY/$OWNER/$IMAGE_NAME:$SHA"
+TAG_LATEST="$REGISTRY/$OWNER/$IMAGE_NAME:latest"
+echo "Building and pushing $TAG_SHA and $TAG_LATEST for $PLATFORM ..."
 docker buildx build \
-  --platform "$PLATFORM" \
-  -t "$TAG" \
-  --push .
-
-docker tag "$TAG" "$REGISTRY/$OWNER/$IMAGE_NAME:latest"
-docker push "$REGISTRY/$OWNER/$IMAGE_NAME:latest"
-
-echo "Successfully built and pushed $TAG"
+    --platform "$PLATFORM" \
+    -t "$TAG_SHA" \
+    -t "$TAG_LATEST" \
+    --push .
+  
+echo -e "Successfully built and pushed \n$TAG_SHA and \n$TAG_LATEST"
