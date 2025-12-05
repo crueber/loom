@@ -194,6 +194,7 @@ All configuration via environment variables (no config files):
 - **Single focus**: Only one configuration panel open at a time, previous auto-closes
 - **Darker colors**: All list header colors are darker (~35% darker than typical) for better readability with white text
 - **Minimal footprint**: Compact sizing throughout (nav bar ~30-35px, small fonts, tight spacing)
+- **Adaptive compression**: Bookmark URLs hidden when list has 7+ bookmarks (using `:has(.bookmark-item:nth-child(7))` selector)
 - **Bottom padding**: 3rem padding at bottom of lists wrapper to clearly show where content ends
 
 ## Troubleshooting

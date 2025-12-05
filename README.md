@@ -10,6 +10,7 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 - **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
 - **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
 - **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
+- **Adaptive Compression**: Bookmark URLs automatically hide when lists have 7+ bookmarks for compact display
 - **Automatic Favicons**: Automatically fetches and displays favicons for your bookmarks
 - **Multi-user Support**: Each user has their own isolated bookmarks
 - **Import/Export**: Backup and restore your bookmarks as JSON

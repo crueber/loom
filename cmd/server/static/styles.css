@@ -694,3 +694,8 @@ dialog article {
 [data-is-temp="true"] .bookmark-config-delete-btn {
     display: none;
 }
+
+/* Hide bookmark URLs when list has more than 6 bookmarks */
+.bookmarks-container:has(.bookmark-item:nth-child(7)) .bookmark-url {
+    display: none;
+}
