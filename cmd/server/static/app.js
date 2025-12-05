@@ -3,6 +3,19 @@ let currentUser = null;
 let lists = [];
 let bookmarks = {};
 
+// Touch device detection
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouchDevice) {
+    document.body.classList.add('touch-device');
+}
+
+// Track currently flipped card
+let currentlyFlippedCard = null;
+
+// Track Sortable instances
+let listsSortable = null;
+let bookmarkSortables = {};
+
 // Color palette - Darker, more readable colors
 const COLORS = [
     { name: 'Blue', value: '#3D6D95', class: 'color-blue' },
@@ -173,14 +186,20 @@ function renderLists() {
         container.insertBefore(listEl, addListContainer);
     });
 
-    // Initialize Sortable for lists
-    new Sortable(container, {
+    // Initialize Sortable for lists (destroy old instance if exists)
+    if (listsSortable) {
+        listsSortable.destroy();
+    }
+    listsSortable = new Sortable(container, {
         animation: 150,
         handle: '.list-header',
+        filter: '[data-flipped="true"]',
         scroll: true,
         scrollSensitivity: 100,
         scrollSpeed: 20,
         bubbleScroll: true,
+        delay: 200,
+        delayOnTouchOnly: true,
         onEnd: handleListReorder
     });
 }
@@ -189,44 +208,104 @@ function createListElement(list) {
     const div = document.createElement('div');
     div.className = `list-card ${list.collapsed ? 'collapsed' : ''}`;
     div.dataset.listId = list.id;
+    div.dataset.flipped = 'false';
 
     const colorClass = getColorClass(list.color);
 
     div.innerHTML = `
-        <div class="list-header ${colorClass}" data-list-id="${list.id}">
-            <h3>${escapeHtml(list.title)}</h3>
-            <div class="list-actions">
-                <button class="list-action-btn edit-list" title="Edit">✏️</button>
-                <button class="list-action-btn color-list" title="Change Color">🎨</button>
-                <button class="list-action-btn delete-list" title="Delete">🗑️</button>
+        <div class="list-card-inner">
+            <div class="list-card-front">
+                <div class="list-header ${colorClass}" data-list-id="${list.id}">
+                    <h3>${escapeHtml(list.title)}</h3>
+                    <div class="list-actions">
+                        <button class="list-action-btn config-list" title="Configure">⚙️</button>
+                    </div>
+                </div>
+                <div class="bookmarks-container" data-list-id="${list.id}"></div>
+                <button class="add-bookmark-btn secondary" data-list-id="${list.id}">+ Add Bookmark</button>
+            </div>
+            <div class="list-card-back">
+                <div class="list-config-panel">
+                    <div class="list-config-header">
+                        <h4>Configure List</h4>
+                        <button class="config-close-btn" title="Close">×</button>
+                    </div>
+                    <div class="config-form-group">
+                        <label>List Name</label>
+                        <input type="text" class="config-list-title" value="${escapeHtml(list.title)}">
+                    </div>
+                    <div class="config-form-group">
+                        <label>Color</label>
+                        <div class="config-color-grid">
+                            ${COLORS.map(color => `
+                                <div class="config-color-option ${color.class} ${color.value === list.color ? 'selected' : ''}"
+                                     data-color="${color.value}"
+                                     title="${color.name}"></div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div class="config-actions">
+                        <button class="config-delete-btn secondary">Delete List</button>
+                        <button class="config-cancel-btn secondary">Cancel</button>
+                        <button class="config-save-btn">Save</button>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="bookmarks-container" data-list-id="${list.id}"></div>
-        <button class="add-bookmark-btn secondary" data-list-id="${list.id}">+ Add Bookmark</button>
     `;
 
-    // Event listeners
+    // Event listeners - List header collapse/expand
     div.querySelector('.list-header').addEventListener('click', (e) => {
+        // Only toggle collapse when card is not flipped
+        if (div.dataset.flipped === 'true') return;
         if (!e.target.closest('.list-actions')) {
             toggleListCollapse(list.id);
         }
     });
 
-    div.querySelector('.edit-list').addEventListener('click', (e) => {
+    // Gear icon - flip to back
+    div.querySelector('.config-list').addEventListener('click', (e) => {
         e.stopPropagation();
-        editListTitle(list.id);
+        flipToList(list.id);
     });
 
-    div.querySelector('.color-list').addEventListener('click', (e) => {
-        e.stopPropagation();
-        changeListColor(list.id);
+    // Close button - flip to front
+    div.querySelector('.config-close-btn').addEventListener('click', () => {
+        closeFlippedCard();
     });
 
-    div.querySelector('.delete-list').addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteListConfirm(list.id);
+    // Cancel button - flip to front
+    div.querySelector('.config-cancel-btn').addEventListener('click', () => {
+        closeFlippedCard();
     });
 
+    // Color selection
+    div.querySelectorAll('.config-color-option').forEach(option => {
+        option.addEventListener('click', () => {
+            div.querySelectorAll('.config-color-option').forEach(o => o.classList.remove('selected'));
+            option.classList.add('selected');
+        });
+    });
+
+    // Save button
+    div.querySelector('.config-save-btn').addEventListener('click', () => {
+        saveListConfig(list.id);
+    });
+
+    // Delete button
+    div.querySelector('.config-delete-btn').addEventListener('click', () => {
+        deleteListFromConfig(list.id);
+    });
+
+    // Enter key to save
+    div.querySelector('.config-list-title').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveListConfig(list.id);
+        }
+    });
+
+    // Add bookmark button
     div.querySelector('.add-bookmark-btn').addEventListener('click', () => {
         addBookmark(list.id);
     });
@@ -235,6 +314,292 @@ function createListElement(list) {
     loadBookmarks(list.id);
 
     return div;
+}
+
+// List card flip helper functions
+function flipToList(listId) {
+    // Close currently flipped card if it's different
+    if (currentlyFlippedCard && (currentlyFlippedCard.type !== 'list' || currentlyFlippedCard.id !== listId)) {
+        closeFlippedCard();
+    }
+
+    const card = document.querySelector(`.list-card[data-list-id="${listId}"]`);
+    if (!card) return;
+
+    card.dataset.flipped = 'true';
+    currentlyFlippedCard = { type: 'list', id: listId };
+
+    // Disable all Sortable instances
+    if (listsSortable) {
+        listsSortable.option("disabled", true);
+    }
+    Object.values(bookmarkSortables).forEach(sortable => {
+        sortable.option("disabled", true);
+    });
+
+    // Reset form to current values
+    const list = lists.find(l => l.id === listId);
+    if (list) {
+        const input = card.querySelector('.config-list-title');
+        input.value = list.title;
+
+        // Reset color selection
+        card.querySelectorAll('.config-color-option').forEach(option => {
+            option.classList.toggle('selected', option.dataset.color === list.color);
+        });
+
+        // Focus first input after animation
+        setTimeout(() => input.focus(), 600);
+    }
+}
+
+async function saveListConfig(listId) {
+    const card = document.querySelector(`.list-card[data-list-id="${listId}"]`);
+    const list = lists.find(l => l.id === listId);
+    if (!card || !list) return;
+
+    const newTitle = card.querySelector('.config-list-title').value.trim();
+    const selectedColor = card.querySelector('.config-color-option.selected')?.dataset.color;
+
+    if (!newTitle) {
+        alert('List title cannot be empty');
+        return;
+    }
+
+    try {
+        const updates = {};
+        if (newTitle !== list.title) updates.title = newTitle;
+        if (selectedColor && selectedColor !== list.color) updates.color = selectedColor;
+
+        if (Object.keys(updates).length > 0) {
+            await updateList(listId, updates);
+
+            // Update local state
+            if (updates.title) list.title = updates.title;
+            if (updates.color) list.color = updates.color;
+
+            // Update front of card
+            if (updates.title) {
+                card.querySelector('.list-header h3').textContent = updates.title;
+            }
+            if (updates.color) {
+                const headerEl = card.querySelector('.list-header');
+                COLORS.forEach(c => headerEl.classList.remove(c.class));
+                const colorClass = getColorClass(updates.color);
+                headerEl.classList.add(colorClass);
+            }
+        }
+
+        closeFlippedCard();
+    } catch (error) {
+        console.error('Failed to save list configuration:', error);
+        alert('Failed to save changes');
+    }
+}
+
+async function deleteListFromConfig(listId) {
+    const list = lists.find(l => l.id === listId);
+    if (!list) return;
+
+    const card = document.querySelector(`.list-card[data-list-id="${listId}"]`);
+    const panel = card.querySelector('.list-config-panel');
+
+    // Store original HTML
+    const originalHTML = panel.innerHTML;
+
+    // Show confirmation UI
+    panel.innerHTML = `
+        <div class="list-config-header">
+            <h4>Delete List?</h4>
+        </div>
+        <p style="margin: 1rem 0;">Delete "${escapeHtml(list.title)}"? This will also delete all bookmarks in this list.</p>
+        <div class="config-actions">
+            <button class="confirm-delete-cancel-btn secondary">Cancel</button>
+            <button class="confirm-delete-btn config-delete-btn">Delete</button>
+        </div>
+    `;
+
+    // Cancel confirmation
+    panel.querySelector('.confirm-delete-cancel-btn').addEventListener('click', () => {
+        panel.innerHTML = originalHTML;
+        closeFlippedCard();
+    });
+
+    // Confirm delete
+    panel.querySelector('.confirm-delete-btn').addEventListener('click', async () => {
+        try {
+            await deleteList(listId);
+            lists = lists.filter(l => l.id !== listId);
+            delete bookmarks[listId];
+            currentlyFlippedCard = null;
+            card.remove();
+        } catch (error) {
+            console.error('Failed to delete list:', error);
+            alert('Failed to delete list');
+            panel.innerHTML = originalHTML;
+        }
+    });
+}
+
+function closeFlippedCard() {
+    if (!currentlyFlippedCard) return;
+
+    if (currentlyFlippedCard.type === 'list') {
+        const card = document.querySelector(`.list-card[data-list-id="${currentlyFlippedCard.id}"]`);
+        if (card) {
+            card.dataset.flipped = 'false';
+        }
+    } else if (currentlyFlippedCard.type === 'bookmark') {
+        const bookmark = document.querySelector(`.bookmark-item[data-bookmark-id="${currentlyFlippedCard.id}"]`);
+        if (bookmark) {
+            bookmark.dataset.flipped = 'false';
+        }
+    }
+
+    currentlyFlippedCard = null;
+
+    // Re-enable all Sortable instances
+    if (listsSortable) {
+        listsSortable.option("disabled", false);
+    }
+    Object.values(bookmarkSortables).forEach(sortable => {
+        sortable.option("disabled", false);
+    });
+}
+
+// Bookmark card flip helper functions
+function flipToBookmark(bookmarkId) {
+    // Close currently flipped card if it's different
+    if (currentlyFlippedCard && (currentlyFlippedCard.type !== 'bookmark' || currentlyFlippedCard.id !== bookmarkId)) {
+        closeFlippedCard();
+    }
+
+    const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+    if (!bookmarkEl) return;
+
+    bookmarkEl.dataset.flipped = 'true';
+    currentlyFlippedCard = { type: 'bookmark', id: bookmarkId };
+
+    // Disable all Sortable instances
+    if (listsSortable) {
+        listsSortable.option("disabled", true);
+    }
+    Object.values(bookmarkSortables).forEach(sortable => {
+        sortable.option("disabled", true);
+    });
+
+    // Find bookmark
+    let bookmark = null;
+    for (const listId in bookmarks) {
+        bookmark = bookmarks[listId].find(b => b.id === bookmarkId);
+        if (bookmark) break;
+    }
+
+    if (bookmark) {
+        bookmarkEl.querySelector('.config-bookmark-title').value = bookmark.title;
+        bookmarkEl.querySelector('.config-bookmark-url').value = bookmark.url;
+
+        // Focus first input after animation
+        setTimeout(() => bookmarkEl.querySelector('.config-bookmark-title').focus(), 300);
+    }
+}
+
+async function saveBookmarkConfig(bookmarkId) {
+    const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+    if (!bookmarkEl) return;
+
+    // Find bookmark
+    let bookmark = null;
+    for (const listId in bookmarks) {
+        bookmark = bookmarks[listId].find(b => b.id === bookmarkId);
+        if (bookmark) break;
+    }
+    if (!bookmark) return;
+
+    const newTitle = bookmarkEl.querySelector('.config-bookmark-title').value.trim();
+    const newUrl = bookmarkEl.querySelector('.config-bookmark-url').value.trim();
+
+    if (!newTitle || !newUrl) {
+        alert('Title and URL cannot be empty');
+        return;
+    }
+
+    try {
+        const updates = {};
+        if (newTitle !== bookmark.title) updates.title = newTitle;
+        if (newUrl !== bookmark.url) updates.url = newUrl;
+
+        if (Object.keys(updates).length > 0) {
+            await updateBookmark(bookmarkId, updates);
+
+            // Update local state
+            if (updates.title) bookmark.title = updates.title;
+            if (updates.url) bookmark.url = updates.url;
+
+            // Re-render to update front
+            renderBookmarks(bookmark.list_id);
+        } else {
+            closeFlippedCard();
+        }
+    } catch (error) {
+        console.error('Failed to save bookmark:', error);
+        alert('Failed to save changes');
+    }
+}
+
+async function deleteBookmarkFromConfig(bookmarkId) {
+    const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+    if (!bookmarkEl) return;
+
+    // Find bookmark
+    let bookmark = null;
+    for (const listId in bookmarks) {
+        bookmark = bookmarks[listId].find(b => b.id === bookmarkId);
+        if (bookmark) break;
+    }
+    if (!bookmark) return;
+
+    const panel = bookmarkEl.querySelector('.bookmark-config-panel');
+    const originalHTML = panel.innerHTML;
+
+    // Show confirmation
+    panel.innerHTML = `
+        <div class="bookmark-config-header">
+            <h5>Delete Bookmark?</h5>
+        </div>
+        <p style="margin: 0.5rem 0; font-size: 0.875rem;">Delete "${escapeHtml(bookmark.title)}"?</p>
+        <div class="bookmark-config-actions">
+            <button class="bookmark-confirm-cancel-btn secondary">Cancel</button>
+            <button class="bookmark-confirm-delete-btn config-delete-btn">Delete</button>
+        </div>
+    `;
+
+    panel.querySelector('.bookmark-confirm-cancel-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        panel.innerHTML = originalHTML;
+        closeFlippedCard();
+    });
+
+    panel.querySelector('.bookmark-confirm-delete-btn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+            await deleteBookmark(bookmarkId);
+
+            // Remove from local state
+            for (const listId in bookmarks) {
+                bookmarks[listId] = bookmarks[listId].filter(b => b.id !== bookmarkId);
+            }
+
+            // Clear flipped card state
+            currentlyFlippedCard = null;
+
+            // Remove element
+            bookmarkEl.remove();
+        } catch (error) {
+            console.error('Failed to delete bookmark:', error);
+            alert('Failed to delete bookmark');
+        }
+    });
 }
 
 function renderBookmarks(listId) {
@@ -249,53 +614,124 @@ function renderBookmarks(listId) {
         container.appendChild(bookmarkEl);
     });
 
-    // Initialize Sortable for bookmarks
-    new Sortable(container, {
+    // Initialize Sortable for bookmarks (destroy old instance if exists)
+    if (bookmarkSortables[listId]) {
+        bookmarkSortables[listId].destroy();
+    }
+    bookmarkSortables[listId] = new Sortable(container, {
         group: 'bookmarks',
         animation: 150,
-        onEnd: handleBookmarkReorder
+        handle: '.bookmark-card-front',  // Only allow dragging from the front of the card
+        filter: '[data-flipped="true"]',
+        delay: 200,
+        delayOnTouchOnly: true,
+        dragClass: 'sortable-drag',
+        onStart: function(evt) {
+            // If any card is flipped, cancel the drag
+            if (currentlyFlippedCard) {
+                evt.item.dispatchEvent(new Event('mouseup'));
+                return false;
+            }
+        },
+        onEnd: handleBookmarkReorder,
+        onMove: function(evt) {
+            // Don't allow dragging if the item is flipped
+            return evt.related.dataset.flipped !== 'true';
+        }
     });
 }
 
 function createBookmarkElement(bookmark) {
-    const a = document.createElement('a');
-    a.href = bookmark.url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.className = 'bookmark-item';
-    a.dataset.bookmarkId = bookmark.id;
-    a.dataset.listId = bookmark.list_id;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'bookmark-item';
+    wrapper.dataset.bookmarkId = bookmark.id;
+    wrapper.dataset.listId = bookmark.list_id;
+    wrapper.dataset.flipped = 'false';
 
     const faviconHtml = bookmark.favicon_url
         ? `<img src="${escapeHtml(bookmark.favicon_url)}" alt="">`
         : '<span class="bookmark-favicon-placeholder">📄</span>';
 
-    a.innerHTML = `
-        <div class="bookmark-favicon">${faviconHtml}</div>
-        <div class="bookmark-content">
-            <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
-            <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
-        </div>
-        <div class="bookmark-actions">
-            <button class="bookmark-action-btn edit-bookmark" title="Edit">✏️</button>
-            <button class="bookmark-action-btn delete-bookmark" title="Delete">🗑️</button>
+    wrapper.innerHTML = `
+        <div class="bookmark-card-inner">
+            <a href="${escapeHtml(bookmark.url)}" target="_blank" rel="noopener noreferrer" class="bookmark-card-front">
+                <div class="bookmark-favicon">${faviconHtml}</div>
+                <div class="bookmark-content">
+                    <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
+                    <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
+                </div>
+                <div class="bookmark-actions">
+                    <button class="bookmark-action-btn config-bookmark" title="Configure">⚙️</button>
+                </div>
+            </a>
+            <div class="bookmark-card-back">
+                <div class="bookmark-config-panel">
+                    <div class="bookmark-config-header">
+                        <h5>Edit Bookmark</h5>
+                        <button class="bookmark-config-close-btn" title="Close">×</button>
+                    </div>
+                    <input type="text" class="config-bookmark-title" placeholder="Title" value="${escapeHtml(bookmark.title)}">
+                    <input type="url" class="config-bookmark-url" placeholder="URL" value="${escapeHtml(bookmark.url)}">
+                    <div class="bookmark-config-actions">
+                        <button class="bookmark-config-delete-btn secondary">Delete</button>
+                        <button class="bookmark-config-cancel-btn secondary">Cancel</button>
+                        <button class="bookmark-config-save-btn">Save</button>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 
-    // Prevent default on action buttons
-    a.querySelector('.edit-bookmark').addEventListener('click', (e) => {
+    // Gear icon - flip to back
+    wrapper.querySelector('.config-bookmark').addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        editBookmark(bookmark.id);
+        flipToBookmark(bookmark.id);
     });
 
-    a.querySelector('.delete-bookmark').addEventListener('click', (e) => {
+    // Close button
+    wrapper.querySelector('.bookmark-config-close-btn').addEventListener('click', (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        deleteBookmarkConfirm(bookmark.id);
+        closeFlippedCard();
     });
 
-    return a;
+    // Cancel button
+    wrapper.querySelector('.bookmark-config-cancel-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        closeFlippedCard();
+    });
+
+    // Save button
+    wrapper.querySelector('.bookmark-config-save-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        saveBookmarkConfig(bookmark.id);
+    });
+
+    // Delete button
+    wrapper.querySelector('.bookmark-config-delete-btn').addEventListener('click', (e) => {
+        e.preventDefault();
+        deleteBookmarkFromConfig(bookmark.id);
+    });
+
+    // Enter key to save on either input
+    const titleInput = wrapper.querySelector('.config-bookmark-title');
+    const urlInput = wrapper.querySelector('.config-bookmark-url');
+
+    titleInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveBookmarkConfig(bookmark.id);
+        }
+    });
+
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveBookmarkConfig(bookmark.id);
+        }
+    });
+
+    return wrapper;
 }
 
 // Data Loading
@@ -333,84 +769,6 @@ async function toggleListCollapse(listId) {
     } catch (error) {
         console.error('Failed to toggle list:', error);
         list.collapsed = !list.collapsed;
-    }
-}
-
-async function editListTitle(listId) {
-    const list = lists.find(l => l.id === listId);
-    if (!list) return;
-
-    const newTitle = prompt('Enter new list title:', list.title);
-    if (!newTitle || newTitle === list.title) return;
-
-    try {
-        await updateList(listId, { title: newTitle });
-        list.title = newTitle;
-        const headerEl = document.querySelector(`.list-header[data-list-id="${listId}"] h3`);
-        headerEl.textContent = newTitle;
-    } catch (error) {
-        console.error('Failed to update list title:', error);
-        alert('Failed to update list title');
-    }
-}
-
-function showColorPicker(currentColor, callback) {
-    const modal = document.getElementById('color-picker-modal');
-    const grid = document.getElementById('color-picker-grid');
-
-    grid.innerHTML = '';
-    COLORS.forEach(color => {
-        const div = document.createElement('div');
-        div.className = `color-option ${color.class}`;
-        if (color.value === currentColor) {
-            div.classList.add('selected');
-        }
-        div.title = color.name;
-        div.addEventListener('click', () => {
-            callback(color);
-            modal.close();
-        });
-        grid.appendChild(div);
-    });
-
-    modal.showModal();
-}
-
-async function changeListColor(listId) {
-    const list = lists.find(l => l.id === listId);
-    if (!list) return;
-
-    showColorPicker(list.color, async (color) => {
-        try {
-            await updateList(listId, { color: color.value });
-            list.color = color.value;
-
-            const headerEl = document.querySelector(`.list-header[data-list-id="${listId}"]`);
-            COLORS.forEach(c => headerEl.classList.remove(c.class));
-            headerEl.classList.add(color.class);
-        } catch (error) {
-            console.error('Failed to update list color:', error);
-            alert('Failed to update list color');
-        }
-    });
-}
-
-async function deleteListConfirm(listId) {
-    const list = lists.find(l => l.id === listId);
-    if (!list) return;
-
-    if (!confirm(`Delete list "${list.title}"? This will also delete all bookmarks in this list.`)) {
-        return;
-    }
-
-    try {
-        await deleteList(listId);
-        lists = lists.filter(l => l.id !== listId);
-        delete bookmarks[listId];
-        document.querySelector(`.list-card[data-list-id="${listId}"]`).remove();
-    } catch (error) {
-        console.error('Failed to delete list:', error);
-        alert('Failed to delete list');
     }
 }
 
@@ -453,57 +811,6 @@ async function addBookmark(listId) {
     } catch (error) {
         console.error('Failed to create bookmark:', error);
         alert('Failed to create bookmark: ' + error.message);
-    }
-}
-
-async function editBookmark(bookmarkId) {
-    let bookmark = null;
-    for (const listId in bookmarks) {
-        bookmark = bookmarks[listId].find(b => b.id === bookmarkId);
-        if (bookmark) break;
-    }
-    if (!bookmark) return;
-
-    const newTitle = prompt('Enter new title:', bookmark.title);
-    if (newTitle && newTitle !== bookmark.title) {
-        try {
-            await updateBookmark(bookmarkId, { title: newTitle });
-            bookmark.title = newTitle;
-            renderBookmarks(bookmark.list_id);
-        } catch (error) {
-            console.error('Failed to update bookmark:', error);
-            alert('Failed to update bookmark');
-        }
-    }
-}
-
-async function deleteBookmarkConfirm(bookmarkId) {
-    if (!confirm('Delete this bookmark?')) return;
-
-    try {
-        await deleteBookmark(bookmarkId);
-
-        // Remove from local state
-        for (const listId in bookmarks) {
-            bookmarks[listId] = bookmarks[listId].filter(b => b.id !== bookmarkId);
-            if (bookmarks[listId].some(b => b.id === bookmarkId)) {
-                renderBookmarks(parseInt(listId));
-                break;
-            }
-        }
-
-        // Re-render the appropriate list
-        for (const listId in bookmarks) {
-            const container = document.querySelector(`.bookmarks-container[data-list-id="${listId}"]`);
-            if (container && !container.querySelector(`[data-bookmark-id="${bookmarkId}"]`)) {
-                continue;
-            }
-            renderBookmarks(parseInt(listId));
-            break;
-        }
-    } catch (error) {
-        console.error('Failed to delete bookmark:', error);
-        alert('Failed to delete bookmark');
     }
 }
 
@@ -590,11 +897,11 @@ document.getElementById('add-list-btn').addEventListener('click', async () => {
     const title = prompt('Enter list title:');
     if (!title) return;
 
-    const colorName = prompt(`Choose a color:\n${COLORS.map(c => c.name).join(', ')}`, 'Blue');
-    const color = COLORS.find(c => c.name.toLowerCase() === colorName.toLowerCase()) || COLORS[0];
+    // Use default color (first in array - Blue)
+    const defaultColor = COLORS[0].value;
 
     try {
-        const list = await createList(title, color.value);
+        const list = await createList(title, defaultColor);
         lists.push(list);
         renderLists();
     } catch (error) {
@@ -662,11 +969,30 @@ function initializeHorizontalDragScroll() {
     let scrollLeft;
 
     container.addEventListener('mousedown', (e) => {
+        // Don't activate if any card is flipped
+        if (currentlyFlippedCard) {
+            return;
+        }
+
+        // Don't activate on input elements, buttons, or other interactive elements
+        // Check both target and closest parent to handle labels
+        let element = e.target;
+        while (element && element !== container) {
+            if (element.tagName === 'INPUT' ||
+                element.tagName === 'BUTTON' ||
+                element.tagName === 'A' ||
+                element.tagName === 'TEXTAREA' ||
+                element.tagName === 'SELECT' ||
+                element.tagName === 'LABEL') {
+                return;
+            }
+            element = element.parentElement;
+        }
+
         // Only activate on container background or bookmarks-container whitespace
-        const target = e.target;
-        const isValidTarget = target === container ||
-                             target.classList.contains('bookmarks-container') ||
-                             target.classList.contains('lists-wrapper');
+        const isValidTarget = e.target === container ||
+                             e.target.classList.contains('bookmarks-container') ||
+                             e.target.classList.contains('lists-wrapper');
 
         if (!isValidTarget) return;
 
@@ -674,6 +1000,7 @@ function initializeHorizontalDragScroll() {
         container.style.cursor = 'grabbing';
         startX = e.pageX - container.offsetLeft;
         scrollLeft = container.scrollLeft;
+        e.preventDefault(); // Prevent text selection when dragging valid targets
     });
 
     container.addEventListener('mouseleave', () => {
@@ -688,7 +1015,17 @@ function initializeHorizontalDragScroll() {
 
     container.addEventListener('mousemove', (e) => {
         if (!isDown) return;
-        e.preventDefault();
+
+        // Don't prevent default on interactive elements
+        const target = e.target;
+        if (target.tagName !== 'INPUT' &&
+            target.tagName !== 'BUTTON' &&
+            target.tagName !== 'A' &&
+            target.tagName !== 'TEXTAREA' &&
+            target.tagName !== 'SELECT') {
+            e.preventDefault();
+        }
+
         const x = e.pageX - container.offsetLeft;
         const walk = (x - startX) * 2;
         container.scrollLeft = scrollLeft - walk;
@@ -697,6 +1034,13 @@ function initializeHorizontalDragScroll() {
     // Set initial cursor
     container.style.cursor = 'grab';
 }
+
+// Keyboard event listeners
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && currentlyFlippedCard) {
+        closeFlippedCard();
+    }
+});
 
 // Initialize
 (async () => {

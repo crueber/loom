@@ -89,7 +89,11 @@ Located in `cmd/server/static/`:
 **Key Frontend Features:**
 - Drag-to-scroll: Click and drag whitespace to scroll horizontally
 - SortableJS handles list/bookmark reordering with auto-scroll near edges
-- Color picker modal with 8 predefined colors (validated server-side)
+- Card flip UI: Gear icon (⚙️) flips lists/bookmarks to show configuration panels
+- Mobile touch optimizations: Long-press (200ms) to drag, always-visible action buttons on touch devices
+- Single flip enforcement: Only one card can be flipped at a time
+- Keyboard shortcuts: ESC to close, Enter to save
+- Color picker: Inline grid in list configuration (8 predefined colors, validated server-side)
 
 ### Data Flow
 
@@ -99,6 +103,39 @@ Located in `cmd/server/static/`:
 4. **Ordering**: Lists and bookmarks have `position` fields, reorder endpoints update all positions atomically
 
 ## Important Patterns
+
+### Card Flip UI Implementation
+
+**Touch Device Detection** (`app.js` lines 6-13):
+- Detects touch capability via `'ontouchstart' in window || navigator.maxTouchPoints > 0`
+- Adds `.touch-device` class to body for CSS targeting
+- Tracks `currentlyFlippedCard` globally to enforce single flip
+
+**List Configuration** (3D transform approach):
+- CSS: `perspective: 1000px`, `transform-style: preserve-3d`, `rotateY(180deg)`
+- Gear icon (⚙️) replaces edit/color/delete buttons
+- Configuration panel includes: title input, inline color grid, delete/cancel/save buttons
+- `pointer-events: none` on hidden card sides prevents click-through
+- List header collapse disabled when flipped
+
+**Bookmark Configuration** (simple show/hide approach):
+- Uses `display: none/block` instead of 3D transforms to avoid layout issues
+- Gear icon (⚙️) replaces edit/delete buttons
+- Configuration panel includes: title input, URL input, delete/cancel/save buttons
+- Naturally expands to fit content without taking out of document flow
+
+**SortableJS Integration** (`app.js` lines 186-197, 253-257):
+- `delay: 200, delayOnTouchOnly: true` for long-press drag on touch devices
+- `filter: '[data-flipped="true"]'` prevents dragging flipped cards
+- Unchanged: Auto-scroll near edges, animation on drop
+
+**Keyboard Support** (`app.js` lines 971-977):
+- ESC key closes any open configuration panel
+- Enter key in inputs saves changes
+
+**Drag-Scroll Exclusions** (`app.js` lines 934-956):
+- Excludes INPUT, BUTTON, A, TEXTAREA, SELECT from initiating drag-scroll
+- Preserves normal interaction with form elements while maintaining whitespace drag
 
 ### Color Validation
 
@@ -138,7 +175,10 @@ All configuration via environment variables (no config files):
 ## UI Design Philosophy
 
 - **Stealth UI**: Navigation bar at 60% opacity, buttons at 50%, fade to full on hover
+- **Card flip interface**: Configuration panels appear as "back" of cards using 3D transforms (lists) or simple show/hide (bookmarks)
 - **Drag-to-scroll**: Users can click and drag whitespace to scroll (grab cursors indicate draggable areas)
+- **Touch-friendly**: On touch devices, action buttons always visible, 44px minimum touch targets, long-press to initiate drag
+- **Single focus**: Only one configuration panel open at a time, previous auto-closes
 - **Darker colors**: All list header colors are darker (~35% darker than typical) for better readability with white text
 - **Minimal footprint**: Compact sizing throughout (nav bar ~30-35px, small fonts, tight spacing)
 - **Bottom padding**: 3rem padding at bottom of lists wrapper to clearly show where content ends

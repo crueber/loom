@@ -5,7 +5,10 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 ## Features
 
 - **Trello-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
+- **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
+- **Mobile-Optimized**: Touch-friendly with long-press to drag (200ms), always-visible controls, 44px touch targets
 - **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
+- **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
 - **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
 - **Automatic Favicons**: Automatically fetches and displays favicons for your bookmarks
 - **Multi-user Support**: Each user has their own isolated bookmarks
@@ -155,9 +158,17 @@ docker exec -it home-links /user <command>
 - **Drag-to-scroll**: Click and drag on list whitespace or container background to scroll horizontally
 - **Drag bookmarks vertically** within and between lists
 - **Click list header** to collapse/expand (lists collapse to vertical tabs)
-- **Edit items** using the edit icon (✏️)
-- **Change list colors** using the color palette icon (🎨)
-- **Delete items** using the trash icon (🗑️)
+- **Configure lists**: Click the gear icon (⚙️) to flip the card and:
+  - Edit list title
+  - Change color from 8-color inline picker
+  - Delete list (with confirmation)
+- **Configure bookmarks**: Click the gear icon (⚙️) to flip the card and:
+  - Edit bookmark title and URL
+  - Delete bookmark (with confirmation)
+- **Keyboard shortcuts**:
+  - `ESC` - Close any open configuration panel
+  - `Enter` - Save changes (when in input fields)
+- **Mobile**: Long-press (200ms) to initiate drag, tap normally to open links or configurations
 
 ### Import/Export
 
