@@ -476,6 +476,15 @@ nav strong {
     text-decoration: none;
 }
 
+.bookmark-card-front:hover {
+    text-decoration: none;
+}
+
+.bookmark-card-front:hover .bookmark-title,
+.bookmark-card-front:hover .bookmark-url {
+    text-decoration: none;
+}
+
 .bookmark-card-back {
     display: none;
     padding: 0.75rem;
@@ -516,6 +525,10 @@ nav strong {
 .bookmark-content {
     flex: 1;
     min-width: 0;
+    min-height: 1.8rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .bookmark-title {
@@ -525,6 +538,7 @@ nav strong {
     text-overflow: ellipsis;
     margin: 0;
     font-size: 0.95rem;
+    line-height: 1.4;
 }
 
 .bookmark-url {
@@ -534,6 +548,7 @@ nav strong {
     overflow: hidden;
     text-overflow: ellipsis;
     margin: 0;
+    line-height: 1.2;
 }
 
 .bookmark-actions {
