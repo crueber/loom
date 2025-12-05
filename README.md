@@ -143,14 +143,20 @@ docker exec -it home-links /user <command>
 ### Creating Lists
 
 1. Click the "+ Add List" button on the right
-2. Enter a list title
-3. Choose a color from the palette
+2. A new list card appears, flipped to show the configuration panel
+3. Enter a title (required)
+4. Optionally change the color from the default (Blue)
+5. Click "Save" to create the list, or "Cancel" / press ESC to discard
+   - Saving with an empty title will cancel the operation
 
 ### Adding Bookmarks
 
 1. Click "+ Add Bookmark" at the bottom of any list
-2. Enter the URL and title
-3. Favicon will be fetched automatically
+2. A new bookmark card appears, flipped to show the configuration panel
+3. Enter a URL (required) and title (required)
+4. Click "Save" to create the bookmark, or "Cancel" / press ESC to discard
+   - Saving with empty fields will cancel the operation
+5. Favicon will be fetched automatically after creation
 
 ### Organizing
 

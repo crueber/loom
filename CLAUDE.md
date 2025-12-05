@@ -124,17 +124,30 @@ Located in `cmd/server/static/`:
 - Configuration panel includes: title input, URL input, delete/cancel/save buttons
 - Naturally expands to fit content without taking out of document flow
 
+**Adding Items** (temporary card pattern):
+- **No prompt dialogs**: "+ Add Bookmark" and "+ Add List" create temporary cards immediately
+- Temporary cards use string IDs: `temp-${Date.now()}`, marked with `data-is-temp="true"`
+- Cards appear flipped to configuration panel with empty inputs
+- **Adding bookmarks**: Empty title/URL inputs, save with both filled creates bookmark, empty save cancels
+- **Adding lists**: Empty title input, default color (Blue) pre-selected, empty save cancels
+- Delete buttons hidden on temp items via CSS: `[data-is-temp="true"] .config-delete-btn { display: none }`
+- Cancel/ESC removes temp card from DOM
+- `closeFlippedCard()` detects temp items and removes them instead of unflipping
+
 **SortableJS Integration** (`app.js` lines 186-197, 253-257):
 - `delay: 200, delayOnTouchOnly: true` for long-press drag on touch devices
 - `filter: '[data-flipped="true"]'` prevents dragging flipped cards
-- Unchanged: Auto-scroll near edges, animation on drop
+- All instances disabled when any card is flipped via `.option("disabled", true)`
+- Re-enabled when card closes via `.option("disabled", false)`
+- Auto-scroll near edges, animation on drop
 
 **Keyboard Support** (`app.js` lines 971-977):
-- ESC key closes any open configuration panel
+- ESC key closes any open configuration panel (including temp items)
 - Enter key in inputs saves changes
 
 **Drag-Scroll Exclusions** (`app.js` lines 934-956):
 - Excludes INPUT, BUTTON, A, TEXTAREA, SELECT from initiating drag-scroll
+- Disabled when any card is flipped to prevent interference
 - Preserves normal interaction with form elements while maintaining whitespace drag
 
 ### Color Validation

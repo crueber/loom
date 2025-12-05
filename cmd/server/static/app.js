@@ -210,6 +210,11 @@ function createListElement(list) {
     div.dataset.listId = list.id;
     div.dataset.flipped = 'false';
 
+    // Mark temp lists
+    if (typeof list.id === 'string' && list.id.startsWith('temp-')) {
+        div.dataset.isTemp = 'true';
+    }
+
     const colorClass = getColorClass(list.color);
 
     div.innerHTML = `
@@ -358,8 +363,37 @@ async function saveListConfig(listId) {
     const list = lists.find(l => l.id === listId);
     if (!card || !list) return;
 
+    const isTemp = card.dataset.isTemp === 'true';
     const newTitle = card.querySelector('.config-list-title').value.trim();
     const selectedColor = card.querySelector('.config-color-option.selected')?.dataset.color;
+
+    if (isTemp) {
+        // Cancel if empty
+        if (!newTitle) {
+            // Remove from arrays
+            const index = lists.findIndex(l => l.id === listId);
+            if (index !== -1) lists.splice(index, 1);
+            renderLists();
+            closeFlippedCard();
+            return;
+        }
+
+        // Create new list
+        try {
+            const createdList = await createList(newTitle, selectedColor);
+            // Remove temp from array
+            const index = lists.findIndex(l => l.id === listId);
+            if (index !== -1) lists.splice(index, 1);
+            // Add real list
+            lists.push(createdList);
+            renderLists();
+            closeFlippedCard();
+        } catch (error) {
+            console.error('Failed to create list:', error);
+            alert('Failed to create list: ' + error.message);
+        }
+        return;
+    }
 
     if (!newTitle) {
         alert('List title cannot be empty');
@@ -447,12 +481,25 @@ function closeFlippedCard() {
     if (currentlyFlippedCard.type === 'list') {
         const card = document.querySelector(`.list-card[data-list-id="${currentlyFlippedCard.id}"]`);
         if (card) {
-            card.dataset.flipped = 'false';
+            // Remove if temp
+            if (card.dataset.isTemp === 'true') {
+                // Remove from lists array
+                const index = lists.findIndex(l => l.id === currentlyFlippedCard.id);
+                if (index !== -1) lists.splice(index, 1);
+                renderLists();
+            } else {
+                card.dataset.flipped = 'false';
+            }
         }
     } else if (currentlyFlippedCard.type === 'bookmark') {
         const bookmark = document.querySelector(`.bookmark-item[data-bookmark-id="${currentlyFlippedCard.id}"]`);
         if (bookmark) {
-            bookmark.dataset.flipped = 'false';
+            // Remove if temp
+            if (bookmark.dataset.isTemp === 'true') {
+                bookmark.remove();
+            } else {
+                bookmark.dataset.flipped = 'false';
+            }
         }
     }
 
@@ -508,6 +555,33 @@ async function saveBookmarkConfig(bookmarkId) {
     const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
     if (!bookmarkEl) return;
 
+    const isTemp = bookmarkEl.dataset.isTemp === 'true';
+    const newTitle = bookmarkEl.querySelector('.config-bookmark-title').value.trim();
+    const newUrl = bookmarkEl.querySelector('.config-bookmark-url').value.trim();
+
+    if (isTemp) {
+        // Cancel if empty
+        if (!newTitle || !newUrl) {
+            bookmarkEl.remove();
+            closeFlippedCard();
+            return;
+        }
+
+        // Create new bookmark
+        const listId = parseInt(bookmarkEl.dataset.listId);
+        try {
+            const bookmark = await createBookmark(listId, newTitle, newUrl);
+            if (!bookmarks[listId]) bookmarks[listId] = [];
+            bookmarks[listId].push(bookmark);
+            renderBookmarks(listId);
+            closeFlippedCard();
+        } catch (error) {
+            console.error('Failed to create bookmark:', error);
+            alert('Failed to create bookmark: ' + error.message);
+        }
+        return;
+    }
+
     // Find bookmark
     let bookmark = null;
     for (const listId in bookmarks) {
@@ -515,9 +589,6 @@ async function saveBookmarkConfig(bookmarkId) {
         if (bookmark) break;
     }
     if (!bookmark) return;
-
-    const newTitle = bookmarkEl.querySelector('.config-bookmark-title').value.trim();
-    const newUrl = bookmarkEl.querySelector('.config-bookmark-url').value.trim();
 
     if (!newTitle || !newUrl) {
         alert('Title and URL cannot be empty');
@@ -647,6 +718,11 @@ function createBookmarkElement(bookmark) {
     wrapper.dataset.bookmarkId = bookmark.id;
     wrapper.dataset.listId = bookmark.list_id;
     wrapper.dataset.flipped = 'false';
+
+    // Mark temp bookmarks
+    if (typeof bookmark.id === 'string' && bookmark.id.startsWith('temp-')) {
+        wrapper.dataset.isTemp = 'true';
+    }
 
     const faviconHtml = bookmark.favicon_url
         ? `<img src="${escapeHtml(bookmark.favicon_url)}" alt="">`
@@ -797,21 +873,26 @@ async function handleListReorder(evt) {
 
 // Bookmark Actions
 async function addBookmark(listId) {
-    const url = prompt('Enter bookmark URL:');
-    if (!url) return;
+    const tempId = `temp-${Date.now()}`;
+    const tempBookmark = {
+        id: tempId,
+        list_id: listId,
+        title: '',
+        url: '',
+        favicon_url: null
+    };
 
-    const title = prompt('Enter bookmark title:');
-    if (!title) return;
+    const wrapper = createBookmarkElement(tempBookmark);
+    wrapper.dataset.isTemp = 'true';
+    wrapper.dataset.flipped = 'true';
 
-    try {
-        const bookmark = await createBookmark(listId, title, url);
-        if (!bookmarks[listId]) bookmarks[listId] = [];
-        bookmarks[listId].push(bookmark);
-        renderBookmarks(listId);
-    } catch (error) {
-        console.error('Failed to create bookmark:', error);
-        alert('Failed to create bookmark: ' + error.message);
-    }
+    const container = document.querySelector(`.bookmarks-container[data-list-id="${listId}"]`);
+    container.appendChild(wrapper);
+
+    flipToBookmark(tempId);
+
+    // Focus first input
+    setTimeout(() => wrapper.querySelector('.config-bookmark-title').focus(), 300);
 }
 
 async function handleBookmarkReorder(evt) {
@@ -893,21 +974,20 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('add-list-btn').addEventListener('click', async () => {
-    const title = prompt('Enter list title:');
-    if (!title) return;
+document.getElementById('add-list-btn').addEventListener('click', () => {
+    const tempId = `temp-${Date.now()}`;
+    const tempList = {
+        id: tempId,
+        title: '',
+        color: COLORS[0].value,
+        collapsed: false
+    };
 
-    // Use default color (first in array - Blue)
-    const defaultColor = COLORS[0].value;
+    lists.push(tempList);
+    renderLists();
 
-    try {
-        const list = await createList(title, defaultColor);
-        lists.push(list);
-        renderLists();
-    } catch (error) {
-        console.error('Failed to create list:', error);
-        alert('Failed to create list');
-    }
+    // Flip to back
+    flipToList(tempId);
 });
 
 document.getElementById('export-btn').addEventListener('click', async () => {

@@ -688,3 +688,9 @@ dialog article {
         gap: 0.5rem;
     }
 }
+
+/* Hide delete button for temporary items */
+[data-is-temp="true"] .config-delete-btn,
+[data-is-temp="true"] .bookmark-config-delete-btn {
+    display: none;
+}
