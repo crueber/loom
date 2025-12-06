@@ -21,6 +21,22 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
+// cacheControlMiddleware adds cache headers for static assets
+func cacheControlMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Aggressive caching for static assets (JS, CSS, libs)
+		if r.URL.Path != "/" && (r.URL.Path == "/static/app.js" ||
+			r.URL.Path == "/static/styles.css" ||
+			r.URL.Path == "/static/lib/pico.min.css" ||
+			r.URL.Path == "/static/lib/sortable.min.js") {
+			// Cache for 1 year (assets don't change without rebuild)
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	// Load configuration from environment variables
 	dbPath := getEnv("DATABASE_PATH", "./data/bookmarks.db")
@@ -85,6 +101,7 @@ func main() {
 	listsAPI := api.NewListsAPI(database)
 	bookmarksAPI := api.NewBookmarksAPI(database, faviconFetcher)
 	exportAPI := api.NewExportAPI(database)
+	dataAPI := api.NewDataAPI(database)
 
 	// Set up router
 	r := chi.NewRouter()
@@ -99,7 +116,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load static files: %v", err)
 	}
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	r.Handle("/static/*", cacheControlMiddleware(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))))
 
 	// Serve index.html for root
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +142,9 @@ func main() {
 			// Auth
 			r.Post("/logout", authAPI.HandleLogout)
 			r.Get("/user", authAPI.HandleGetUser)
+
+			// Combined data endpoint (single request for all lists + bookmarks)
+			r.Get("/data", dataAPI.HandleGetAllData)
 
 			// Lists
 			r.Get("/lists", listsAPI.HandleGetLists)

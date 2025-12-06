@@ -332,6 +332,33 @@ func (db *DB) GetBookmarks(listID int) ([]*models.Bookmark, error) {
 	return bookmarks, nil
 }
 
+// GetAllBookmarks retrieves all bookmarks for a user (across all lists)
+func (db *DB) GetAllBookmarks(userID int) ([]*models.Bookmark, error) {
+	rows, err := db.Query(
+		`SELECT b.id, b.list_id, b.title, b.url, b.favicon_url, b.position, b.created_at
+		 FROM bookmarks b
+		 INNER JOIN lists l ON b.list_id = l.id
+		 WHERE l.user_id = ?
+		 ORDER BY b.list_id, b.position`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all bookmarks: %w", err)
+	}
+	defer rows.Close()
+
+	var bookmarks []*models.Bookmark
+	for rows.Next() {
+		var bookmark models.Bookmark
+		if err := rows.Scan(&bookmark.ID, &bookmark.ListID, &bookmark.Title, &bookmark.URL, &bookmark.FaviconURL, &bookmark.Position, &bookmark.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan bookmark: %w", err)
+		}
+		bookmarks = append(bookmarks, &bookmark)
+	}
+
+	return bookmarks, nil
+}
+
 // UpdateBookmark updates a bookmark
 func (db *DB) UpdateBookmark(id int, title, url *string, faviconURL **string) error {
 	query := "UPDATE bookmarks SET "

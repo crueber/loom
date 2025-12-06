@@ -17,13 +17,13 @@
                     <p>Your personal bookmark manager</p>
                 </header>
                 <form id="login-form">
-                    <label>
+                    <label for="login-username">
                         Username
-                        <input type="text" id="login-username" name="username" required autofocus>
+                        <input type="text" id="login-username" name="username" autocomplete="username" required autofocus>
                     </label>
-                    <label>
+                    <label for="login-password">
                         Password
-                        <input type="password" id="login-password" name="password" required>
+                        <input type="password" id="login-password" name="password" autocomplete="current-password" required>
                     </label>
                     <div id="login-error" class="error" style="display: none;"></div>
                     <button type="submit">Log In</button>
@@ -76,12 +76,13 @@
                 <h3>Import Data</h3>
             </header>
             <form id="import-form">
-                <label>
+                <label for="import-file">
                     Select JSON file
-                    <input type="file" id="import-file" accept=".json" required>
+                    <input type="file" id="import-file" name="import-file" accept=".json" required>
                 </label>
-                <label>
-                    <select id="import-mode" required>
+                <label for="import-mode">
+                    Import mode
+                    <select id="import-mode" name="import-mode" required>
                         <option value="merge">Merge with existing data</option>
                         <option value="replace">Replace all data</option>
                     </select>

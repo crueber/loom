@@ -28,6 +28,33 @@ const COLORS = [
     { name: 'Gray', value: '#697374', class: 'color-gray' }
 ];
 
+// LocalStorage cache management
+const CACHE_KEY = 'home-links-data-cache';
+
+function saveToCache(data) {
+    try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn('Failed to cache data:', e);
+    }
+}
+
+function loadFromCache() {
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+        console.warn('Failed to load cache:', e);
+        return null;
+    }
+}
+
+function hasDataChanged(oldData, newData) {
+    // Simple deep comparison via JSON stringify
+    // More efficient than comparing field by field for small datasets
+    return JSON.stringify(oldData) !== JSON.stringify(newData);
+}
+
 // API Helper Functions
 async function apiCall(endpoint, options = {}) {
     const response = await fetch(`/api${endpoint}`, {
@@ -184,6 +211,7 @@ function renderLists() {
     lists.forEach(list => {
         const listEl = createListElement(list);
         container.insertBefore(listEl, addListContainer);
+        renderBookmarks(list.id);
     });
 
     // Initialize Sortable for lists (destroy old instance if exists)
@@ -236,16 +264,24 @@ function createListElement(list) {
                         <button class="config-close-btn" title="Close">×</button>
                     </div>
                     <div class="config-form-group">
-                        <label>List Name</label>
-                        <input type="text" class="config-list-title" value="${escapeHtml(list.title)}">
+                        <label for="config-list-title-${list.id}">List Name</label>
+                        <input type="text" id="config-list-title-${list.id}" name="list-title" class="config-list-title" value="${escapeHtml(list.title)}" autocomplete="off">
                     </div>
                     <div class="config-form-group">
-                        <label>Color</label>
-                        <div class="config-color-grid">
-                            ${COLORS.map(color => `
-                                <div class="config-color-option ${color.class} ${color.value === list.color ? 'selected' : ''}"
-                                     data-color="${color.value}"
-                                     title="${color.name}"></div>
+                        <div>Color</div>
+                        <div class="config-color-grid" role="radiogroup" aria-label="List color">
+                            ${COLORS.map((color, index) => `
+                                <label class="config-color-option ${color.class} ${color.value === list.color ? 'selected' : ''}"
+                                       for="color-${list.id}-${index}"
+                                       title="${color.name}">${color.name}</label>
+                                <input type="radio"
+                                        id="color-${list.id}-${index}"
+                                        name="color-${list.id}"
+                                        value="${color.value}"
+                                        data-color="${color.value}"
+                                        ${color.value === list.color ? 'checked' : ''}
+                                        style="position: absolute; opacity: 0; pointer-events: none;">
+                                
                             `).join('')}
                         </div>
                     </div>
@@ -285,10 +321,10 @@ function createListElement(list) {
     });
 
     // Color selection
-    div.querySelectorAll('.config-color-option').forEach(option => {
-        option.addEventListener('click', () => {
+    div.querySelectorAll('.config-color-option input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', () => {
             div.querySelectorAll('.config-color-option').forEach(o => o.classList.remove('selected'));
-            option.classList.add('selected');
+            radio.closest('.config-color-option').classList.add('selected');
         });
     });
 
@@ -314,9 +350,6 @@ function createListElement(list) {
     div.querySelector('.add-bookmark-btn').addEventListener('click', () => {
         addBookmark(list.id);
     });
-
-    // Load and render bookmarks
-    loadBookmarks(list.id);
 
     return div;
 }
@@ -350,7 +383,10 @@ function flipToList(listId) {
 
         // Reset color selection
         card.querySelectorAll('.config-color-option').forEach(option => {
-            option.classList.toggle('selected', option.dataset.color === list.color);
+            const radio = option.querySelector('input[type="radio"]');
+            const isSelected = radio.value === list.color;
+            option.classList.toggle('selected', isSelected);
+            radio.checked = isSelected;
         });
 
         // Focus first input after animation
@@ -365,7 +401,8 @@ async function saveListConfig(listId) {
 
     const isTemp = card.dataset.isTemp === 'true';
     const newTitle = card.querySelector('.config-list-title').value.trim();
-    const selectedColor = card.querySelector('.config-color-option.selected')?.dataset.color;
+    const selectedColorRadio = card.querySelector('.config-color-option input[type="radio"]:checked');
+    const selectedColor = selectedColorRadio?.value;
 
     if (isTemp) {
         // Cancel if empty
@@ -386,6 +423,7 @@ async function saveListConfig(listId) {
             if (index !== -1) lists.splice(index, 1);
             // Add real list
             lists.push(createdList);
+            saveToCache({ lists, bookmarks });
             renderLists();
             closeFlippedCard();
         } catch (error) {
@@ -411,6 +449,9 @@ async function saveListConfig(listId) {
             // Update local state
             if (updates.title) list.title = updates.title;
             if (updates.color) list.color = updates.color;
+
+            // Update cache
+            saveToCache({ lists, bookmarks });
 
             // Update front of card
             if (updates.title) {
@@ -465,6 +506,7 @@ async function deleteListFromConfig(listId) {
             await deleteList(listId);
             lists = lists.filter(l => l.id !== listId);
             delete bookmarks[listId];
+            saveToCache({ lists, bookmarks });
             currentlyFlippedCard = null;
             card.remove();
         } catch (error) {
@@ -573,6 +615,7 @@ async function saveBookmarkConfig(bookmarkId) {
             const bookmark = await createBookmark(listId, newTitle, newUrl);
             if (!bookmarks[listId]) bookmarks[listId] = [];
             bookmarks[listId].push(bookmark);
+            saveToCache({ lists, bookmarks });
             renderBookmarks(listId);
             closeFlippedCard();
         } catch (error) {
@@ -606,6 +649,9 @@ async function saveBookmarkConfig(bookmarkId) {
             // Update local state
             if (updates.title) bookmark.title = updates.title;
             if (updates.url) bookmark.url = updates.url;
+
+            // Update cache
+            saveToCache({ lists, bookmarks });
 
             // Re-render to update front
             renderBookmarks(bookmark.list_id);
@@ -660,6 +706,9 @@ async function deleteBookmarkFromConfig(bookmarkId) {
             for (const listId in bookmarks) {
                 bookmarks[listId] = bookmarks[listId].filter(b => b.id !== bookmarkId);
             }
+
+            // Update cache
+            saveToCache({ lists, bookmarks });
 
             // Clear flipped card state
             currentlyFlippedCard = null;
@@ -746,8 +795,14 @@ function createBookmarkElement(bookmark) {
                         <h5>Edit Bookmark</h5>
                         <button class="bookmark-config-close-btn" title="Close">×</button>
                     </div>
-                    <input type="text" class="config-bookmark-title" placeholder="Title" value="${escapeHtml(bookmark.title)}">
-                    <input type="url" class="config-bookmark-url" placeholder="URL" value="${escapeHtml(bookmark.url)}">
+                    <label for="config-bookmark-title-${bookmark.id}">
+                        Title
+                        <input type="text" id="config-bookmark-title-${bookmark.id}" name="bookmark-title" class="config-bookmark-title" placeholder="Title" value="${escapeHtml(bookmark.title)}" autocomplete="off">
+                    </label>
+                    <label for="config-bookmark-url-${bookmark.id}">
+                        URL
+                        <input type="url" id="config-bookmark-url-${bookmark.id}" name="bookmark-url" class="config-bookmark-url" placeholder="URL" value="${escapeHtml(bookmark.url)}" autocomplete="off">
+                    </label>
                     <div class="bookmark-config-actions">
                         <button class="bookmark-config-delete-btn secondary">Delete</button>
                         <button class="bookmark-config-cancel-btn secondary">Cancel</button>
@@ -822,12 +877,43 @@ async function loadBookmarks(listId) {
 }
 
 async function loadData() {
+    // Step 1: Load from cache and render immediately (instant!)
+    const cachedData = loadFromCache();
+    if (cachedData) {
+        lists = cachedData.lists;
+        bookmarks = cachedData.bookmarks;
+        renderLists(); // Instant render from cache
+    }
+
+    // Step 2: Fetch fresh data from server in background
     try {
-        lists = await getLists();
-        renderLists();
+        const response = await fetch('/api/data');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const freshData = await response.json();
+
+        // Step 3: Check if data has changed
+        if (!cachedData || hasDataChanged(cachedData, freshData)) {
+            // Data changed - update UI
+            lists = freshData.lists;
+            bookmarks = freshData.bookmarks;
+
+            // Save to cache for next load
+            saveToCache(freshData);
+
+            // Re-render with fresh data
+            renderLists();
+        }
+        // If no changes, keep showing cached version (already rendered)
+
     } catch (error) {
-        console.error('Failed to load lists:', error);
-        alert('Failed to load data');
+        console.error('Failed to load data:', error);
+        // If fetch fails but we have cache, we've already rendered it
+        // Otherwise show error
+        if (!cachedData) {
+            alert('Failed to load bookmarks. Please refresh the page.');
+        }
     }
 }
 
@@ -864,6 +950,9 @@ async function handleListReorder(evt) {
             if (item) list.position = item.position;
         });
         lists.sort((a, b) => a.position - b.position);
+
+        // Update cache
+        saveToCache({ lists, bookmarks });
     } catch (error) {
         console.error('Failed to reorder lists:', error);
         // Reload on failure
@@ -929,6 +1018,9 @@ async function handleBookmarkReorder(evt) {
         affectedListIds.forEach(listId => {
             bookmarks[listId].sort((a, b) => a.position - b.position);
         });
+
+        // Update cache
+        saveToCache({ lists, bookmarks });
     } catch (error) {
         console.error('Failed to reorder bookmarks:', error);
         // Reload on failure
