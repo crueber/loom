@@ -273,15 +273,15 @@ function createListElement(list) {
                             ${COLORS.map((color, index) => `
                                 <label class="config-color-option ${color.class} ${color.value === list.color ? 'selected' : ''}"
                                        for="color-${list.id}-${index}"
-                                       title="${color.name}">${color.name}</label>
-                                <input type="radio"
-                                        id="color-${list.id}-${index}"
-                                        name="color-${list.id}"
-                                        value="${color.value}"
-                                        data-color="${color.value}"
-                                        ${color.value === list.color ? 'checked' : ''}
-                                        style="position: absolute; opacity: 0; pointer-events: none;">
-                                
+                                       title="${color.name}"> ${color.name} 
+                                    <input type="radio"
+                                            id="color-${list.id}-${index}"
+                                            name="color-${list.id}"
+                                            value="${color.value}"
+                                            data-color="${color.value}"
+                                            ${color.value === list.color ? 'checked' : ''}
+                                            style="position: absolute; opacity: 0; pointer-events: none;">
+                                </label>
                             `).join('')}
                         </div>
                     </div>
