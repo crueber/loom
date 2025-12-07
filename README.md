@@ -1,4 +1,4 @@
-# Home Links
+# Loom
 
 A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interface. Built with Go and designed for containerized deployment.
 
@@ -31,7 +31,7 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 
 2. **Create your first user:**
    ```bash
-   docker exec -it home-links /user create admin
+   docker exec -it loom /user create admin
    ```
    You'll be prompted to enter a password.
 
@@ -42,17 +42,17 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 
 ```bash
 # Create a volume for data persistence
-docker volume create home-links-data
+docker volume create loom-data
 
 # Run the container
 docker run -d \
-  --name home-links \
+  --name loom \
   -p 8080:8080 \
-  -v home-links-data:/data \
-  home-links:latest
+  -v loom-data:/data \
+  loom:latest
 
 # Create a user
-docker exec -it home-links /user create admin
+docker exec -it loom /user create admin
 ```
 
 ### Local Development
@@ -64,7 +64,7 @@ docker exec -it home-links /user create admin
 2. **Clone and build:**
    ```bash
    git clone <repository-url>
-   cd home-links
+   cd loom
    go mod download
    go build -o bin/server ./cmd/server
    go build -o bin/user ./cmd/user
@@ -136,7 +136,7 @@ The `user` CLI tool provides user management commands:
 **With Docker:**
 
 ```bash
-docker exec -it home-links /user <command>
+docker exec -it loom /user <command>
 ```
 
 ## Usage Guide
@@ -208,7 +208,7 @@ docker exec -it home-links /user <command>
 ### Project Structure
 
 ```
-home-links/
+loom/
 ├── cmd/
 │   ├── server/          # Main server application
 │   │   ├── main.go
@@ -307,7 +307,7 @@ Darker, more readable colors optimized for dark mode:
 ### Cannot access the application
 
 - Check if the server is running: `docker ps`
-- Check logs: `docker logs home-links`
+- Check logs: `docker logs loom`
 - Verify port is not in use: `lsof -i :8080`
 
 ### User creation fails

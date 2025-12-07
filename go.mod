@@ -1,4 +1,4 @@
-module github.com/crueber/home-links
+module github.com/crueber/loom
 
 go 1.24.0
 

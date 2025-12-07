@@ -10,10 +10,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/crueber/home-links/internal/api"
-	"github.com/crueber/home-links/internal/auth"
-	"github.com/crueber/home-links/internal/db"
-	"github.com/crueber/home-links/internal/favicon"
+	"github.com/crueber/loom/internal/api"
+	"github.com/crueber/loom/internal/auth"
+	"github.com/crueber/loom/internal/db"
+	"github.com/crueber/loom/internal/favicon"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

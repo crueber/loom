@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/crueber/home-links/internal/db"
-	"github.com/crueber/home-links/internal/favicon"
-	"github.com/crueber/home-links/internal/models"
+	"github.com/crueber/loom/internal/db"
+	"github.com/crueber/loom/internal/favicon"
+	"github.com/crueber/loom/internal/models"
 	"github.com/go-chi/chi/v5"
 )
 

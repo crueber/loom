@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/crueber/home-links/internal/auth"
-	"github.com/crueber/home-links/internal/db"
+	"github.com/crueber/loom/internal/auth"
+	"github.com/crueber/loom/internal/db"
 )
 
 // AuthAPI handles authentication endpoints

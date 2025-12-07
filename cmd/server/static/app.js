@@ -1,4 +1,4 @@
-// Home Links - Main App Initialization
+// Loom - Main App Initialization
 // Alpine.js component framework with modular architecture
 
 // Touch device detection

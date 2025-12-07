@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Home Links is a self-hosted bookmark manager with a Trello-like interface. It's a Go backend with vanilla JavaScript frontend, designed for minimal footprint deployment in Docker containers.
+Loom is a self-hosted bookmark manager with a Trello-like interface. It's a Go backend with vanilla JavaScript frontend, designed for minimal footprint deployment in Docker containers.
 
 ## Build & Run Commands
 
@@ -20,7 +20,7 @@ docker-compose up --build -d
 docker-compose logs -f
 
 # Create a user in the container
-docker exec -it home-links /user create <username>
+docker exec -it loom /user create <username>
 
 # Rebuild and restart (after code changes)
 docker-compose down && docker-compose up --build -d

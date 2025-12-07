@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/crueber/home-links/internal/db"
-	"github.com/crueber/home-links/internal/models"
+	"github.com/crueber/loom/internal/db"
+	"github.com/crueber/loom/internal/models"
 )
 
 // ExportAPI handles export/import endpoints
@@ -80,7 +80,7 @@ func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set content disposition header for download
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=home-links-export-%s.json", time.Now().Format("2006-01-02")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=loom-export-%s.json", time.Now().Format("2006-01-02")))
 	respondJSON(w, http.StatusOK, exportData)
 }
 

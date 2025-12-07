@@ -6,7 +6,7 @@ set -e
 # -------------------------------------------------------------------
 REGISTRY="git.packden.us"
 OWNER="crueber"
-IMAGE_NAME="home-links"
+IMAGE_NAME="loom"
 PLATFORM="linux/amd64,linux/arm64"
 
 # -------------------------------------------------------------------

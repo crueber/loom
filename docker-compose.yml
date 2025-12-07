@@ -1,8 +1,8 @@
 
 services:
-  home-links:
+  loom:
     build: .
-    container_name: home-links
+    container_name: loom
     ports:
       - "8080:8080"
     volumes:
@@ -20,4 +20,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  home-links-data:
+  loom-data:

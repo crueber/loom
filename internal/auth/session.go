@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	sessionName = "home-links-session"
+	sessionName = "loom-session"
 	sessionKey  = "user_id"
 )
 
 // SessionManager handles user sessions
 type SessionManager struct {
-	store      *sessions.CookieStore
-	maxAge     int
+	store        *sessions.CookieStore
+	maxAge       int
 	secureCookie bool
 }
 
@@ -34,8 +34,8 @@ func NewSessionManager(authKey, encryptionKey []byte, maxAge int, secureCookie b
 	}
 
 	return &SessionManager{
-		store:      store,
-		maxAge:     maxAge,
+		store:        store,
+		maxAge:       maxAge,
 		secureCookie: secureCookie,
 	}
 }

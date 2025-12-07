@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/crueber/home-links/internal/models"
+	"github.com/crueber/loom/internal/models"
 )
 
 // User queries

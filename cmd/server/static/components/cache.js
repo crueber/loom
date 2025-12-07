@@ -1,6 +1,6 @@
 // LocalStorage Cache Management
 
-const CACHE_KEY = 'home-links-data-cache';
+const CACHE_KEY = 'loom-data-cache';
 
 function saveToCache(data) {
     try {

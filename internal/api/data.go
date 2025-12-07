@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/crueber/home-links/internal/db"
-	"github.com/crueber/home-links/internal/models"
+	"github.com/crueber/loom/internal/db"
+	"github.com/crueber/loom/internal/models"
 )
 
 // DataAPI handles the combined data endpoint
@@ -20,8 +20,8 @@ func NewDataAPI(database *db.DB) *DataAPI {
 
 // DataResponse represents the combined response with all user data
 type DataResponse struct {
-	Lists     []*models.List                `json:"lists"`
-	Bookmarks map[int][]*models.Bookmark    `json:"bookmarks"` // keyed by list_id
+	Lists     []*models.List             `json:"lists"`
+	Bookmarks map[int][]*models.Bookmark `json:"bookmarks"` // keyed by list_id
 }
 
 // HandleGetAllData returns all lists and bookmarks for the authenticated user in a single request

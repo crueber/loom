@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/crueber/home-links/internal/db"
+	"github.com/crueber/loom/internal/db"
 	"github.com/go-chi/chi/v5"
 )
 
