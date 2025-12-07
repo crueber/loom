@@ -115,6 +115,11 @@ nav strong {
     transition: transform 0.6s;
 }
 
+/* Hide config panel when collapsed to prevent showing during drag */
+.list-card.collapsed .list-card-back {
+    display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .list-card-inner {
         transition: none;
@@ -201,6 +206,11 @@ nav strong {
 .list-card.collapsed .list-actions {
     flex-direction: column;
     margin-top: 1rem;
+}
+
+/* Hide config gear when collapsed */
+.list-card.collapsed .config-list {
+    display: none;
 }
 
 .list-action-btn {
