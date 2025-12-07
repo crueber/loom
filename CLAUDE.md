@@ -8,26 +8,9 @@ Home Links is a self-hosted bookmark manager with a Trello-like interface. It's 
 
 ## Build & Run Commands
 
-### Local Development
+**IMPORTANT: Always use Docker for testing and development. Do not use local binaries for testing as they use auto-generated session keys that change on every restart, causing session issues.**
 
-```bash
-# Build both binaries
-go build -o bin/server ./cmd/server
-go build -o bin/user ./cmd/user
-
-# Run the server (development)
-./bin/server
-
-# Create a user
-./bin/user create <username>
-
-# Other user commands
-./bin/user list
-./bin/user delete <username>
-./bin/user reset-password <username>
-```
-
-### Docker
+### Docker (Recommended for All Development)
 
 ```bash
 # Build and run with docker-compose
@@ -41,6 +24,23 @@ docker exec -it home-links /user create <username>
 
 # Rebuild and restart (after code changes)
 docker-compose down && docker-compose up --build -d
+
+# Stop the container
+docker-compose down
+```
+
+### Local Binary Building (For Build Testing Only - Not for Running)
+
+```bash
+# Build both binaries
+go build -o bin/server ./cmd/server
+go build -o bin/user ./cmd/user
+
+# User management (local)
+./bin/user create <username>
+./bin/user list
+./bin/user delete <username>
+./bin/user reset-password <username>
 ```
 
 ### Building for Production

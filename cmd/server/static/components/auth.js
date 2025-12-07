@@ -1,6 +1,7 @@
 // Authentication Component
 
-Alpine.data('authManager', () => ({
+document.addEventListener('alpine:init', () => {
+    Alpine.data('authManager', () => ({
     currentUser: null,
     showLoginScreen: false,
     loginError: '',
@@ -14,6 +15,10 @@ Alpine.data('authManager', () => ({
             const user = await getCurrentUser();
             this.currentUser = user;
             this.showLoginScreen = false;
+
+            // Dispatch event to trigger app initialization for existing session
+            const loginEvent = new CustomEvent('userLoggedIn', { detail: { user: user } });
+            document.dispatchEvent(loginEvent);
         } catch (error) {
             // Not logged in
             this.currentUser = null;
@@ -63,3 +68,4 @@ Alpine.data('authManager', () => ({
         }
     }
 }));
+});

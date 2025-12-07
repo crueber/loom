@@ -12,7 +12,8 @@ const COLORS = [
     { name: 'Gray', value: '#697374', class: 'color-gray' }
 ];
 
-Alpine.data('listsManager', () => ({
+document.addEventListener('alpine:init', () => {
+    Alpine.data('listsManager', () => ({
     lists: [],
     listsSortable: null,
 
@@ -51,6 +52,13 @@ Alpine.data('listsManager', () => ({
         const cachedData = loadFromCache();
         if (cachedData) {
             this.lists = cachedData.lists;
+
+            // Dispatch cached bookmarks to items manager
+            const cachedEvent = new CustomEvent('bookmarksDataLoaded', {
+                detail: { bookmarks: cachedData.bookmarks }
+            });
+            document.dispatchEvent(cachedEvent);
+
             this.$nextTick(() => this.renderLists());
         }
 
@@ -62,7 +70,7 @@ Alpine.data('listsManager', () => ({
             }
             const freshData = await response.json();
 
-            // Step 3: Check if data has changed
+            // Step 3: Check if data has changed or if no cache existed
             if (!cachedData || hasDataChanged(cachedData, freshData)) {
                 this.lists = freshData.lists;
 
@@ -77,12 +85,6 @@ Alpine.data('listsManager', () => ({
 
                 // Re-render with fresh data
                 this.$nextTick(() => this.renderLists());
-            } else {
-                // Even if lists haven't changed, dispatch bookmarks event
-                const event = new CustomEvent('bookmarksDataLoaded', {
-                    detail: { bookmarks: cachedData.bookmarks }
-                });
-                document.dispatchEvent(event);
             }
         } catch (error) {
             console.error('Failed to load data:', error);
@@ -471,3 +473,4 @@ Alpine.data('listsManager', () => ({
         return color ? color.class : 'color-blue';
     }
 }));
+});

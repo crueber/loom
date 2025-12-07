@@ -1,7 +1,8 @@
 // Items (Bookmarks) Management Component
 // Note: Currently handles bookmarks, prepared for Phase 3 conversion to unified Items (links & notes)
 
-Alpine.data('itemsManager', () => ({
+document.addEventListener('alpine:init', () => {
+    Alpine.data('itemsManager', () => ({
     bookmarks: {},
     bookmarkSortables: {},
 
@@ -417,3 +418,4 @@ Alpine.data('itemsManager', () => ({
         }
     }
 }));
+});

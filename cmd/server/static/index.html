@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="/static/lib/pico.min.css">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body x-data="{ showApp: false }">
+<body x-data="authManager">
     <!-- Login Screen -->
-    <div id="login-screen" class="container" x-data="authManager" x-show="showLoginScreen" style="display: none;">
+    <div id="login-screen" class="container" x-show="showLoginScreen" style="display: none;">
         <main>
             <article>
                 <header>
@@ -33,7 +33,7 @@
     </div>
 
     <!-- Main App Screen -->
-    <div id="app-screen" x-data="authManager" x-show="!showLoginScreen" style="display: none;">
+    <div id="app-screen" x-show="!showLoginScreen" style="display: none;">
         <!-- Header -->
         <nav class="container-fluid">
             <ul>
@@ -101,12 +101,11 @@
 
     <!-- JavaScript Libraries -->
     <script src="/static/lib/sortable.min.js"></script>
-    <script defer src="/static/lib/alpine.min.js"></script>
 
     <!-- Utilities -->
     <script src="/static/utils/api.js"></script>
 
-    <!-- Components -->
+    <!-- Components (must load before Alpine) -->
     <script src="/static/components/cache.js"></script>
     <script src="/static/components/dragScroll.js"></script>
     <script src="/static/components/flipCard.js"></script>
@@ -116,5 +115,8 @@
 
     <!-- Main App Initialization -->
     <script src="/static/app.js"></script>
+
+    <!-- Alpine.js - Must load LAST with defer so components can register first -->
+    <script defer src="/static/lib/alpine.min.js"></script>
 </body>
 </html>
