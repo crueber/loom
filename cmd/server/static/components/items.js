@@ -254,9 +254,6 @@ document.addEventListener('alpine:init', () => {
                     <div class="note-content">
                         <div class="note-text">${escapeHtml(noteContent)}</div>
                     </div>
-                    <div class="note-actions">
-                        <button class="config-note" title="Configure">⚙️</button>
-                    </div>
                 </div>
                 <div class="note-card-back">
                     <div class="note-config-panel">
