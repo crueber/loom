@@ -487,9 +487,9 @@ document.addEventListener('alpine:init', () => {
 
             // Update the title to show/hide item count
             const itemCount = this.getItemCount(listId);
-            const countDisplay = list.collapsed ? ` (${itemCount})` : '';
+            const countDisplay = list.collapsed ? ` &mdash; ${itemCount}` : '';
             const h3 = listEl.querySelector('.list-header h3');
-            h3.textContent = list.title + countDisplay;
+            h3.innerHTML = list.title + countDisplay;
         } catch (error) {
             console.error('Failed to toggle list:', error);
             list.collapsed = !list.collapsed;
