@@ -1,30 +1,42 @@
-// Items (Bookmarks) Management Component
-// Note: Currently handles bookmarks, prepared for Phase 3 conversion to unified Items (links & notes)
+// Items Management Component (Bookmarks & Notes)
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('itemsManager', () => ({
-    bookmarks: {},
-    bookmarkSortables: {},
+    items: {},  // Changed from bookmarks to items
+    itemSortables: {},  // Changed from bookmarkSortables
 
     init() {
-        // Listen for bookmarks data loaded from lists manager
+        // Listen for items data loaded from lists manager (backward compat with bookmarks)
         document.addEventListener('bookmarksDataLoaded', (event) => {
-            this.bookmarks = event.detail.bookmarks;
+            // Convert bookmarks to items format if needed
+            const bookmarks = event.detail.bookmarks;
+            for (const listId in bookmarks) {
+                if (!this.items[listId]) this.items[listId] = [];
+                this.items[listId] = bookmarks[listId].map(b => ({
+                    ...b,
+                    type: b.type || 'bookmark'  // Add type if missing
+                }));
+            }
         });
 
         // Listen for render request for specific list
         document.addEventListener('renderListBookmarks', (event) => {
-            this.renderBookmarks(event.detail.listId);
+            this.renderItems(event.detail.listId);
         });
 
         // Listen for add bookmark request
         document.addEventListener('addBookmarkRequested', (event) => {
-            this.addBookmark(event.detail.listId);
+            this.addItem(event.detail.listId, 'bookmark');
         });
 
-        // Listen for list deletion to clean up bookmarks
+        // Listen for add note request
+        document.addEventListener('addNoteRequested', (event) => {
+            this.addItem(event.detail.listId, 'note');
+        });
+
+        // Listen for list deletion to clean up items
         document.addEventListener('listDeleted', (event) => {
-            delete this.bookmarks[event.detail.listId];
+            delete this.items[event.detail.listId];
             this.updateCache();
         });
 
@@ -32,49 +44,55 @@ document.addEventListener('alpine:init', () => {
         document.addEventListener('listsUpdated', (event) => {
             const cachedData = loadFromCache();
             if (cachedData) {
-                saveToCache({ lists: event.detail.lists, bookmarks: this.bookmarks });
+                saveToCache({ lists: event.detail.lists, bookmarks: this.items });
             }
         });
 
-        // Listen for bookmark flipped event
+        // Listen for item flipped event
         document.addEventListener('bookmarkFlipped', () => {
+            this.disableAllSortables();
+        });
+
+        document.addEventListener('noteFlipped', () => {
             this.disableAllSortables();
         });
 
         // Listen for user logout
         document.addEventListener('userLoggedOut', () => {
-            this.bookmarks = {};
-            Object.values(this.bookmarkSortables).forEach(sortable => sortable.destroy());
-            this.bookmarkSortables = {};
+            this.items = {};
+            Object.values(this.itemSortables).forEach(sortable => sortable.destroy());
+            this.itemSortables = {};
         });
     },
 
-    renderBookmarks(listId) {
+    renderItems(listId) {
         const container = document.querySelector(`.bookmarks-container[data-list-id="${listId}"]`);
         if (!container) return;
 
-        const listBookmarks = this.bookmarks[listId] || [];
+        const listItems = this.items[listId] || [];
         container.innerHTML = '';
 
-        listBookmarks.forEach(bookmark => {
-            const bookmarkEl = this.createBookmarkElement(bookmark);
-            container.appendChild(bookmarkEl);
+        listItems.forEach(item => {
+            const itemEl = item.type === 'note'
+                ? this.createNoteElement(item)
+                : this.createBookmarkElement(item);
+            container.appendChild(itemEl);
         });
 
-        // Initialize Sortable for bookmarks
+        // Initialize Sortable for items
         this.initializeSortable(listId, container);
     },
 
     initializeSortable(listId, container) {
         // Destroy old instance if exists
-        if (this.bookmarkSortables[listId]) {
-            this.bookmarkSortables[listId].destroy();
+        if (this.itemSortables[listId]) {
+            this.itemSortables[listId].destroy();
         }
 
-        this.bookmarkSortables[listId] = new Sortable(container, {
-            group: 'bookmarks',
+        this.itemSortables[listId] = new Sortable(container, {
+            group: 'items',  // Changed from 'bookmarks'
             animation: 150,
-            handle: '.bookmark-card-front',
+            handle: '.bookmark-card-front, .note-card-front',
             filter: '[data-flipped="true"]',
             delay: 200,
             delayOnTouchOnly: true,
@@ -86,7 +104,7 @@ document.addEventListener('alpine:init', () => {
                     return false;
                 }
             },
-            onEnd: (evt) => this.handleBookmarkReorder(evt),
+            onEnd: (evt) => this.handleItemReorder(evt),
             onMove: (evt) => {
                 // Don't allow dragging if the item is flipped
                 return evt.related.dataset.flipped !== 'true';
@@ -94,17 +112,17 @@ document.addEventListener('alpine:init', () => {
         });
 
         // Store reference globally for flipCard component
-        bookmarkSortables[listId] = this.bookmarkSortables[listId];
+        bookmarkSortables[listId] = this.itemSortables[listId];
     },
 
     disableAllSortables() {
-        Object.values(this.bookmarkSortables).forEach(sortable => {
+        Object.values(this.itemSortables).forEach(sortable => {
             sortable.option("disabled", true);
         });
     },
 
     enableAllSortables() {
-        Object.values(this.bookmarkSortables).forEach(sortable => {
+        Object.values(this.itemSortables).forEach(sortable => {
             sortable.option("disabled", false);
         });
     },
@@ -112,9 +130,11 @@ document.addEventListener('alpine:init', () => {
     createBookmarkElement(bookmark) {
         const wrapper = document.createElement('div');
         wrapper.className = 'bookmark-item';
-        wrapper.dataset.bookmarkId = bookmark.id;
+        wrapper.dataset.itemId = bookmark.id;
+        wrapper.dataset.bookmarkId = bookmark.id;  // Keep for backward compat
         wrapper.dataset.listId = bookmark.list_id;
         wrapper.dataset.flipped = 'false';
+        wrapper.dataset.type = 'bookmark';
 
         // Mark temp bookmarks
         if (typeof bookmark.id === 'string' && bookmark.id.startsWith('temp-')) {
@@ -189,7 +209,7 @@ document.addEventListener('alpine:init', () => {
         // Delete button
         wrapper.querySelector('.bookmark-config-delete-btn').addEventListener('click', (e) => {
             e.preventDefault();
-            this.deleteBookmarkFromConfig(bookmark.id);
+            this.deleteItemFromConfig(bookmark.id, 'bookmark');
         });
 
         // Enter key to save on either input
@@ -213,8 +233,84 @@ document.addEventListener('alpine:init', () => {
         return wrapper;
     },
 
+    createNoteElement(note) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'note-item';
+        wrapper.dataset.itemId = note.id;
+        wrapper.dataset.listId = note.list_id;
+        wrapper.dataset.flipped = 'false';
+        wrapper.dataset.type = 'note';
+
+        // Mark temp notes
+        if (typeof note.id === 'string' && note.id.startsWith('temp-')) {
+            wrapper.dataset.isTemp = 'true';
+        }
+
+        const noteContent = note.content || '';
+
+        wrapper.innerHTML = `
+            <div class="note-card-inner">
+                <div class="note-card-front">
+                    <div class="note-content">
+                        <div class="note-text">${escapeHtml(noteContent)}</div>
+                    </div>
+                    <div class="note-actions">
+                        <button class="config-note" title="Configure">⚙️</button>
+                    </div>
+                </div>
+                <div class="note-card-back">
+                    <div class="note-config-panel">
+                        <textarea id="config-note-content-${note.id}" class="config-note-content" placeholder="Enter note text...">${escapeHtml(noteContent)}</textarea>
+                        <div class="config-actions">
+                            <button class="config-delete-btn secondary">Delete</button>
+                            <button class="config-cancel-btn secondary">Cancel</button>
+                            <button class="config-save-btn">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Gear icon - flip to back
+        wrapper.querySelector('.config-note').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            flipToNote(note.id);
+        });
+
+        // Cancel button
+        wrapper.querySelector('.config-cancel-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            closeFlippedCard();
+        });
+
+        // Save button
+        wrapper.querySelector('.config-save-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.saveNoteConfig(note.id);
+        });
+
+        // Delete button
+        wrapper.querySelector('.config-delete-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.deleteItemFromConfig(note.id, 'note');
+        });
+
+        // Keyboard handling for textarea
+        const textarea = wrapper.querySelector('.config-note-content');
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // Enter saves, Shift+Enter adds new line
+                e.preventDefault();
+                this.saveNoteConfig(note.id);
+            }
+        });
+
+        return wrapper;
+    },
+
     async saveBookmarkConfig(bookmarkId) {
-        const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+        const bookmarkEl = document.querySelector(`.bookmark-item[data-item-id="${bookmarkId}"]`);
         if (!bookmarkEl) return;
 
         const isTemp = bookmarkEl.dataset.isTemp === 'true';
@@ -232,11 +328,11 @@ document.addEventListener('alpine:init', () => {
             // Create new bookmark
             const listId = parseInt(bookmarkEl.dataset.listId);
             try {
-                const bookmark = await createBookmark(listId, newTitle, newUrl);
-                if (!this.bookmarks[listId]) this.bookmarks[listId] = [];
-                this.bookmarks[listId].push(bookmark);
+                const item = await createItem(listId, 'bookmark', { title: newTitle, url: newUrl });
+                if (!this.items[listId]) this.items[listId] = [];
+                this.items[listId].push(item);
                 this.updateCache();
-                this.renderBookmarks(listId);
+                this.renderItems(listId);
                 closeFlippedCard();
             } catch (error) {
                 console.error('Failed to create bookmark:', error);
@@ -245,165 +341,210 @@ document.addEventListener('alpine:init', () => {
             return;
         }
 
-        // Find bookmark
-        let bookmark = null;
-        for (const listId in this.bookmarks) {
-            bookmark = this.bookmarks[listId].find(b => b.id === bookmarkId);
-            if (bookmark) break;
+        // Find item
+        let item = null;
+        for (const listId in this.items) {
+            item = this.items[listId].find(i => i.id == bookmarkId && i.type === 'bookmark');
+            if (item) break;
         }
-        if (!bookmark) return;
 
-        if (!newTitle || !newUrl) {
-            alert('Title and URL cannot be empty');
+        if (!item) return;
+
+        // Check if anything changed
+        const updates = {};
+        if (newTitle !== item.title) updates.title = newTitle;
+        if (newUrl !== item.url) updates.url = newUrl;
+
+        if (Object.keys(updates).length === 0) {
+            closeFlippedCard();
             return;
         }
 
         try {
-            const updates = {};
-            if (newTitle !== bookmark.title) updates.title = newTitle;
-            if (newUrl !== bookmark.url) updates.url = newUrl;
+            const updatedItem = await updateItem(item.id, updates);
+            Object.assign(item, updatedItem);
+            this.updateCache();
+            this.renderItems(item.list_id);
+            closeFlippedCard();
+        } catch (error) {
+            console.error('Failed to update bookmark:', error);
+            alert('Failed to update bookmark: ' + error.message);
+        }
+    },
 
-            if (Object.keys(updates).length > 0) {
-                await updateBookmark(bookmarkId, updates);
+    async saveNoteConfig(noteId) {
+        const noteEl = document.querySelector(`.note-item[data-item-id="${noteId}"]`);
+        if (!noteEl) return;
 
-                // Update local state
-                if (updates.title) bookmark.title = updates.title;
-                if (updates.url) bookmark.url = updates.url;
+        const isTemp = noteEl.dataset.isTemp === 'true';
+        const newContent = noteEl.querySelector('.config-note-content').value.trim();
 
-                // Update cache
-                this.updateCache();
-
-                // Re-render to update front
-                this.renderBookmarks(bookmark.list_id);
-            } else {
+        if (isTemp) {
+            // Cancel if empty
+            if (!newContent) {
+                noteEl.remove();
                 closeFlippedCard();
+                return;
+            }
+
+            // Create new note
+            const listId = parseInt(noteEl.dataset.listId);
+            try {
+                const item = await createItem(listId, 'note', { content: newContent });
+                if (!this.items[listId]) this.items[listId] = [];
+                this.items[listId].push(item);
+                this.updateCache();
+                this.renderItems(listId);
+                closeFlippedCard();
+            } catch (error) {
+                console.error('Failed to create note:', error);
+                alert('Failed to create note: ' + error.message);
+            }
+            return;
+        }
+
+        // Find item
+        let item = null;
+        for (const listId in this.items) {
+            item = this.items[listId].find(i => i.id == noteId && i.type === 'note');
+            if (item) break;
+        }
+
+        if (!item) return;
+
+        // Delete if content is empty
+        if (!newContent) {
+            await this.deleteItemFromConfig(noteId, 'note', true);
+            return;
+        }
+
+        // Check if anything changed
+        if (newContent === item.content) {
+            closeFlippedCard();
+            return;
+        }
+
+        try {
+            const updatedItem = await updateItem(item.id, { content: newContent });
+            Object.assign(item, updatedItem);
+            this.updateCache();
+            this.renderItems(item.list_id);
+            closeFlippedCard();
+        } catch (error) {
+            console.error('Failed to update note:', error);
+            alert('Failed to update note: ' + error.message);
+        }
+    },
+
+    async deleteItemFromConfig(itemId, itemType, skipConfirm = false) {
+        const selector = itemType === 'note' ? '.note-item' : '.bookmark-item';
+        const itemEl = document.querySelector(`${selector}[data-item-id="${itemId}"]`);
+        if (!itemEl) return;
+
+        const deleteBtn = itemEl.querySelector('.config-delete-btn, .bookmark-config-delete-btn');
+
+        if (!skipConfirm && deleteBtn.textContent !== 'Confirm Delete?') {
+            deleteBtn.textContent = 'Confirm Delete?';
+            setTimeout(() => {
+                if (deleteBtn) deleteBtn.textContent = 'Delete';
+            }, 3000);
+            return;
+        }
+
+        try {
+            await deleteItem(itemId);
+
+            // Remove from local state
+            for (const listId in this.items) {
+                const index = this.items[listId].findIndex(i => i.id == itemId);
+                if (index !== -1) {
+                    this.items[listId].splice(index, 1);
+                    this.updateCache();
+                    this.renderItems(parseInt(listId));
+                    closeFlippedCard();
+                    break;
+                }
             }
         } catch (error) {
-            console.error('Failed to save bookmark:', error);
-            alert('Failed to save changes');
+            console.error('Failed to delete item:', error);
+            alert('Failed to delete item');
         }
     },
 
-    async deleteBookmarkFromConfig(bookmarkId) {
-        const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
-        if (!bookmarkEl) return;
-
-        // Find bookmark
-        let bookmark = null;
-        for (const listId in this.bookmarks) {
-            bookmark = this.bookmarks[listId].find(b => b.id === bookmarkId);
-            if (bookmark) break;
-        }
-        if (!bookmark) return;
-
-        const panel = bookmarkEl.querySelector('.bookmark-config-panel');
-        const originalHTML = panel.innerHTML;
-
-        // Show confirmation
-        panel.innerHTML = `
-            <div class="bookmark-config-header">
-                <h5>Delete Bookmark?</h5>
-            </div>
-            <p style="margin: 0.5rem 0; font-size: 0.875rem;">Delete "${escapeHtml(bookmark.title)}"?</p>
-            <div class="bookmark-config-actions">
-                <button class="bookmark-confirm-cancel-btn secondary">Cancel</button>
-                <button class="bookmark-confirm-delete-btn config-delete-btn">Delete</button>
-            </div>
-        `;
-
-        panel.querySelector('.bookmark-confirm-cancel-btn').addEventListener('click', (e) => {
-            e.preventDefault();
-            panel.innerHTML = originalHTML;
-            closeFlippedCard();
-        });
-
-        panel.querySelector('.bookmark-confirm-delete-btn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            try {
-                await deleteBookmark(bookmarkId);
-
-                // Remove from local state
-                for (const listId in this.bookmarks) {
-                    this.bookmarks[listId] = this.bookmarks[listId].filter(b => b.id !== bookmarkId);
-                }
-
-                // Update cache
-                this.updateCache();
-
-                // Clear flipped card state
-                setCurrentlyFlippedCard(null);
-
-                // Remove element
-                bookmarkEl.remove();
-            } catch (error) {
-                console.error('Failed to delete bookmark:', error);
-                alert('Failed to delete bookmark');
-            }
-        });
-    },
-
-    async addBookmark(listId) {
-        const tempId = `temp-${Date.now()}`;
-        const tempBookmark = {
+    async addItem(listId, type) {
+        const tempId = `temp-${type}-${Date.now()}`;
+        const tempItem = {
             id: tempId,
             list_id: listId,
-            title: '',
-            url: '',
-            favicon_url: null
+            type: type
         };
 
-        const wrapper = this.createBookmarkElement(tempBookmark);
+        if (type === 'bookmark') {
+            tempItem.title = '';
+            tempItem.url = '';
+            tempItem.favicon_url = null;
+        } else if (type === 'note') {
+            tempItem.content = '';
+        }
+
+        const wrapper = type === 'note'
+            ? this.createNoteElement(tempItem)
+            : this.createBookmarkElement(tempItem);
+
         wrapper.dataset.isTemp = 'true';
         wrapper.dataset.flipped = 'true';
 
         const container = document.querySelector(`.bookmarks-container[data-list-id="${listId}"]`);
         container.appendChild(wrapper);
 
-        flipToBookmark(tempId);
-
-        // Focus first input
-        setTimeout(() => wrapper.querySelector('.config-bookmark-title').focus(), 300);
+        if (type === 'bookmark') {
+            flipToBookmark(tempId);
+            setTimeout(() => wrapper.querySelector('.config-bookmark-title').focus(), 300);
+        } else {
+            flipToNote(tempId);
+            setTimeout(() => wrapper.querySelector('.config-note-content').focus(), 300);
+        }
     },
 
-    async handleBookmarkReorder(evt) {
+    async handleItemReorder(evt) {
         const { from, to, item } = evt;
-        const bookmarkId = parseInt(item.dataset.bookmarkId);
+        const itemId = parseInt(item.dataset.itemId);
         const newListId = parseInt(to.dataset.listId);
 
-        const bookmarkElements = to.querySelectorAll('.bookmark-item');
-        const reorderedBookmarks = Array.from(bookmarkElements).map((el, index) => ({
-            id: parseInt(el.dataset.bookmarkId),
+        const itemElements = to.querySelectorAll('.bookmark-item, .note-item');
+        const reorderedItems = Array.from(itemElements).map((el, index) => ({
+            id: parseInt(el.dataset.itemId),
             position: index,
             list_id: newListId
         }));
 
         try {
-            await reorderBookmarks(reorderedBookmarks);
+            await reorderItems(reorderedItems);
 
             // Update local state
-            for (const listId in this.bookmarks) {
-                const bookmark = this.bookmarks[listId].find(b => b.id === bookmarkId);
-                if (bookmark) {
-                    this.bookmarks[listId] = this.bookmarks[listId].filter(b => b.id !== bookmarkId);
-                    bookmark.list_id = newListId;
-                    bookmark.position = reorderedBookmarks.find(r => r.id === bookmarkId).position;
+            for (const listId in this.items) {
+                const itemObj = this.items[listId].find(i => i.id === itemId);
+                if (itemObj) {
+                    this.items[listId] = this.items[listId].filter(i => i.id !== itemId);
+                    itemObj.list_id = newListId;
+                    itemObj.position = reorderedItems.find(r => r.id === itemId).position;
 
-                    if (!this.bookmarks[newListId]) this.bookmarks[newListId] = [];
-                    this.bookmarks[newListId].push(bookmark);
+                    if (!this.items[newListId]) this.items[newListId] = [];
+                    this.items[newListId].push(itemObj);
                     break;
                 }
             }
 
             // Update all affected lists
-            const affectedListIds = new Set([...reorderedBookmarks.map(r => r.list_id)]);
+            const affectedListIds = new Set([...reorderedItems.map(r => r.list_id)]);
             affectedListIds.forEach(listId => {
-                this.bookmarks[listId].sort((a, b) => a.position - b.position);
+                this.items[listId].sort((a, b) => a.position - b.position);
             });
 
             // Update cache
             this.updateCache();
         } catch (error) {
-            console.error('Failed to reorder bookmarks:', error);
+            console.error('Failed to reorder items:', error);
             // Reload on failure - dispatch event to lists manager
             const event = new CustomEvent('reloadDataRequested');
             document.dispatchEvent(event);
@@ -414,7 +555,7 @@ document.addEventListener('alpine:init', () => {
         // Get current lists from cache
         const cachedData = loadFromCache();
         if (cachedData) {
-            saveToCache({ lists: cachedData.lists, bookmarks: this.bookmarks });
+            saveToCache({ lists: cachedData.lists, bookmarks: this.items });
         }
     }
 }));

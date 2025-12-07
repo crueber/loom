@@ -96,6 +96,28 @@ func (db *DB) migrate() error {
 				CREATE INDEX IF NOT EXISTS idx_lists_board_id ON lists(board_id);
 			`,
 		},
+		{
+			version: 3,
+			sql: `
+				-- Create new items table with support for both bookmarks and notes
+				CREATE TABLE IF NOT EXISTS items (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					list_id INTEGER NOT NULL,
+					type TEXT NOT NULL CHECK(type IN ('bookmark', 'note')),
+					title TEXT,
+					url TEXT,
+					content TEXT,
+					favicon_url TEXT,
+					position INTEGER NOT NULL,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
+				);
+
+				CREATE INDEX IF NOT EXISTS idx_items_list_id ON items(list_id);
+				CREATE INDEX IF NOT EXISTS idx_items_position ON items(list_id, position);
+				CREATE INDEX IF NOT EXISTS idx_items_type ON items(list_id, type);
+			`,
+		},
 	}
 
 	// Run each migration
@@ -127,6 +149,12 @@ func (db *DB) migrate() error {
 		// Run post-migration data migrations
 		if migration.version == 2 {
 			if err := db.migrateDataForBoardsV2(tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
+			}
+		}
+		if migration.version == 3 {
+			if err := db.migrateDataForItemsV3(tx); err != nil {
 				tx.Rollback()
 				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
 			}
@@ -204,6 +232,70 @@ func (db *DB) migrateDataForBoardsV2(tx *sql.Tx) error {
 	// Now make board_id NOT NULL since all lists should have a board_id
 	// Note: SQLite doesn't support ALTER COLUMN directly, but since we've populated all rows,
 	// future inserts will require board_id via application logic
+
+	return nil
+}
+
+// migrateDataForItemsV3 migrates bookmarks to items table
+func (db *DB) migrateDataForItemsV3(tx *sql.Tx) error {
+	log.Println("  Migrating bookmarks to items table...")
+
+	// Check if bookmarks table exists
+	var tableExists bool
+	err := tx.QueryRow(`
+		SELECT COUNT(*) > 0
+		FROM sqlite_master
+		WHERE type='table' AND name='bookmarks'
+	`).Scan(&tableExists)
+	if err != nil {
+		return fmt.Errorf("failed to check if bookmarks table exists: %w", err)
+	}
+
+	if !tableExists {
+		log.Println("  Bookmarks table does not exist, skipping migration")
+		return nil
+	}
+
+	// Copy only bookmarks that have valid list_id references (no orphaned bookmarks)
+	result, err := tx.Exec(`
+		INSERT INTO items (id, list_id, type, title, url, favicon_url, position, created_at)
+		SELECT b.id, b.list_id, 'bookmark', b.title, b.url, b.favicon_url, b.position, b.created_at
+		FROM bookmarks b
+		INNER JOIN lists l ON b.list_id = l.id
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to copy bookmarks to items: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("  Migrated %d bookmarks to items table", rowsAffected)
+
+	// Verify counts match (only count valid bookmarks with list references)
+	var bookmarkCount, itemCount int
+	if err := tx.QueryRow(`
+		SELECT COUNT(*)
+		FROM bookmarks b
+		INNER JOIN lists l ON b.list_id = l.id
+	`).Scan(&bookmarkCount); err != nil {
+		return fmt.Errorf("failed to count valid bookmarks: %w", err)
+	}
+	if err := tx.QueryRow("SELECT COUNT(*) FROM items WHERE type = 'bookmark'").Scan(&itemCount); err != nil {
+		return fmt.Errorf("failed to count items: %w", err)
+	}
+
+	if bookmarkCount != itemCount {
+		return fmt.Errorf("data integrity check failed: valid bookmarks count (%d) != items count (%d)", bookmarkCount, itemCount)
+	}
+
+	log.Printf("  Data integrity verified: %d bookmarks successfully migrated", bookmarkCount)
+
+	// Drop the old bookmarks table
+	if _, err := tx.Exec("DROP TABLE bookmarks"); err != nil {
+		return fmt.Errorf("failed to drop bookmarks table: %w", err)
+	}
+
+	log.Println("  Dropped old bookmarks table")
+	log.Println("  Migration to items table complete")
 
 	return nil
 }

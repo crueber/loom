@@ -20,11 +20,11 @@ func NewDataAPI(database *db.DB) *DataAPI {
 
 // DataResponse represents the combined response with all user data
 type DataResponse struct {
-	Lists     []*models.List             `json:"lists"`
-	Bookmarks map[int][]*models.Bookmark `json:"bookmarks"` // keyed by list_id
+	Lists     []*models.List         `json:"lists"`
+	Bookmarks map[int][]*models.Item `json:"bookmarks"` // keyed by list_id, contains all items (bookmarks and notes)
 }
 
-// HandleGetAllData returns all lists and bookmarks for the authenticated user in a single request
+// HandleGetAllData returns all lists and items for the authenticated user in a single request
 func (api *DataAPI) HandleGetAllData(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from session
 	userID, ok := getUserID(r.Context())
@@ -40,22 +40,22 @@ func (api *DataAPI) HandleGetAllData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch all bookmarks in single query
-	allBookmarks, err := api.db.GetAllBookmarks(userID)
+	// Fetch all items (bookmarks and notes) in single query
+	allItems, err := api.db.GetAllItems(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Group bookmarks by list_id for easier frontend consumption
-	bookmarksByList := make(map[int][]*models.Bookmark)
-	for _, bm := range allBookmarks {
-		bookmarksByList[bm.ListID] = append(bookmarksByList[bm.ListID], bm)
+	// Group items by list_id for easier frontend consumption
+	itemsByList := make(map[int][]*models.Item)
+	for _, item := range allItems {
+		itemsByList[item.ListID] = append(itemsByList[item.ListID], item)
 	}
 
 	response := DataResponse{
 		Lists:     lists,
-		Bookmarks: bookmarksByList,
+		Bookmarks: itemsByList, // Keep field name for backward compatibility with frontend
 	}
 
 	w.Header().Set("Content-Type", "application/json")

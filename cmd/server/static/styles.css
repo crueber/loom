@@ -650,10 +650,21 @@ nav strong {
     color: var(--pico-contrast);
 }
 
-/* Add Bookmark Button */
-.add-bookmark-btn {
-    width: calc(100% - 2rem);
+/* Add Item Buttons Container */
+.list-add-buttons {
+    display: flex;
+    gap: 0.5rem;
     margin: 0.5rem 1rem 1rem;
+}
+
+.list-card.collapsed .list-add-buttons {
+    display: none;
+}
+
+/* Add Link and Add Note Buttons */
+.add-bookmark-btn,
+.add-note-btn {
+    flex: 1;
     padding: 0.5rem;
     font-size: 0.875rem;
     border: 1px dashed var(--pico-muted-border-color);
@@ -663,14 +674,11 @@ nav strong {
     transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
 }
 
-.add-bookmark-btn:hover {
+.add-bookmark-btn:hover,
+.add-note-btn:hover {
     border-color: var(--pico-primary);
     background: var(--pico-primary-background);
     opacity: 1;
-}
-
-.list-card.collapsed .add-bookmark-btn {
-    display: none;
 }
 
 /* Add List Button - Subtle and list-height */
@@ -789,4 +797,122 @@ dialog article {
 /* Hide bookmark URLs when list has more than 6 bookmarks */
 .bookmarks-container:has(.bookmark-item:nth-child(7)) .bookmark-url {
     display: none;
+}
+
+/* Note Item Styles */
+.note-item {
+    margin-bottom: 0.5rem;
+    background: var(--pico-background-color);
+    border-radius: var(--pico-border-radius);
+    cursor: pointer;
+    transition: transform 0.2s;
+    color: var(--pico-color);
+    position: relative;
+}
+
+.note-item:hover {
+    transform: translateX(4px);
+    background: var(--pico-secondary-background);
+}
+
+.note-item.sortable-ghost {
+    opacity: 0.4;
+}
+
+/* Note Card Architecture */
+.note-card-inner {
+    position: relative;
+    width: 100%;
+    min-height: 60px;
+}
+
+.note-card-front {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.note-card-back {
+    display: none;
+    padding: 0.75rem;
+}
+
+/* When flipped, hide front and show back */
+.note-item[data-flipped="true"] .note-card-front {
+    display: none;
+}
+
+.note-item[data-flipped="true"] .note-card-back {
+    display: block;
+}
+
+.note-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.note-text {
+    font-size: 0.875rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.note-actions {
+    display: none;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.note-item:hover .note-actions {
+    display: flex;
+}
+
+.config-note {
+    background: none;
+    border: none;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.config-note:hover {
+    opacity: 1;
+}
+
+/* Note Configuration Panel */
+.note-config-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.note-config-panel textarea {
+    width: 100%;
+    min-height: 120px;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 0.875rem;
+    padding: 0.5rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    background: var(--pico-background-color);
+    color: var(--pico-color);
+}
+
+.note-config-panel textarea:focus {
+    outline: none;
+    border-color: var(--pico-primary);
+}
+
+/* Touch device visibility for note actions */
+.touch-device .note-actions {
+    display: flex;
 }

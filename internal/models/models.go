@@ -32,7 +32,20 @@ type List struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Bookmark represents a single bookmark
+// Item represents a single item (bookmark or note)
+type Item struct {
+	ID         int       `json:"id"`
+	ListID     int       `json:"list_id"`
+	Type       string    `json:"type"` // "bookmark" or "note"
+	Title      *string   `json:"title,omitempty"`
+	URL        *string   `json:"url,omitempty"`
+	Content    *string   `json:"content,omitempty"`
+	FaviconURL *string   `json:"favicon_url,omitempty"`
+	Position   int       `json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// Bookmark represents a single bookmark (for backward compatibility)
 type Bookmark struct {
 	ID         int       `json:"id"`
 	ListID     int       `json:"list_id"`
@@ -41,6 +54,15 @@ type Bookmark struct {
 	FaviconURL *string   `json:"favicon_url,omitempty"`
 	Position   int       `json:"position"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+// Note represents a single note
+type Note struct {
+	ID        int       `json:"id"`
+	ListID    int       `json:"list_id"`
+	Content   string    `json:"content"`
+	Position  int       `json:"position"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Session represents a user session
@@ -53,26 +75,46 @@ type Session struct {
 
 // ExportData represents the structure for exporting user data
 type ExportData struct {
-	Version    int              `json:"version"`
-	ExportedAt time.Time        `json:"exported_at"`
-	Lists      []ExportList     `json:"lists"`
+	Version    int          `json:"version"`
+	ExportedAt time.Time    `json:"exported_at"`
+	Lists      []ExportList `json:"lists"`
 }
 
-// ExportList represents a list with its bookmarks in export format
+// ExportList represents a list with its items in export format
 type ExportList struct {
 	ID        int              `json:"id"`
 	Title     string           `json:"title"`
 	Color     string           `json:"color"`
 	Position  int              `json:"position"`
 	Collapsed bool             `json:"collapsed"`
-	Bookmarks []ExportBookmark `json:"bookmarks"`
+	Bookmarks []ExportBookmark `json:"bookmarks"` // For backward compatibility
+	Notes     []ExportNote     `json:"notes,omitempty"`
+	Items     []ExportItem     `json:"items,omitempty"` // New unified format
 }
 
-// ExportBookmark represents a bookmark in export format
+// ExportItem represents an item in export format
+type ExportItem struct {
+	ID         int     `json:"id"`
+	Type       string  `json:"type"`
+	Title      *string `json:"title,omitempty"`
+	URL        *string `json:"url,omitempty"`
+	Content    *string `json:"content,omitempty"`
+	FaviconURL *string `json:"favicon_url,omitempty"`
+	Position   int     `json:"position"`
+}
+
+// ExportBookmark represents a bookmark in export format (for backward compatibility)
 type ExportBookmark struct {
 	ID         int     `json:"id"`
 	Title      string  `json:"title"`
 	URL        string  `json:"url"`
 	FaviconURL *string `json:"favicon_url,omitempty"`
 	Position   int     `json:"position"`
+}
+
+// ExportNote represents a note in export format
+type ExportNote struct {
+	ID       int    `json:"id"`
+	Content  string `json:"content"`
+	Position int    `json:"position"`
 }

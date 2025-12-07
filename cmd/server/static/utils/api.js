@@ -97,6 +97,36 @@ async function reorderBookmarks(bookmarksData) {
     });
 }
 
+// Items API (unified bookmarks and notes)
+async function getItems(listId) {
+    return apiCall(`/lists/${listId}/items`);
+}
+
+async function createItem(listId, type, data) {
+    return apiCall('/items', {
+        method: 'POST',
+        body: JSON.stringify({ list_id: listId, type, ...data })
+    });
+}
+
+async function updateItem(id, data) {
+    return apiCall(`/items/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+    });
+}
+
+async function deleteItem(id) {
+    return apiCall(`/items/${id}`, { method: 'DELETE' });
+}
+
+async function reorderItems(itemsData) {
+    return apiCall('/items/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ items: itemsData })
+    });
+}
+
 // Export/Import API
 async function exportData() {
     const response = await fetch('/api/export');

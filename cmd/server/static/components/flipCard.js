@@ -31,13 +31,23 @@ function closeFlippedCard() {
             }
         }
     } else if (currentlyFlippedCard.type === 'bookmark') {
-        const bookmark = document.querySelector(`.bookmark-item[data-bookmark-id="${currentlyFlippedCard.id}"]`);
+        const bookmark = document.querySelector(`.bookmark-item[data-item-id="${currentlyFlippedCard.id}"]`);
         if (bookmark) {
             // Remove if temp
             if (bookmark.dataset.isTemp === 'true') {
                 bookmark.remove();
             } else {
                 bookmark.dataset.flipped = 'false';
+            }
+        }
+    } else if (currentlyFlippedCard.type === 'note') {
+        const note = document.querySelector(`.note-item[data-item-id="${currentlyFlippedCard.id}"]`);
+        if (note) {
+            // Remove if temp
+            if (note.dataset.isTemp === 'true') {
+                note.remove();
+            } else {
+                note.dataset.flipped = 'false';
             }
         }
     }
@@ -84,7 +94,7 @@ function flipToBookmark(bookmarkId) {
         closeFlippedCard();
     }
 
-    const bookmarkEl = document.querySelector(`.bookmark-item[data-bookmark-id="${bookmarkId}"]`);
+    const bookmarkEl = document.querySelector(`.bookmark-item[data-item-id="${bookmarkId}"]`);
     if (!bookmarkEl) return;
 
     bookmarkEl.dataset.flipped = 'true';
@@ -100,6 +110,31 @@ function flipToBookmark(bookmarkId) {
 
     // Dispatch event for component to handle form reset
     const event = new CustomEvent('bookmarkFlipped', { detail: { bookmarkId } });
+    document.dispatchEvent(event);
+}
+
+function flipToNote(noteId) {
+    // Close currently flipped card if it's different
+    if (currentlyFlippedCard && (currentlyFlippedCard.type !== 'note' || currentlyFlippedCard.id !== noteId)) {
+        closeFlippedCard();
+    }
+
+    const noteEl = document.querySelector(`.note-item[data-item-id="${noteId}"]`);
+    if (!noteEl) return;
+
+    noteEl.dataset.flipped = 'true';
+    currentlyFlippedCard = { type: 'note', id: noteId };
+
+    // Disable all Sortable instances
+    if (listsSortable) {
+        listsSortable.option("disabled", true);
+    }
+    Object.values(bookmarkSortables).forEach(sortable => {
+        sortable.option("disabled", true);
+    });
+
+    // Dispatch event for component to handle form reset
+    const event = new CustomEvent('noteFlipped', { detail: { noteId } });
     document.dispatchEvent(event);
 }
 

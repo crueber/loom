@@ -503,6 +503,206 @@ func (db *DB) VerifyBookmarkOwnership(bookmarkID, userID int) (bool, error) {
 	return exists, nil
 }
 
+// Item queries (unified bookmarks and notes)
+
+// CreateItem creates a new item (bookmark or note)
+func (db *DB) CreateItem(listID int, itemType string, title, url, content *string, faviconURL *string, position int) (*models.Item, error) {
+	result, err := db.Exec(
+		"INSERT INTO items (list_id, type, title, url, content, favicon_url, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		listID, itemType, title, url, content, faviconURL, position,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create item: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get item ID: %w", err)
+	}
+
+	return db.GetItem(int(id))
+}
+
+// GetItem retrieves an item by ID
+func (db *DB) GetItem(id int) (*models.Item, error) {
+	var item models.Item
+	err := db.QueryRow(
+		"SELECT id, list_id, type, title, url, content, favicon_url, position, created_at FROM items WHERE id = ?",
+		id,
+	).Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get item: %w", err)
+	}
+
+	return &item, nil
+}
+
+// GetItems retrieves all items for a list
+func (db *DB) GetItems(listID int) ([]*models.Item, error) {
+	rows, err := db.Query(
+		"SELECT id, list_id, type, title, url, content, favicon_url, position, created_at FROM items WHERE list_id = ? ORDER BY position",
+		listID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
+// GetAllItems retrieves all items for a user (across all lists)
+func (db *DB) GetAllItems(userID int) ([]*models.Item, error) {
+	rows, err := db.Query(
+		`SELECT i.id, i.list_id, i.type, i.title, i.url, i.content, i.favicon_url, i.position, i.created_at
+		 FROM items i
+		 INNER JOIN lists l ON i.list_id = l.id
+		 WHERE l.user_id = ?
+		 ORDER BY i.list_id, i.position`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
+// UpdateItem updates an item (supports partial updates)
+func (db *DB) UpdateItem(id int, title, url, content *string, faviconURL **string) error {
+	query := "UPDATE items SET "
+	args := []interface{}{}
+	updates := []string{}
+
+	if title != nil {
+		updates = append(updates, "title = ?")
+		args = append(args, *title)
+	}
+	if url != nil {
+		updates = append(updates, "url = ?")
+		args = append(args, *url)
+	}
+	if content != nil {
+		updates = append(updates, "content = ?")
+		args = append(args, *content)
+	}
+	if faviconURL != nil {
+		updates = append(updates, "favicon_url = ?")
+		args = append(args, *faviconURL)
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	query += updates[0]
+	for i := 1; i < len(updates); i++ {
+		query += ", " + updates[i]
+	}
+
+	query += " WHERE id = ?"
+	args = append(args, id)
+
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update item: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item not found")
+	}
+
+	return nil
+}
+
+// DeleteItem deletes an item
+func (db *DB) DeleteItem(id int) error {
+	result, err := db.Exec("DELETE FROM items WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete item: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item not found")
+	}
+
+	return nil
+}
+
+// UpdateItemPositions updates positions for multiple items
+func (db *DB) UpdateItemPositions(positions map[int]struct {
+	Position int
+	ListID   int
+}) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for itemID, pos := range positions {
+		_, err := tx.Exec("UPDATE items SET position = ?, list_id = ? WHERE id = ?", pos.Position, pos.ListID, itemID)
+		if err != nil {
+			return fmt.Errorf("failed to update item position: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// VerifyItemOwnership checks if an item belongs to a user (through the list)
+func (db *DB) VerifyItemOwnership(itemID, userID int) (bool, error) {
+	var exists bool
+	err := db.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1 FROM items i
+			JOIN lists l ON i.list_id = l.id
+			WHERE i.id = ? AND l.user_id = ?
+		)
+	`, itemID, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to verify item ownership: %w", err)
+	}
+	return exists, nil
+}
+
 // Board queries
 
 // GetBoards retrieves all boards for a user, sorted by most recently updated with default board first
@@ -527,6 +727,15 @@ func (db *DB) GetBoards(userID int) ([]*models.Board, error) {
 		}
 		board.IsDefault = isDefault == 1
 		boards = append(boards, &board)
+	}
+
+	// If no boards exist, create a default board
+	if len(boards) == 0 {
+		defaultBoard, err := db.GetDefaultBoard(userID)
+		if err != nil {
+			return nil, err
+		}
+		boards = append(boards, defaultBoard)
 	}
 
 	return boards, nil

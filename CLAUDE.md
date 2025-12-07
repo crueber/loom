@@ -195,6 +195,15 @@ Colors must match between frontend and backend. When changing colors:
 
 Migrations run automatically on startup in `internal/db/migrations.go`. Add new migrations to the `migrations` slice with incrementing versions. The system tracks applied migrations in a `migrations` table.
 
+**CRITICAL: Backward Compatibility Requirement**
+- **NEVER drop the database** to fix migration errors - migrations must handle existing data safely
+- Always maintain backward compatibility when modifying schema or migrating data
+- Handle orphaned records: Use INNER JOIN to copy only records with valid foreign key references
+- Include data integrity checks: Verify row counts match before and after migration
+- Check for table existence before attempting to migrate from it
+- Example: Migration v3 (bookmarks → items) uses `INNER JOIN lists` to skip orphaned bookmarks
+- Default boards: Created lazily in `GetBoards()` when user has no boards (not during user creation)
+
 ### Embedded Assets
 
 Static files are embedded at compile time using `//go:embed static` in `cmd/server/main.go`. Changes to static files require a rebuild to take effect.

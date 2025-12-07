@@ -198,7 +198,10 @@ document.addEventListener('alpine:init', () => {
                         </div>
                     </div>
                     <div class="bookmarks-container" data-list-id="${list.id}"></div>
-                    <button class="add-bookmark-btn secondary" data-list-id="${list.id}">+ Add Bookmark</button>
+                    <div class="list-add-buttons">
+                        <button class="add-bookmark-btn secondary" data-list-id="${list.id}">+ Link</button>
+                        <button class="add-note-btn secondary" data-list-id="${list.id}">+ Note</button>
+                    </div>
                 </div>
                 <div class="list-card-back">
                     <div class="list-config-panel">
@@ -291,6 +294,12 @@ document.addEventListener('alpine:init', () => {
         // Add bookmark button - dispatch event for items manager
         div.querySelector('.add-bookmark-btn').addEventListener('click', () => {
             const event = new CustomEvent('addBookmarkRequested', { detail: { listId: list.id } });
+            document.dispatchEvent(event);
+        });
+
+        // Add note button - dispatch event for items manager
+        div.querySelector('.add-note-btn').addEventListener('click', () => {
+            const event = new CustomEvent('addNoteRequested', { detail: { listId: list.id } });
             document.dispatchEvent(event);
         });
 

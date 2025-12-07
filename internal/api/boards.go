@@ -210,35 +210,35 @@ func GetBoardData(database *db.DB) http.HandlerFunc {
 			return
 		}
 
-		// Get all bookmarks for this user (we'll filter on frontend)
-		// Or we could join through lists to get only bookmarks for this board
-		bookmarks, err := database.GetAllBookmarks(userID)
+		// Get all items for this user (we'll filter on frontend)
+		// Or we could join through lists to get only items for this board
+		items, err := database.GetAllItems(userID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Filter bookmarks to only those in lists for this board
+		// Filter items to only those in lists for this board
 		listIDs := make(map[int]bool)
 		for _, list := range lists {
 			listIDs[list.ID] = true
 		}
 
-		filteredBookmarks := make(map[int]interface{})
-		for _, bookmark := range bookmarks {
-			if listIDs[bookmark.ListID] {
-				if _, exists := filteredBookmarks[bookmark.ListID]; !exists {
-					filteredBookmarks[bookmark.ListID] = []interface{}{}
+		filteredItems := make(map[int]interface{})
+		for _, item := range items {
+			if listIDs[item.ListID] {
+				if _, exists := filteredItems[item.ListID]; !exists {
+					filteredItems[item.ListID] = []interface{}{}
 				}
-				listBookmarks := filteredBookmarks[bookmark.ListID].([]interface{})
-				filteredBookmarks[bookmark.ListID] = append(listBookmarks, bookmark)
+				listItems := filteredItems[item.ListID].([]interface{})
+				filteredItems[item.ListID] = append(listItems, item)
 			}
 		}
 
 		response := map[string]interface{}{
 			"board":     board,
 			"lists":     lists,
-			"bookmarks": filteredBookmarks,
+			"bookmarks": filteredItems,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

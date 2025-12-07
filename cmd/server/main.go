@@ -100,6 +100,7 @@ func main() {
 	authAPI := api.NewAuthAPI(database, sessionManager)
 	listsAPI := api.NewListsAPI(database)
 	bookmarksAPI := api.NewBookmarksAPI(database, faviconFetcher)
+	itemsAPI := api.NewItemsAPI(database, faviconFetcher)
 	exportAPI := api.NewExportAPI(database)
 	dataAPI := api.NewDataAPI(database)
 
@@ -163,12 +164,19 @@ func main() {
 			r.Delete("/lists/{id}", listsAPI.HandleDeleteList)
 			r.Put("/lists/reorder", listsAPI.HandleReorderLists)
 
-			// Bookmarks
+			// Bookmarks (backward compatibility, deprecated)
 			r.Get("/lists/{list_id}/bookmarks", bookmarksAPI.HandleGetBookmarks)
 			r.Post("/bookmarks", bookmarksAPI.HandleCreateBookmark)
 			r.Put("/bookmarks/{id}", bookmarksAPI.HandleUpdateBookmark)
 			r.Delete("/bookmarks/{id}", bookmarksAPI.HandleDeleteBookmark)
 			r.Put("/bookmarks/reorder", bookmarksAPI.HandleReorderBookmarks)
+
+			// Items (unified bookmarks and notes)
+			r.Get("/lists/{list_id}/items", itemsAPI.HandleGetItems)
+			r.Post("/items", itemsAPI.HandleCreateItem)
+			r.Put("/items/{id}", itemsAPI.HandleUpdateItem)
+			r.Delete("/items/{id}", itemsAPI.HandleDeleteItem)
+			r.Put("/items/reorder", itemsAPI.HandleReorderItems)
 
 			// Export/Import
 			r.Get("/export", exportAPI.HandleExport)
