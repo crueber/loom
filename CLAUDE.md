@@ -81,12 +81,26 @@ The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
 ### Frontend Architecture
 
 Located in `cmd/server/static/`:
-- `index.html` - Single-page app structure
-- `app.js` - Vanilla JavaScript (no frameworks), uses SortableJS for drag-and-drop
+- `index.html` - Single-page app structure with Alpine.js directives
+- `app.js` - Main initialization (~83 lines)
+- `components/` - Modular Alpine.js components:
+  - `auth.js` - Authentication logic (login/logout, user state)
+  - `lists.js` - List CRUD and rendering
+  - `items.js` - Bookmark CRUD and rendering (prepared for Phase 3 Items refactor)
+  - `flipCard.js` - Shared card flip behavior and state management
+  - `dragScroll.js` - Horizontal drag-to-scroll functionality
+  - `cache.js` - LocalStorage management for instant loads
+- `utils/api.js` - API helper functions (all fetch calls)
 - `styles.css` - Custom styles with Pico.css base (~10KB)
-- `lib/` - Third-party libraries (Pico.css, SortableJS)
+- `lib/` - Third-party libraries:
+  - Pico.css (~10KB)
+  - SortableJS (drag-and-drop)
+  - Alpine.js v3.x (~15KB, reactive framework)
 
 **Key Frontend Features:**
+- **Alpine.js reactive components** for state management and modularity
+- **Component-based architecture** for easier development and maintenance
+- **Event-driven communication** between components via CustomEvents
 - Drag-to-scroll: Click and drag whitespace to scroll horizontally
 - SortableJS handles list/bookmark reordering with auto-scroll near edges
 - Card flip UI: Gear icon (⚙️) flips lists/bookmarks to show configuration panels
@@ -94,6 +108,7 @@ Located in `cmd/server/static/`:
 - Single flip enforcement: Only one card can be flipped at a time
 - Keyboard shortcuts: ESC to close, Enter to save
 - Color picker: Inline grid in list configuration (8 predefined colors, validated server-side)
+- **LocalStorage caching** for instant page loads with background refresh
 
 ### Data Flow
 
@@ -106,15 +121,24 @@ Located in `cmd/server/static/`:
 
 ### Card Flip UI Implementation
 
-**Touch Device Detection** (`app.js` lines 6-13):
+**Touch Device Detection** ([app.js:4-8](cmd/server/static/app.js#L4-L8)):
 - Detects touch capability via `'ontouchstart' in window || navigator.maxTouchPoints > 0`
 - Adds `.touch-device` class to body for CSS targeting
-- Tracks `currentlyFlippedCard` globally to enforce single flip
+- Managed globally in app.js initialization
+
+**Flip State Management** ([components/flipCard.js](cmd/server/static/components/flipCard.js)):
+- Global `currentlyFlippedCard` state tracks which card (if any) is flipped
+- `flipToList()` and `flipToBookmark()` functions handle flipping logic
+- `closeFlippedCard()` handles cleanup and temp card removal
+- Disables all SortableJS instances when any card is flipped
+- Re-enables sortables when card closes
+- ESC key listener closes any open configuration panel
 
 **List Configuration** (3D transform approach):
 - CSS: `perspective: 1000px`, `transform-style: preserve-3d`, `rotateY(180deg)`
 - Gear icon (⚙️) replaces edit/color/delete buttons
 - Configuration panel includes: title input, inline color grid, delete/cancel/save buttons
+- Managed by [components/lists.js](cmd/server/static/components/lists.js)
 - `pointer-events: none` on hidden card sides prevents click-through
 - List header collapse disabled when flipped
 
@@ -122,6 +146,7 @@ Located in `cmd/server/static/`:
 - Uses `display: none/block` instead of 3D transforms to avoid layout issues
 - Gear icon (⚙️) replaces edit/delete buttons
 - Configuration panel includes: title input, URL input, delete/cancel/save buttons
+- Managed by [components/items.js](cmd/server/static/components/items.js)
 - Naturally expands to fit content without taking out of document flow
 
 **Adding Items** (temporary card pattern):
@@ -134,28 +159,30 @@ Located in `cmd/server/static/`:
 - Cancel/ESC removes temp card from DOM
 - `closeFlippedCard()` detects temp items and removes them instead of unflipping
 
-**SortableJS Integration** (`app.js` lines 186-197, 253-257):
+**SortableJS Integration** ([components/lists.js](cmd/server/static/components/lists.js), [components/items.js](cmd/server/static/components/items.js)):
 - `delay: 200, delayOnTouchOnly: true` for long-press drag on touch devices
 - `filter: '[data-flipped="true"]'` prevents dragging flipped cards
 - All instances disabled when any card is flipped via `.option("disabled", true)`
 - Re-enabled when card closes via `.option("disabled", false)`
 - Auto-scroll near edges, animation on drop
+- Managed separately: listsSortable for lists, bookmarkSortables for bookmarks
 
-**Keyboard Support** (`app.js` lines 971-977):
+**Keyboard Support** ([components/flipCard.js:107-111](cmd/server/static/components/flipCard.js#L107-L111)):
 - ESC key closes any open configuration panel (including temp items)
-- Enter key in inputs saves changes
+- Enter key in inputs saves changes (handled in lists.js and items.js)
 
-**Drag-Scroll Exclusions** (`app.js` lines 934-956):
+**Drag-Scroll** ([components/dragScroll.js](cmd/server/static/components/dragScroll.js)):
 - Excludes INPUT, BUTTON, A, TEXTAREA, SELECT from initiating drag-scroll
 - Disabled when any card is flipped to prevent interference
 - Preserves normal interaction with form elements while maintaining whitespace drag
+- Initialized via `initializeHorizontalDragScroll()` in app.js
 
 ### Color Validation
 
 Colors must match between frontend and backend. When changing colors:
-1. Update `COLORS` array in `cmd/server/static/app.js`
-2. Update CSS classes in `cmd/server/static/styles.css`
-3. Update `validColors` slice in `internal/api/lists.go`
+1. Update `COLORS` array in [components/lists.js](cmd/server/static/components/lists.js)
+2. Update CSS classes in [styles.css](cmd/server/static/styles.css)
+3. Update `validColors` slice in [internal/api/lists.go](internal/api/lists.go)
 
 ### Session Management
 
@@ -196,6 +223,106 @@ All configuration via environment variables (no config files):
 - **Minimal footprint**: Compact sizing throughout (nav bar ~30-35px, small fonts, tight spacing)
 - **Adaptive compression**: Bookmark URLs hidden when list has 7+ bookmarks (using `:has(.bookmark-item:nth-child(7))` selector)
 - **Bottom padding**: 3rem padding at bottom of lists wrapper to clearly show where content ends
+
+## Component Architecture (Phase 1: Completed)
+
+### Alpine.js Integration
+
+The frontend uses Alpine.js v3.x for reactive state management and component modularity. Each component is registered using `Alpine.data()` and attached to DOM elements via `x-data` directives.
+
+**Component Structure:**
+- Each component is a self-contained module in `components/` directory
+- Components communicate via CustomEvents for loose coupling
+- State is managed within each component using Alpine's reactivity
+- Global state (like `currentlyFlippedCard`) is managed in dedicated components
+
+### Component Communication Patterns
+
+**Event-Driven Architecture:**
+Components communicate through CustomEvents rather than direct function calls:
+
+```javascript
+// Dispatching events
+const event = new CustomEvent('eventName', { detail: { data: value } });
+document.dispatchEvent(event);
+
+// Listening for events
+document.addEventListener('eventName', (event) => {
+    // Handle event.detail.data
+});
+```
+
+**Key Events:**
+- `userLoggedIn` - Dispatched when user logs in successfully
+- `userLoggedOut` - Dispatched when user logs out
+- `bookmarksDataLoaded` - Lists manager notifies items manager of bookmark data
+- `renderListBookmarks` - Request to render bookmarks for a specific list
+- `addBookmarkRequested` - Request to add a new bookmark to a list
+- `listDeleted` - Notify items manager that a list was deleted
+- `listsUpdated` - Notify cache update needed after list changes
+- `listFlipped` / `bookmarkFlipped` - Notify that a card was flipped
+- `removeTempList` - Request to remove temporary list from state
+- `reloadDataRequested` - Trigger full data reload
+
+### Cache Management
+
+[components/cache.js](cmd/server/static/components/cache.js) provides instant page loads:
+1. Load cached data from localStorage immediately (instant render)
+2. Fetch fresh data from server in background
+3. Compare cached vs fresh data using JSON.stringify
+4. Only re-render if data has changed
+5. Save fresh data to cache for next page load
+
+### Component Responsibilities
+
+**authManager** ([components/auth.js](cmd/server/static/components/auth.js)):
+- Login/logout functionality
+- Current user state management
+- Screen visibility (login vs app)
+- Dispatches `userLoggedIn` and `userLoggedOut` events
+
+**listsManager** ([components/lists.js](cmd/server/static/components/lists.js)):
+- Lists CRUD operations (create, read, update, delete)
+- List rendering with Alpine.js templates
+- SortableJS integration for drag-and-drop
+- Temporary list creation pattern
+- Color selection and validation
+- Collapse/expand functionality
+- Dispatches events for bookmark rendering and cache updates
+
+**itemsManager** ([components/items.js](cmd/server/static/components/items.js)):
+- Bookmarks CRUD operations
+- Bookmark rendering within lists
+- SortableJS integration for bookmark reordering
+- Cross-list bookmark dragging
+- Temporary bookmark creation pattern
+- Prepared for Phase 3 refactor to unified Items (links & notes)
+
+**Standalone Utilities:**
+- [components/flipCard.js](cmd/server/static/components/flipCard.js) - Global flip state management
+- [components/dragScroll.js](cmd/server/static/components/dragScroll.js) - Horizontal scroll functionality
+- [components/cache.js](cmd/server/static/components/cache.js) - LocalStorage helpers
+- [utils/api.js](cmd/server/static/utils/api.js) - All API fetch calls
+
+### Development Patterns
+
+**When Adding New Features:**
+1. Determine which component owns the feature
+2. Add state and methods to the appropriate Alpine component
+3. Use CustomEvents for cross-component communication
+4. Update cache via `listsUpdated` or direct `saveToCache()` calls
+5. Test that events propagate correctly between components
+
+**When Modifying Components:**
+1. Maintain event-driven communication (avoid direct coupling)
+2. Keep components focused on their core responsibilities
+3. Use Alpine's reactivity (`this.$nextTick()`, etc.) for DOM updates
+4. Remember that SortableJS instances need manual enable/disable management
+
+**Migration Notes (Phase 1 → Phase 2/3):**
+- `items.js` is currently managing bookmarks, will be refactored in Phase 3 to handle both links and notes
+- Component structure is prepared for boards feature (Phase 2)
+- All components use event-driven patterns to facilitate future multi-board support
 
 ## Troubleshooting
 
