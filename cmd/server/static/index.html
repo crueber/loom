@@ -33,13 +33,39 @@
     </div>
 
     <!-- Main App Screen -->
-    <div id="app-screen" x-show="!showLoginScreen" style="display: none;">
+    <div id="app-screen" x-show="!showLoginScreen" style="display: none;" x-data="boardsManager">
         <!-- Header -->
         <nav class="container-fluid">
             <ul>
                 <li><strong>Home Links</strong></li>
             </ul>
             <ul>
+                <li>
+                    <!-- Board Switcher -->
+                    <div class="board-switcher" x-data="{ open: false }" @click.away="open = false">
+                        <button @click="open = !open" class="board-switcher-btn secondary">
+                            <span x-show="!editingBoardTitle" x-text="currentBoard?.title || 'Loading...'" @click.stop="if (!open) startEditingTitle()"></span>
+                            <input
+                                x-show="editingBoardTitle"
+                                x-model="currentBoard.title"
+                                id="board-title-input"
+                                type="text"
+                                @keydown="saveTitle($event)"
+                                @blur="cancelEditingTitle()"
+                                @click.stop
+                                style="display: none; width: auto; min-width: 100px;"
+                            />
+                            <span class="board-switcher-arrow">▼</span>
+                        </button>
+                        <div class="board-dropdown" x-show="open" style="display: none;">
+                            <template x-for="board in boards" :key="board.id">
+                                <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="board.title"></a>
+                            </template>
+                            <hr>
+                            <a href="#" @click.prevent="createBoard">+ New Board</a>
+                        </div>
+                    </div>
+                </li>
                 <li><span id="user-name" x-text="currentUser?.username"></span></li>
                 <li><button id="export-btn" class="secondary">Export</button></li>
                 <li><button id="import-btn" class="secondary">Import</button></li>
@@ -110,6 +136,7 @@
     <script src="/static/components/dragScroll.js"></script>
     <script src="/static/components/flipCard.js"></script>
     <script src="/static/components/auth.js"></script>
+    <script src="/static/components/boards.js"></script>
     <script src="/static/components/lists.js"></script>
     <script src="/static/components/items.js"></script>
 

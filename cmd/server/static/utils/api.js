@@ -42,10 +42,10 @@ async function getLists() {
     return apiCall('/lists');
 }
 
-async function createList(title, color) {
+async function createList(title, color, boardId) {
     return apiCall('/lists', {
         method: 'POST',
-        body: JSON.stringify({ title, color })
+        body: JSON.stringify({ title, color, board_id: boardId })
     });
 }
 

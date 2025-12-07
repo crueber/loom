@@ -23,8 +23,9 @@ func NewListsAPI(database *db.DB) *ListsAPI {
 
 // CreateListRequest represents a request to create a list
 type CreateListRequest struct {
-	Title string `json:"title"`
-	Color string `json:"color"`
+	Title   string `json:"title"`
+	Color   string `json:"color"`
+	BoardID int    `json:"board_id"`
 }
 
 // UpdateListRequest represents a request to update a list
@@ -114,8 +115,25 @@ func (l *ListsAPI) HandleCreateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get current max position
-	lists, err := l.db.GetLists(userID)
+	// Validate board_id is provided
+	if req.BoardID == 0 {
+		respondError(w, http.StatusBadRequest, "Board ID is required")
+		return
+	}
+
+	// Verify board ownership
+	owns, err := l.db.VerifyBoardOwnership(req.BoardID, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to verify board ownership")
+		return
+	}
+	if !owns {
+		respondError(w, http.StatusNotFound, "Board not found")
+		return
+	}
+
+	// Get current max position for this board
+	lists, err := l.db.GetListsByBoard(userID, req.BoardID)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get lists")
 		return
@@ -127,7 +145,7 @@ func (l *ListsAPI) HandleCreateList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create list
-	list, err := l.db.CreateList(userID, req.Title, req.Color, position)
+	list, err := l.db.CreateList(userID, req.BoardID, req.Title, req.Color, position)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create list")
 		return

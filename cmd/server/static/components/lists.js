@@ -18,9 +18,17 @@ document.addEventListener('alpine:init', () => {
     listsSortable: null,
 
     init() {
-        // Listen for user login event
-        document.addEventListener('userLoggedIn', () => {
-            this.loadData();
+        // Listen for board data loaded (from boards manager)
+        document.addEventListener('boardDataLoaded', (event) => {
+            this.lists = event.detail.lists || [];
+
+            // Dispatch bookmarks to items manager
+            const bookmarksEvent = new CustomEvent('bookmarksDataLoaded', {
+                detail: { bookmarks: event.detail.bookmarks }
+            });
+            document.dispatchEvent(bookmarksEvent);
+
+            this.$nextTick(() => this.renderLists());
         });
 
         // Listen for user logout event
@@ -45,6 +53,18 @@ document.addEventListener('alpine:init', () => {
                 this.renderLists();
             }
         });
+    },
+
+    getBoardId() {
+        // Get current board ID from boards manager
+        const appEl = document.querySelector('[x-data*="boardsManager"]');
+        if (appEl) {
+            const boardsManager = Alpine.$data(appEl);
+            if (boardsManager && boardsManager.currentBoard) {
+                return boardsManager.currentBoard.id;
+            }
+        }
+        return null;
     },
 
     async loadData() {
@@ -299,7 +319,13 @@ document.addEventListener('alpine:init', () => {
 
             // Create new list
             try {
-                const createdList = await createList(newTitle, selectedColor);
+                const boardId = this.getBoardId();
+                if (!boardId) {
+                    alert('No board selected');
+                    return;
+                }
+
+                const createdList = await createList(newTitle, selectedColor, boardId);
                 const index = this.lists.findIndex(l => l.id === listId);
                 if (index !== -1) this.lists.splice(index, 1);
                 this.lists.push(createdList);

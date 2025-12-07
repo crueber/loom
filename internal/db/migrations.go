@@ -1,7 +1,9 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 )
 
 // migrate runs all database migrations
@@ -71,6 +73,29 @@ func (db *DB) migrate() error {
 				CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 			`,
 		},
+		{
+			version: 2,
+			sql: `
+				-- Create boards table
+				CREATE TABLE IF NOT EXISTS boards (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL,
+					title TEXT NOT NULL CHECK(length(title) <= 100),
+					is_default INTEGER NOT NULL DEFAULT 0,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+				);
+
+				CREATE INDEX IF NOT EXISTS idx_boards_user_id ON boards(user_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_boards_default ON boards(user_id, is_default) WHERE is_default = 1;
+
+				-- Add board_id column to lists (nullable initially for migration)
+				ALTER TABLE lists ADD COLUMN board_id INTEGER;
+
+				CREATE INDEX IF NOT EXISTS idx_lists_board_id ON lists(board_id);
+			`,
+		},
 	}
 
 	// Run each migration
@@ -93,9 +118,18 @@ func (db *DB) migrate() error {
 		}
 
 		// Execute migration SQL
+		log.Printf("Running migration version %d...", migration.version)
 		if _, err := tx.Exec(migration.sql); err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to execute migration %d: %w", migration.version, err)
+		}
+
+		// Run post-migration data migrations
+		if migration.version == 2 {
+			if err := db.migrateDataForBoardsV2(tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
+			}
 		}
 
 		// Record migration
@@ -107,7 +141,69 @@ func (db *DB) migrate() error {
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("failed to commit migration %d: %w", migration.version, err)
 		}
+
+		log.Printf("Migration version %d completed successfully", migration.version)
 	}
+
+	return nil
+}
+
+// migrateDataForBoardsV2 creates default boards for all users and migrates existing lists
+func (db *DB) migrateDataForBoardsV2(tx *sql.Tx) error {
+	log.Println("  Creating default boards for all users...")
+
+	// Get all users
+	rows, err := tx.Query("SELECT id, username FROM users")
+	if err != nil {
+		return fmt.Errorf("failed to query users: %w", err)
+	}
+	defer rows.Close()
+
+	userCount := 0
+	for rows.Next() {
+		var userID int
+		var username string
+		if err := rows.Scan(&userID, &username); err != nil {
+			return fmt.Errorf("failed to scan user: %w", err)
+		}
+
+		// Create default board for this user
+		result, err := tx.Exec(`
+			INSERT INTO boards (user_id, title, is_default, updated_at, created_at)
+			VALUES (?, 'Default', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		`, userID)
+		if err != nil {
+			return fmt.Errorf("failed to create default board for user %d: %w", userID, err)
+		}
+
+		boardID, err := result.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("failed to get board ID: %w", err)
+		}
+
+		// Update all lists for this user to belong to the default board
+		updateResult, err := tx.Exec(`
+			UPDATE lists SET board_id = ? WHERE user_id = ?
+		`, boardID, userID)
+		if err != nil {
+			return fmt.Errorf("failed to update lists for user %d: %w", userID, err)
+		}
+
+		listCount, _ := updateResult.RowsAffected()
+		log.Printf("  User '%s' (ID %d): Created default board (ID %d), migrated %d lists",
+			username, userID, boardID, listCount)
+		userCount++
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("error iterating users: %w", err)
+	}
+
+	log.Printf("  Migration complete: Created default boards for %d users", userCount)
+
+	// Now make board_id NOT NULL since all lists should have a board_id
+	// Note: SQLite doesn't support ALTER COLUMN directly, but since we've populated all rows,
+	// future inserts will require board_id via application logic
 
 	return nil
 }

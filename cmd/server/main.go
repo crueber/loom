@@ -118,8 +118,8 @@ func main() {
 	}
 	r.Handle("/static/*", cacheControlMiddleware(http.StripPrefix("/static/", http.FileServer(http.FS(staticFS)))))
 
-	// Serve index.html for root
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	// Serve index.html for root and board routes
+	serveApp := func(w http.ResponseWriter, r *http.Request) {
 		data, err := staticFiles.ReadFile("static/index.html")
 		if err != nil {
 			http.Error(w, "Failed to load page", http.StatusInternalServerError)
@@ -127,7 +127,9 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(data)
-	})
+	}
+	r.Get("/", serveApp)
+	r.Get("/boards/{id}", serveApp)
 
 	// API routes
 	r.Route("/api", func(r chi.Router) {
@@ -145,6 +147,14 @@ func main() {
 
 			// Combined data endpoint (single request for all lists + bookmarks)
 			r.Get("/data", dataAPI.HandleGetAllData)
+
+			// Boards
+			r.Get("/boards", api.GetBoards(database))
+			r.Post("/boards", api.CreateBoard(database))
+			r.Get("/boards/{id}", api.GetBoard(database))
+			r.Put("/boards/{id}", api.UpdateBoard(database))
+			r.Delete("/boards/{id}", api.DeleteBoard(database))
+			r.Get("/boards/{id}/data", api.GetBoardData(database))
 
 			// Lists
 			r.Get("/lists", listsAPI.HandleGetLists)

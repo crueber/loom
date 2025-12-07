@@ -110,6 +110,13 @@ func (e *ExportAPI) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get or create default board for this user
+	defaultBoard, err := e.db.GetDefaultBoard(userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to get default board")
+		return
+	}
+
 	// Handle replace mode: delete all existing data
 	if req.Mode == "replace" {
 		lists, err := e.db.GetLists(userID)
@@ -160,7 +167,7 @@ func (e *ExportAPI) HandleImport(w http.ResponseWriter, r *http.Request) {
 
 		// Create new list if it doesn't exist
 		if newList == nil {
-			newList, err = e.db.CreateList(userID, exportList.Title, exportList.Color, exportList.Position)
+			newList, err = e.db.CreateList(userID, defaultBoard.ID, exportList.Title, exportList.Color, exportList.Position)
 			if err != nil {
 				respondError(w, http.StatusInternalServerError, "Failed to create list")
 				return

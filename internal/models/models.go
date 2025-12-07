@@ -10,10 +10,21 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// Board represents a collection of lists
+type Board struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	Title     string    `json:"title"`
+	IsDefault bool      `json:"is_default"`
+	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // List represents a collection of bookmarks
 type List struct {
 	ID        int       `json:"id"`
 	UserID    int       `json:"user_id"`
+	BoardID   int       `json:"board_id"`
 	Title     string    `json:"title"`
 	Color     string    `json:"color"`
 	Position  int       `json:"position"`

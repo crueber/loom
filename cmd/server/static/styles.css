@@ -72,7 +72,72 @@ nav strong {
 #user-name {
     font-size: 0.75rem;
     padding: 0.15rem 0.25rem;
-    margin-right: 1rem;
+    margin: 0 1rem;
+}
+
+/* Board Switcher */
+.board-switcher {
+    position: relative;
+}
+
+.board-switcher-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem !important;
+    font-size: 0.85rem !important;
+    opacity: 1 !important;
+    min-width: 150px;
+    justify-content: space-between;
+}
+
+.board-switcher-btn span:first-child {
+    cursor: pointer;
+}
+
+.board-switcher-arrow {
+    font-size: 0.7rem;
+    opacity: 0.7;
+}
+
+.board-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.25rem;
+    min-width: 200px;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    box-shadow: var(--pico-card-box-shadow);
+    z-index: 1000;
+    padding: 0.5rem 0;
+}
+
+.board-dropdown a {
+    display: block;
+    padding: 0.5rem 1rem;
+    color: var(--pico-color);
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.board-dropdown a:hover {
+    background-color: var(--pico-secondary-background);
+}
+
+.board-dropdown hr {
+    margin: 0.5rem 0;
+    border-color: var(--pico-muted-border-color);
+}
+
+#board-title-input {
+    background: var(--pico-form-element-background-color);
+    border: 1px solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    margin: 0;
 }
 
 /* Lists Container */
