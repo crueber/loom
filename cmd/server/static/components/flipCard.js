@@ -125,6 +125,10 @@ function flipToNote(noteId) {
     noteEl.dataset.flipped = 'true';
     currentlyFlippedCard = { type: 'note', id: noteId };
 
+    const textarea = noteEl.querySelector(`textarea`);
+    textarea.focus();
+    textarea.selectionStart = textarea.value.length
+
     // Disable all Sortable instances
     if (listsSortable) {
         listsSortable.option("disabled", true);

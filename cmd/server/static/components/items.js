@@ -272,7 +272,7 @@ document.addEventListener('alpine:init', () => {
         `;
 
         // Gear icon - flip to back
-        wrapper.querySelector('.config-note').addEventListener('click', (e) => {
+        wrapper.querySelector('.note-card-front').addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             flipToNote(note.id);
