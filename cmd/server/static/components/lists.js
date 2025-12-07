@@ -156,7 +156,23 @@ document.addEventListener('alpine:init', () => {
             bubbleScroll: true,
             delay: 200,
             delayOnTouchOnly: true,
-            onEnd: (evt) => this.handleListReorder(evt)
+            onStart: (evt) => {
+                // Hide the back of the card during drag by setting a custom ghost
+                const listCard = evt.item;
+                const cardBack = listCard.querySelector('.list-card-back');
+                if (cardBack) {
+                    cardBack.style.display = 'none';
+                }
+            },
+            onEnd: (evt) => {
+                // Restore the back of the card after drag
+                const listCard = evt.item;
+                const cardBack = listCard.querySelector('.list-card-back');
+                if (cardBack) {
+                    cardBack.style.display = '';
+                }
+                this.handleListReorder(evt);
+            }
         });
 
         // Store reference globally for flipCard component
@@ -175,6 +191,18 @@ document.addEventListener('alpine:init', () => {
         }
     },
 
+    getItemCount(listId) {
+        // Access itemsManager to get count of items in this list
+        const appEl = document.querySelector('[x-data*="itemsManager"]');
+        if (appEl) {
+            const itemsManager = Alpine.$data(appEl);
+            if (itemsManager && itemsManager.items && itemsManager.items[listId]) {
+                return itemsManager.items[listId].length;
+            }
+        }
+        return 0;
+    },
+
     createListElement(list) {
         const div = document.createElement('div');
         div.className = `list-card ${list.collapsed ? 'collapsed' : ''}`;
@@ -187,12 +215,14 @@ document.addEventListener('alpine:init', () => {
         }
 
         const colorClass = this.getColorClass(list.color);
+        const itemCount = this.getItemCount(list.id);
+        const countDisplay = list.collapsed ? ` &mdash; ${itemCount}` : '';
 
         div.innerHTML = `
             <div class="list-card-inner">
                 <div class="list-card-front">
                     <div class="list-header ${colorClass}" data-list-id="${list.id}">
-                        <h3>${escapeHtml(list.title)}</h3>
+                        <h3>${escapeHtml(list.title)}${countDisplay}</h3>
                         <div class="list-actions">
                             <button class="list-action-btn config-list" title="Configure">⚙️</button>
                         </div>
@@ -454,6 +484,12 @@ document.addEventListener('alpine:init', () => {
             await updateList(listId, { collapsed: list.collapsed });
             const listEl = document.querySelector(`.list-card[data-list-id="${listId}"]`);
             listEl.classList.toggle('collapsed', list.collapsed);
+
+            // Update the title to show/hide item count
+            const itemCount = this.getItemCount(listId);
+            const countDisplay = list.collapsed ? ` (${itemCount})` : '';
+            const h3 = listEl.querySelector('.list-header h3');
+            h3.textContent = list.title + countDisplay;
         } catch (error) {
             console.error('Failed to toggle list:', error);
             list.collapsed = !list.collapsed;

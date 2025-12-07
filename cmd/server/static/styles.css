@@ -252,7 +252,7 @@ nav strong {
 }
 
 .list-card.collapsed .list-header h3 {
-    writing-mode: vertical-rl;
+    writing-mode: sideways-lr;
     text-orientation: mixed;
     transform: rotate(180deg);
 }
