@@ -247,12 +247,18 @@ document.addEventListener('alpine:init', () => {
         }
 
         const noteContent = note.content || '';
+        const renderedContent = noteContent ? marked.parse(noteContent, {
+            breaks: true,        // Convert \n to <br> for better formatting
+            gfm: false,         // Disable GitHub Flavored Markdown extras
+            headerIds: false,   // Disable auto-generated header IDs
+            mangle: false,      // Don't encode email addresses
+        }) : '';
 
         wrapper.innerHTML = `
             <div class="note-card-inner">
                 <div class="note-card-front">
                     <div class="note-content">
-                        <div class="note-text">${escapeHtml(noteContent)}</div>
+                        <div class="note-text">${renderedContent}</div>
                     </div>
                 </div>
                 <div class="note-card-back">

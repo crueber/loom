@@ -919,7 +919,6 @@ dialog article {
 .note-card-inner {
     position: relative;
     width: 100%;
-    min-height: 60px;
 }
 
 .note-card-front {
@@ -953,9 +952,63 @@ dialog article {
 .note-text {
     font-size: 0.875rem;
     margin: 0;
-    white-space: pre-wrap;
     word-wrap: break-word;
     overflow-wrap: break-word;
+}
+
+/* Markdown element styling within notes */
+.note-text h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+.note-text h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0.4rem 0;
+}
+
+.note-text h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0.3rem 0;
+}
+
+.note-text h4, .note-text h5, .note-text h6 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0.2rem 0;
+}
+
+.note-text strong {
+    font-weight: 600;
+}
+
+.note-text em {
+    font-style: italic;
+}
+
+.note-text a {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.note-text a:hover {
+    opacity: 0.8;
+}
+
+.note-text p {
+    margin: 0.3rem 0;
+}
+
+/* Remove default paragraph margins for cleaner display */
+.note-text p:first-child {
+    margin-top: 0;
+}
+
+.note-text p:last-child {
+    margin-bottom: 0;
 }
 
 .note-actions {
