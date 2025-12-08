@@ -160,7 +160,6 @@ nav strong {
     height: calc(100vh - 140px);
     background: var(--pico-card-background-color);
     border-radius: var(--pico-border-radius);
-    box-shadow: var(--pico-card-box-shadow);
     display: flex;
     flex-direction: column;
     transition: width 0.3s ease;
@@ -239,9 +238,102 @@ nav strong {
 }
 
 .list-card.collapsed .list-header {
+    position: relative;
     flex-direction: column;
     height: 100%;
     justify-content: center;
+    overflow: hidden;
+}
+
+/* Gradient overlay using ::before pseudo-element */
+.list-card.collapsed .list-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Dynamic gradient based on item count (0-10 items) */
+.list-card.collapsed[data-item-count="0"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 30%);
+}
+
+.list-card.collapsed[data-item-count="1"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 35%);
+}
+
+.list-card.collapsed[data-item-count="2"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 40%);
+}
+
+.list-card.collapsed[data-item-count="3"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 50%);
+}
+
+.list-card.collapsed[data-item-count="4"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 60%);
+}
+
+.list-card.collapsed[data-item-count="5"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 65%);
+}
+
+.list-card.collapsed[data-item-count="6"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 70%);
+}
+
+.list-card.collapsed[data-item-count="7"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 80%);
+}
+
+.list-card.collapsed[data-item-count="8"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 85%);
+}
+
+.list-card.collapsed[data-item-count="9"] .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        transparent 20%,
+        var(--pico-background-color) 90%);
+}
+
+/* 10+ items: Full height gradient */
+.list-card.collapsed[data-item-count="10"] .list-header::before,
+.list-card.collapsed[data-item-count]:not([data-item-count="0"]):not([data-item-count="1"]):not([data-item-count="2"]):not([data-item-count="3"]):not([data-item-count="4"]):not([data-item-count="5"]):not([data-item-count="6"]):not([data-item-count="7"]):not([data-item-count="8"]):not([data-item-count="9"]) .list-header::before {
+    background: linear-gradient(to bottom,
+        transparent 0%,
+        var(--pico-background-color) 100%);
 }
 
 .list-header h3 {
@@ -252,6 +344,8 @@ nav strong {
 }
 
 .list-card.collapsed .list-header h3 {
+    position: relative;
+    z-index: 2;
     writing-mode: sideways-lr;
     text-orientation: mixed;
     transform: rotate(180deg);
@@ -269,6 +363,8 @@ nav strong {
 }
 
 .list-card.collapsed .list-actions {
+    position: relative;
+    z-index: 2;
     flex-direction: column;
     margin-top: 1rem;
 }

@@ -205,9 +205,12 @@ document.addEventListener('alpine:init', () => {
 
     createListElement(list) {
         const div = document.createElement('div');
+        const itemCount = this.getItemCount(list.id);
+
         div.className = `list-card ${list.collapsed ? 'collapsed' : ''}`;
         div.dataset.listId = list.id;
         div.dataset.flipped = 'false';
+        div.dataset.itemCount = itemCount; // Add item count for gradient scaling
 
         // Mark temp lists
         if (typeof list.id === 'string' && list.id.startsWith('temp-')) {
@@ -215,7 +218,6 @@ document.addEventListener('alpine:init', () => {
         }
 
         const colorClass = this.getColorClass(list.color);
-        const itemCount = this.getItemCount(list.id);
         const countDisplay = list.collapsed ? ` &mdash; ${itemCount}` : '';
 
         div.innerHTML = `
@@ -490,6 +492,9 @@ document.addEventListener('alpine:init', () => {
             const countDisplay = list.collapsed ? ` &mdash; ${itemCount}` : '';
             const h3 = listEl.querySelector('.list-header h3');
             h3.innerHTML = list.title + countDisplay;
+
+            // Update data attribute for gradient scaling
+            listEl.dataset.itemCount = itemCount;
         } catch (error) {
             console.error('Failed to toggle list:', error);
             list.collapsed = !list.collapsed;
