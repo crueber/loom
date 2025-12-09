@@ -3,11 +3,13 @@ package main
 import (
 	"embed"
 	"encoding/hex"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/crueber/loom/internal/api"
@@ -21,16 +23,24 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
+// BuildVersion is set at build time via -ldflags
+var BuildVersion string = "dev"
+
 // cacheControlMiddleware adds cache headers for static assets
 func cacheControlMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Aggressive caching for static assets (JS, CSS, libs)
-		if r.URL.Path != "/" && (r.URL.Path == "/static/app.js" ||
-			r.URL.Path == "/static/styles.css" ||
-			r.URL.Path == "/static/lib/pico.min.css" ||
-			r.URL.Path == "/static/lib/sortable.min.js") {
-			// Cache for 1 year (assets don't change without rebuild)
+		path := r.URL.Path
+		hasVersion := r.URL.Query().Get("v") != ""
+
+		// Cache versioned assets for 1 year (they won't change)
+		if strings.HasPrefix(path, "/static/") && hasVersion {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else if strings.HasPrefix(path, "/static/lib/") {
+			// Cache third-party libs for 1 year (they're already versioned by library authors)
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else if strings.HasPrefix(path, "/static/") {
+			// Cache unversioned assets for 5 minutes
+			w.Header().Set("Cache-Control", "public, max-age=300")
 		}
 
 		next.ServeHTTP(w, r)
@@ -38,6 +48,12 @@ func cacheControlMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	// Load build version from embedded version file
+	if versionData, err := staticFiles.ReadFile("static/dist/version.txt"); err == nil {
+		BuildVersion = strings.TrimSpace(string(versionData))
+	}
+	log.Printf("Build version: %s", BuildVersion)
+
 	// Load configuration from environment variables
 	dbPath := getEnv("DATABASE_PATH", "./data/bookmarks.db")
 	port := getEnv("PORT", "8080")
@@ -126,8 +142,18 @@ func main() {
 			http.Error(w, "Failed to load page", http.StatusInternalServerError)
 			return
 		}
+
+		// Inject version query strings for cache busting
+		html := string(data)
+		html = strings.ReplaceAll(html,
+			`src="/static/dist/app.bundle.js"`,
+			fmt.Sprintf(`src="/static/dist/app.bundle.js?v=%s"`, BuildVersion))
+		html = strings.ReplaceAll(html,
+			`href="/static/styles.css"`,
+			fmt.Sprintf(`href="/static/styles.css?v=%s"`, BuildVersion))
+
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(data)
+		w.Write([]byte(html))
 	}
 	r.Get("/", serveApp)
 	r.Get("/boards/{id}", serveApp)

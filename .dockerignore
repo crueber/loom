@@ -33,3 +33,8 @@ README.md
 # Temporary files
 tmp/
 temp/
+
+# Node.js (excluded from Docker, but src/ is copied for build)
+cmd/server/node_modules/
+cmd/server/package-lock.json
+cmd/server/static/dist/

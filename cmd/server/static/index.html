@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loom</title>
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+    <link rel="manifest" href="/static/site.webmanifest">
+
     <link rel="stylesheet" href="/static/lib/pico.min.css">
     <link rel="stylesheet" href="/static/styles.css">
 </head>
@@ -129,20 +137,8 @@
     <script src="/static/lib/sortable.min.js"></script>
     <script src="/static/lib/marked.min.js"></script>
 
-    <!-- Utilities -->
-    <script src="/static/utils/api.js"></script>
-
-    <!-- Components (must load before Alpine) -->
-    <script src="/static/components/cache.js"></script>
-    <script src="/static/components/dragScroll.js"></script>
-    <script src="/static/components/flipCard.js"></script>
-    <script src="/static/components/auth.js"></script>
-    <script src="/static/components/boards.js"></script>
-    <script src="/static/components/lists.js"></script>
-    <script src="/static/components/items.js"></script>
-
-    <!-- Main App Initialization -->
-    <script src="/static/app.js"></script>
+    <!-- Application Bundle (all custom code) -->
+    <script src="/static/dist/app.bundle.js"></script>
 
     <!-- Alpine.js - Must load LAST with defer so components can register first -->
     <script defer src="/static/lib/alpine.min.js"></script>
