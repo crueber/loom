@@ -63,7 +63,7 @@
                                 </template>
                                 <hr>
                                 <a href="#" @click.prevent="renameBoardTitle = currentBoard?.title || ''; showRenameUI = true; $nextTick(() => document.getElementById('rename-board-input')?.focus())">Rename Board</a>
-                                <a href="#" @click.prevent="showDeleteUI = true">Delete Board</a>
+                                <a href="#" @click.prevent="showDeleteUI = true" x-show="!currentBoard.is_default">Delete Board</a>
                                 <hr>
                                 <a href="#" @click.prevent="createBoard">+ New Board</a>
                             </div>

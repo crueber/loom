@@ -5,6 +5,7 @@
 import { exportData, importData, showError, hideError } from './utils/api.js';
 import { getCurrentlyFlippedCard, initFlipCardListeners } from './components/flipCard.js';
 import { initializeHorizontalDragScroll } from './components/dragScroll.js';
+import { bootstrapData } from './components/dataBootstrap.js';
 
 // Import Alpine components (they register themselves)
 import './components/auth.js';
@@ -75,13 +76,14 @@ document.getElementById('close-color-picker').addEventListener('click', () => {
     document.getElementById('color-picker-modal').close();
 });
 
+// Listen for user login to bootstrap data
+document.addEventListener('userLoggedIn', async () => {
+    await bootstrapData();
+});
+
 // Listen for reload data requests
-document.addEventListener('reloadDataRequested', () => {
-    // Trigger data reload in lists manager
-    const listsManager = Alpine.$data(document.getElementById('lists-container'));
-    if (listsManager && listsManager.loadData) {
-        listsManager.loadData();
-    }
+document.addEventListener('reloadDataRequested', async () => {
+    await bootstrapData();
 });
 
 // Initialize app on page load

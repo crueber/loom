@@ -1,7 +1,7 @@
 // Boards Component
 
 import { getBoards, getBoardData, createBoard, updateBoard, deleteBoard } from '../utils/api.js';
-import { loadFromCache, saveToCache, hasDataChanged } from './cache.js';
+import { loadFromCache, saveToCache } from './cache.js';
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('boardsManager', () => ({
@@ -14,11 +14,6 @@ document.addEventListener('alpine:init', () => {
         renameBoardTitle: '',
 
         init() {
-            // Listen for user login to load boards
-            document.addEventListener('userLoggedIn', () => {
-                this.detectCurrentBoard();
-            });
-
             // Listen for logout to clear boards
             document.addEventListener('userLoggedOut', () => {
                 this.boards = [];
@@ -31,8 +26,9 @@ document.addEventListener('alpine:init', () => {
                 if (event.detail.board) {
                     this.currentBoard = event.detail.board;
                 }
-                // IMPORTANT: Get boards from the freshData that includes boards array
-                // This will be set by loadBoard when it gets the API response
+                if (event.detail.boards) {
+                    this.boards = event.detail.boards;
+                }
             });
 
             // Listen for list/bookmark updates to update cache
@@ -55,116 +51,6 @@ document.addEventListener('alpine:init', () => {
                     ...updates
                 };
                 saveToCache(updatedCache);
-            }
-        },
-
-        async detectCurrentBoard() {
-            // Parse URL to determine which board to load
-            const path = window.location.pathname;
-            const match = path.match(/^\/boards\/(\d+)$/);
-            const boardId = match ? parseInt(match[1]) : null;
-
-            if (boardId) {
-                // Load specific board (includes boards list)
-                await this.loadBoard(boardId);
-            } else {
-                // Load default board (includes boards list)
-                await this.loadDefaultBoard();
-            }
-        },
-
-        async loadBoards() {
-            try {
-                const response = await fetch('/api/boards');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                this.boards = await response.json();
-            } catch (error) {
-                console.error('Failed to load boards:', error);
-            }
-        },
-
-        async loadBoard(boardId) {
-            try {
-                // Step 1: Try to load from cache first for instant display
-                const cachedData = loadFromCache();
-                if (cachedData && cachedData.board && cachedData.board.id === boardId) {
-                    // Update state from cache
-                    this.currentBoard = cachedData.board;
-                    if (cachedData.boards) {
-                        this.boards = cachedData.boards;
-                        console.log('Boards loaded from cache:', this.boards);
-                    }
-
-                    // Dispatch cached data immediately (includes boards in detail)
-                    const cachedEvent = new CustomEvent('boardDataLoaded', {
-                        detail: {
-                            board: cachedData.board,
-                            boards: cachedData.boards,
-                            lists: cachedData.lists,
-                            items: cachedData.items || cachedData.bookmarks
-                        }
-                    });
-                    document.dispatchEvent(cachedEvent);
-                }
-
-                // Step 2: Fetch fresh data from server in background
-                const response = await fetch(`/api/boards/${boardId}/data`);
-                if (response.status === 404) {
-                    window.location.href = '/';
-                    return;
-                }
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const freshData = await response.json();
-
-                // Step 3: Update state with fresh data
-                this.currentBoard = freshData.board;
-                if (freshData.boards) {
-                    this.boards = freshData.boards;
-                    console.log('Boards updated from server:', this.boards);
-                }
-
-                // Step 4: Only re-render if data changed
-                if (!cachedData || hasDataChanged(cachedData, freshData)) {
-                    // Dispatch fresh data (includes boards in detail)
-                    const event = new CustomEvent('boardDataLoaded', {
-                        detail: {
-                            board: freshData.board,
-                            boards: freshData.boards,
-                            lists: freshData.lists,
-                            items: freshData.items
-                        }
-                    });
-                    document.dispatchEvent(event);
-
-                    // Save to cache for next load
-                    saveToCache(freshData);
-                }
-            } catch (error) {
-                console.error('Failed to load board:', error);
-                if (!cachedData) {
-                    alert('Failed to load board. Redirecting to default.');
-                    window.location.href = '/';
-                }
-            }
-        },
-
-        async loadDefaultBoard() {
-            // Try loading from cache first
-            const cachedData = loadFromCache();
-            if (cachedData && cachedData.board && cachedData.board.is_default) {
-                // We have default board in cache, use it
-                await this.loadBoard(cachedData.board.id);
-            } else {
-                // No cache - need to get boards list to find default
-                await this.loadBoards();
-                const defaultBoard = this.boards.find(b => b.is_default);
-                if (defaultBoard) {
-                    await this.loadBoard(defaultBoard.id);
-                }
             }
         },
 

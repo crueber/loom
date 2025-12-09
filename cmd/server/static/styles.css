@@ -34,12 +34,8 @@ body {
 nav {
     border-bottom: 1px solid var(--pico-muted-border-color);
     padding: 0.25rem 0.75rem !important;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-}
-
-nav:hover {
     opacity: 1;
+    transition: opacity 0.2s;
 }
 
 nav ul {
@@ -57,7 +53,7 @@ nav button {
     padding: 0.15rem 0.5rem;
     font-size: 0.75rem;
     margin: 0;
-    opacity: 0.5;
+    opacity: 0.3;
     transition: opacity 0.2s;
 }
 
@@ -148,7 +144,7 @@ nav strong {
 }
 
 .board-action-panel input {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.75rem !important;
     font-size: 0.875rem;
 }
 
