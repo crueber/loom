@@ -123,6 +123,32 @@ Located in `cmd/server/static/`:
 
 ## Important Patterns
 
+### Navigation and Board Management
+
+**Desktop Navigation** (> 768px):
+- Logo, board switcher, username, Export/Import buttons, Logout button
+- Board switcher dropdown contains:
+  - List of all boards (clickable to navigate)
+  - "Rename Board" → inline input with Cancel/Save buttons
+  - "Delete Board" → inline confirmation with Cancel/Delete buttons
+  - "+ New Board" at bottom
+- No click-to-rename on board title (removed)
+- All actions use inline UI patterns (no browser confirm dialogs)
+
+**Mobile Navigation** (< 768px):
+- Logo on left, hamburger menu (☰) on right
+- Hamburger opens overlay from right side containing:
+  - **Boards section**: Same board switcher dropdown as desktop
+  - **Account section**: Username, Export/Import buttons, Logout button
+- Clicking outside overlay or any navigation item closes menu
+- Close button (×) in top-right of overlay
+
+**Board Management Logic**:
+- Cannot delete the only remaining board
+- Deleting a board redirects to another board or default board
+- Renaming updates board title in place without page reload
+- All board operations update cache immediately
+
 ### Card Flip UI Implementation
 
 **Touch Device Detection** ([app.js:4-8](cmd/server/static/app.js#L4-L8)):
@@ -246,6 +272,8 @@ All configuration via environment variables (no config files):
 - **Minimal footprint**: Compact sizing throughout (nav bar ~30-35px, small fonts, tight spacing)
 - **Adaptive compression**: Bookmark URLs hidden when list has 7+ bookmarks (using `:has(.bookmark-item:nth-child(7))` selector)
 - **Bottom padding**: 3rem padding at bottom of lists wrapper to clearly show where content ends
+- **Mobile responsive**: Hamburger menu (< 768px) with overlay for navigation, all features accessible on mobile
+- **No confirm dialogs**: Inline confirmation patterns for destructive actions (delete board, delete list)
 
 ## Component Architecture (Phase 1: Completed)
 
@@ -319,6 +347,14 @@ document.addEventListener('eventName', (event) => {
 - Screen visibility (login vs app)
 - Dispatches `userLoggedIn` and `userLoggedOut` events
 
+**boardsManager** ([components/boards.js](cmd/server/src/components/boards.js)):
+- Board CRUD operations (create, rename, delete)
+- Board switching and navigation
+- Mobile menu state management
+- Board switcher dropdown with inline rename/delete UI
+- Prevents deleting the only board
+- Manages board data caching
+
 **listsManager** ([components/lists.js](cmd/server/static/components/lists.js)):
 - Lists CRUD operations (create, read, update, delete)
 - List rendering with Alpine.js templates
@@ -326,15 +362,17 @@ document.addEventListener('eventName', (event) => {
 - Temporary list creation pattern
 - Color selection and validation
 - Collapse/expand functionality
+- Copy/move lists between boards
 - Dispatches events for bookmark rendering and cache updates
 
 **itemsManager** ([components/items.js](cmd/server/static/components/items.js)):
-- Bookmarks CRUD operations
-- Bookmark rendering within lists
-- SortableJS integration for bookmark reordering
-- Cross-list bookmark dragging
-- Temporary bookmark creation pattern
-- Prepared for Phase 3 refactor to unified Items (links & notes)
+- Items (bookmarks & notes) CRUD operations
+- Item rendering within lists
+- SortableJS integration for item reordering
+- Cross-list item dragging
+- Temporary item creation pattern
+- Markdown rendering for notes with color tag support
+- Handles both bookmarks and notes (unified items approach)
 
 **Standalone Utilities:**
 - [components/flipCard.js](cmd/server/static/components/flipCard.js) - Global flip state management

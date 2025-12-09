@@ -1,6 +1,5 @@
 // API Helper Functions
-
-async function apiCall(endpoint, options = {}) {
+async function _apiCall(endpoint, options = {}) {
     const response = await fetch(`/api${endpoint}`, {
         ...options,
         headers: {
@@ -14,11 +13,23 @@ async function apiCall(endpoint, options = {}) {
         throw new Error(error.error || 'Request failed');
     }
 
+    return response;
+}
+
+async function apiCall(endpoint, options = {}) {    
+    const response = await _apiCall(endpoint, options);
+
     if (response.status === 204) {
         return null;
     }
 
     return response.json();
+}
+
+async function apiCallExpectEmpty(endpoint, options = {}) {
+    const response = await _apiCall(endpoint, options);
+
+    return null;
 }
 
 // Authentication
@@ -155,14 +166,14 @@ async function createBoard(title) {
 }
 
 async function updateBoard(boardId, title) {
-    return apiCall(`/boards/${boardId}`, {
+    return apiCallExpectEmpty(`/boards/${boardId}`, {
         method: 'PUT',
         body: JSON.stringify({ title })
     });
 }
 
 async function deleteBoard(boardId) {
-    return apiCall(`/boards/${boardId}`, { method: 'DELETE' });
+    return apiCallExpectEmpty(`/boards/${boardId}`, { method: 'DELETE' });
 }
 
 // Data API

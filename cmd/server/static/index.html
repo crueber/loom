@@ -47,30 +47,46 @@
             <ul>
                 <li><strong>Loom</strong></li>
             </ul>
-            <ul>
+            <ul class="nav-desktop">
                 <li>
                     <!-- Board Switcher -->
-                    <div class="board-switcher" x-data="{ open: false }" @click.away="open = false">
-                        <button @click="open = !open" class="board-switcher-btn secondary">
-                            <span x-show="!editingBoardTitle" x-text="currentBoard?.title || 'Loading...'" @click.stop="if (!open) startEditingTitle()"></span>
-                            <input
-                                x-show="editingBoardTitle"
-                                x-model="currentBoard.title"
-                                id="board-title-input"
-                                type="text"
-                                @keydown="saveTitle($event)"
-                                @blur="cancelEditingTitle()"
-                                @click.stop
-                                style="display: none; width: auto; min-width: 100px;"
-                            />
+                    <div class="board-switcher" @click.away="boardSwitcherOpen = false; showRenameUI = false; showDeleteUI = false;">
+                        <button @click="boardSwitcherOpen = !boardSwitcherOpen" class="board-switcher-btn secondary">
+                            <span x-text="currentBoard?.title || 'Loading...'"></span>
                             <span class="board-switcher-arrow">▼</span>
                         </button>
-                        <div class="board-dropdown" x-show="open" style="display: none;">
-                            <template x-for="board in boards" :key="board.id">
-                                <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="board.title"></a>
-                            </template>
-                            <hr>
-                            <a href="#" @click.prevent="createBoard">+ New Board</a>
+                        <div class="board-dropdown" x-show="boardSwitcherOpen" style="display: none;">
+                            <!-- Board List (only show if not in rename/delete mode) -->
+                            <div x-show="!showRenameUI && !showDeleteUI">
+                                <template x-for="board in boards" :key="board.id">
+                                    <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="board.title"></a>
+                                </template>
+                                <hr>
+                                <a href="#" @click.prevent="renameBoardTitle = currentBoard?.title || ''; showRenameUI = true; $nextTick(() => document.getElementById('rename-board-input')?.focus())">Rename Board</a>
+                                <a href="#" @click.prevent="showDeleteUI = true">Delete Board</a>
+                                <hr>
+                                <a href="#" @click.prevent="createBoard">+ New Board</a>
+                            </div>
+
+                            <!-- Rename Board UI -->
+                            <div x-show="showRenameUI" style="display: none;" class="board-action-panel">
+                                <h4>Rename Board</h4>
+                                <input type="text" x-model="renameBoardTitle" @keydown.enter="finishRename" @keydown.escape="showRenameUI = false; renameBoardTitle = currentBoard?.title" id="rename-board-input" placeholder="Board name">
+                                <div class="board-action-buttons">
+                                    <button class="secondary" @click="showRenameUI = false; renameBoardTitle = currentBoard?.title">Cancel</button>
+                                    <button @click="finishRename">Save</button>
+                                </div>
+                            </div>
+
+                            <!-- Delete Board UI -->
+                            <div x-show="showDeleteUI" style="display: none;" class="board-action-panel">
+                                <h4>Delete Board?</h4>
+                                <p x-text="`Delete '${currentBoard?.title}'? This will also delete all lists and items in this board.`"></p>
+                                <div class="board-action-buttons">
+                                    <button class="secondary" @click="showDeleteUI = false">Cancel</button>
+                                    <button class="contrast" @click="finishDelete">Delete</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </li>
@@ -79,7 +95,75 @@
                 <li><button id="import-btn" class="secondary">Import</button></li>
                 <li><button id="logout-btn" class="contrast" @click="handleLogout">Logout</button></li>
             </ul>
+            <!-- Mobile Hamburger Menu -->
+            <ul class="nav-mobile">
+                <li>
+                    <button class="hamburger-btn secondary" @click="mobileMenuOpen = !mobileMenuOpen" aria-label="Menu">
+                        <span class="hamburger-icon">☰</span>
+                    </button>
+                </li>
+            </ul>
         </nav>
+
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-menu-overlay" x-show="mobileMenuOpen" @click.self="mobileMenuOpen = false" style="display: none;">
+            <div class="mobile-menu">
+                <button class="mobile-menu-close" @click="mobileMenuOpen = false" aria-label="Close menu">×</button>
+
+                <!-- Board Switcher in Mobile Menu -->
+                <div class="mobile-menu-section">
+                    <h3>Boards</h3>
+                    <div class="board-switcher-mobile" @click.away="boardSwitcherOpen = false; showRenameUI = false; showDeleteUI = false;">
+                        <button @click="boardSwitcherOpen = !boardSwitcherOpen" class="board-switcher-btn-mobile secondary">
+                            <span x-text="currentBoard?.title || 'Loading...'"></span>
+                            <span class="board-switcher-arrow">▼</span>
+                        </button>
+                        <div class="board-dropdown-mobile" x-show="boardSwitcherOpen" style="display: none;">
+                            <!-- Board List (only show if not in rename/delete mode) -->
+                            <div x-show="!showRenameUI && !showDeleteUI">
+                                <template x-for="board in boards" :key="board.id">
+                                    <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="board.title"></a>
+                                </template>
+                                <hr>
+                                <a href="#" @click.prevent="renameBoardTitle = currentBoard?.title || ''; showRenameUI = true; $nextTick(() => document.getElementById('rename-board-input-mobile')?.focus())">Rename Board</a>
+                                <a href="#" @click.prevent="showDeleteUI = true">Delete Board</a>
+                                <hr>
+                                <a href="#" @click.prevent="createBoard">+ New Board</a>
+                            </div>
+
+                            <!-- Rename Board UI -->
+                            <div x-show="showRenameUI" style="display: none;" class="board-action-panel">
+                                <h4>Rename Board</h4>
+                                <input type="text" x-model="renameBoardTitle" @keydown.enter="finishRename" @keydown.escape="showRenameUI = false; renameBoardTitle = currentBoard?.title" id="rename-board-input-mobile" placeholder="Board name">
+                                <div class="board-action-buttons">
+                                    <button class="secondary" @click="showRenameUI = false; renameBoardTitle = currentBoard?.title">Cancel</button>
+                                    <button @click="finishRename">Save</button>
+                                </div>
+                            </div>
+
+                            <!-- Delete Board UI -->
+                            <div x-show="showDeleteUI" style="display: none;" class="board-action-panel">
+                                <h4>Delete Board?</h4>
+                                <p x-text="`Delete '${currentBoard?.title}'? This will also delete all lists and items in this board.`"></p>
+                                <div class="board-action-buttons">
+                                    <button class="secondary" @click="showDeleteUI = false">Cancel</button>
+                                    <button class="contrast" @click="finishDelete">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Actions in Mobile Menu -->
+                <div class="mobile-menu-section">
+                    <h3>Account</h3>
+                    <p class="mobile-menu-user"><strong x-text="currentUser?.username"></strong></p>
+                    <button id="export-btn-mobile" class="secondary mobile-menu-btn">Export</button>
+                    <button id="import-btn-mobile" class="secondary mobile-menu-btn">Import</button>
+                    <button class="contrast mobile-menu-btn" @click="handleLogout; mobileMenuOpen = false">Logout</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Lists Container -->
         <div id="lists-container" class="lists-wrapper" x-data="listsManager">

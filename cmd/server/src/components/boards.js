@@ -8,8 +8,10 @@ document.addEventListener('alpine:init', () => {
         boards: [],
         currentBoard: { title: 'Loading...' },
         boardSwitcherOpen: false,
-        editingBoardTitle: false,
-        editingBoardId: null,
+        mobileMenuOpen: false,
+        showRenameUI: false,
+        showDeleteUI: false,
+        renameBoardTitle: '',
 
         init() {
             // Listen for user login to load boards
@@ -23,11 +25,14 @@ document.addEventListener('alpine:init', () => {
                 this.currentBoard = { title: 'Loading...' };
             });
 
-            // Listen for boards data loaded from data endpoint
-            document.addEventListener('boardsDataLoaded', (event) => {
-                if (event.detail.boards) {
-                    this.boards = event.detail.boards;
+            // Listen for board data loaded - this includes the boards list
+            document.addEventListener('boardDataLoaded', (event) => {
+                console.log('boardDataLoaded event received:', event.detail);
+                if (event.detail.board) {
+                    this.currentBoard = event.detail.board;
                 }
+                // IMPORTANT: Get boards from the freshData that includes boards array
+                // This will be set by loadBoard when it gets the API response
             });
 
             // Listen for list/bookmark updates to update cache
@@ -59,14 +64,11 @@ document.addEventListener('alpine:init', () => {
             const match = path.match(/^\/boards\/(\d+)$/);
             const boardId = match ? parseInt(match[1]) : null;
 
-            // Load all boards for the switcher
-            await this.loadBoards();
-
             if (boardId) {
-                // Load specific board
+                // Load specific board (includes boards list)
                 await this.loadBoard(boardId);
             } else {
-                // Load default board
+                // Load default board (includes boards list)
                 await this.loadDefaultBoard();
             }
         },
@@ -88,12 +90,18 @@ document.addEventListener('alpine:init', () => {
                 // Step 1: Try to load from cache first for instant display
                 const cachedData = loadFromCache();
                 if (cachedData && cachedData.board && cachedData.board.id === boardId) {
+                    // Update state from cache
                     this.currentBoard = cachedData.board;
+                    if (cachedData.boards) {
+                        this.boards = cachedData.boards;
+                        console.log('Boards loaded from cache:', this.boards);
+                    }
 
-                    // Dispatch cached data immediately (support both old and new cache format)
+                    // Dispatch cached data immediately (includes boards in detail)
                     const cachedEvent = new CustomEvent('boardDataLoaded', {
                         detail: {
                             board: cachedData.board,
+                            boards: cachedData.boards,
                             lists: cachedData.lists,
                             items: cachedData.items || cachedData.bookmarks
                         }
@@ -101,18 +109,9 @@ document.addEventListener('alpine:init', () => {
                     document.dispatchEvent(cachedEvent);
                 }
 
-                // Also dispatch boards list for components that need it
-                if (this.boards.length > 0) {
-                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
-                        detail: { boards: this.boards }
-                    });
-                    document.dispatchEvent(boardsEvent);
-                }
-
                 // Step 2: Fetch fresh data from server in background
                 const response = await fetch(`/api/boards/${boardId}/data`);
                 if (response.status === 404) {
-                    // Board not found, redirect to default
                     window.location.href = '/';
                     return;
                 }
@@ -121,14 +120,20 @@ document.addEventListener('alpine:init', () => {
                 }
                 const freshData = await response.json();
 
-                // Step 3: Only update if data changed or no cache existed
-                if (!cachedData || hasDataChanged(cachedData, freshData)) {
-                    this.currentBoard = freshData.board;
+                // Step 3: Update state with fresh data
+                this.currentBoard = freshData.board;
+                if (freshData.boards) {
+                    this.boards = freshData.boards;
+                    console.log('Boards updated from server:', this.boards);
+                }
 
-                    // Dispatch fresh data
+                // Step 4: Only re-render if data changed
+                if (!cachedData || hasDataChanged(cachedData, freshData)) {
+                    // Dispatch fresh data (includes boards in detail)
                     const event = new CustomEvent('boardDataLoaded', {
                         detail: {
                             board: freshData.board,
+                            boards: freshData.boards,
                             lists: freshData.lists,
                             items: freshData.items
                         }
@@ -138,17 +143,8 @@ document.addEventListener('alpine:init', () => {
                     // Save to cache for next load
                     saveToCache(freshData);
                 }
-
-                // Also dispatch boards list for components that need it (in case it wasn't dispatched from cache)
-                if (this.boards.length > 0) {
-                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
-                        detail: { boards: this.boards }
-                    });
-                    document.dispatchEvent(boardsEvent);
-                }
             } catch (error) {
                 console.error('Failed to load board:', error);
-                // Only alert if we didn't have cached data
                 if (!cachedData) {
                     alert('Failed to load board. Redirecting to default.');
                     window.location.href = '/';
@@ -157,19 +153,18 @@ document.addEventListener('alpine:init', () => {
         },
 
         async loadDefaultBoard() {
-            // Find default board from boards list
-            let defaultBoard = this.boards.find(b => b.is_default);
-
-            // If no default board exists yet, get it from API
-            if (!defaultBoard && this.boards.length === 0) {
+            // Try loading from cache first
+            const cachedData = loadFromCache();
+            if (cachedData && cachedData.board && cachedData.board.is_default) {
+                // We have default board in cache, use it
+                await this.loadBoard(cachedData.board.id);
+            } else {
+                // No cache - need to get boards list to find default
                 await this.loadBoards();
-                defaultBoard = this.boards.find(b => b.is_default);
-            }
-
-            if (defaultBoard) {
-                this.currentBoard = defaultBoard;
-                // Load data for default board
-                await this.loadBoard(defaultBoard.id);
+                const defaultBoard = this.boards.find(b => b.is_default);
+                if (defaultBoard) {
+                    await this.loadBoard(defaultBoard.id);
+                }
             }
         },
 
@@ -212,54 +207,20 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        startEditingTitle() {
-            if (this.currentBoard) {
-                this.editingBoardTitle = true;
-                this.editingBoardId = this.currentBoard.id;
-                // Focus the input on next tick
-                this.$nextTick(() => {
-                    const input = document.getElementById('board-title-input');
-                    if (input) {
-                        input.focus();
-                        input.select();
-                    }
-                });
-            }
-        },
-
-        async saveTitle(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                await this.finishEditingTitle();
-            } else if (event.key === 'Escape') {
-                this.cancelEditingTitle();
-            }
-        },
-
-        async finishEditingTitle() {
-            const input = document.getElementById('board-title-input');
-            if (!input) return;
-
-            const newTitle = input.value.trim();
-            if (!newTitle) {
-                this.cancelEditingTitle();
+        async finishRename() {
+            const newTitle = this.renameBoardTitle.trim();
+            if (!newTitle || !this.currentBoard) {
+                this.showRenameUI = false;
+                this.renameBoardTitle = '';
                 return;
             }
 
             try {
-                const response = await fetch(`/api/boards/${this.editingBoardId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: newTitle })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to update board title');
-                }
+                await updateBoard(this.currentBoard.id, newTitle);
 
                 // Update local state
                 this.currentBoard.title = newTitle;
-                const board = this.boards.find(b => b.id === this.editingBoardId);
+                const board = this.boards.find(b => b.id === this.currentBoard.id);
                 if (board) {
                     board.title = newTitle;
                 }
@@ -267,18 +228,45 @@ document.addEventListener('alpine:init', () => {
                 // Update cache
                 this.updateCache({ board: this.currentBoard });
 
-                this.editingBoardTitle = false;
-                this.editingBoardId = null;
+                this.showRenameUI = false;
+                this.renameBoardTitle = '';
             } catch (error) {
                 console.error('Failed to update board title:', error);
                 alert('Failed to update board title: ' + error.message);
-                this.cancelEditingTitle();
             }
         },
 
-        cancelEditingTitle() {
-            this.editingBoardTitle = false;
-            this.editingBoardId = null;
+        async finishDelete() {
+            if (!this.currentBoard) return;
+
+            // Prevent deleting the only board
+            if (this.boards.length <= 1) {
+                alert('Cannot delete the only board');
+                this.showDeleteUI = false;
+                return;
+            }
+
+            try {
+                await deleteBoard(this.currentBoard.id);
+
+                // Find another board to redirect to
+                const remainingBoard = this.boards.find(b => b.id !== this.currentBoard.id);
+                if (remainingBoard) {
+                    // Navigate to the remaining board
+                    if (remainingBoard.is_default) {
+                        window.location.href = '/';
+                    } else {
+                        window.location.href = `/boards/${remainingBoard.id}`;
+                    }
+                } else {
+                    // Reload to get default board
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Failed to delete board:', error);
+                alert('Failed to delete board: ' + error.message);
+                this.showDeleteUI = false;
+            }
         },
 
         async deleteBoard(boardId) {
@@ -290,16 +278,12 @@ document.addEventListener('alpine:init', () => {
                 return;
             }
 
-            if (!confirm(`Are you sure you want to delete "${board.title}"? All lists and bookmarks in this board will be deleted.`)) {
-                return;
-            }
-
             try {
                 const response = await fetch(`/api/boards/${boardId}`, {
                     method: 'DELETE'
                 });
 
-                if (!response.ok) {
+                if (response.status !== 200) {
                     const error = await response.text();
                     throw new Error(error || 'Failed to delete board');
                 }

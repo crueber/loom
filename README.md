@@ -4,18 +4,29 @@ A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interf
 
 ## Features
 
+### Core Functionality
+- **Multiple Boards**: Organize bookmarks across separate boards for different contexts (work, personal, projects)
 - **Trello-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
+- **Notes with Markdown**: Add markdown-formatted notes alongside bookmarks with custom color syntax
 - **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
-- **Mobile-Optimized**: Touch-friendly with long-press to drag (200ms), always-visible controls, 44px touch targets
-- **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
-- **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
+- **Copy/Move Lists**: Transfer lists between boards with all items intact
 - **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
 - **Adaptive Compression**: Bookmark URLs automatically hide when lists have 7+ bookmarks for compact display
+
+### User Experience
+- **Mobile Responsive**: Hamburger menu (< 768px) with full feature access on mobile devices
+- **Touch-Optimized**: Long-press to drag (200ms), always-visible controls, 44px touch targets
+- **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
+- **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
+- **Inline Confirmations**: No browser confirm dialogs - all destructive actions use inline UI
+- **Instant Loading**: LocalStorage caching with background refresh for instant page loads
 - **Automatic Favicons**: Automatically fetches and displays favicons for your bookmarks
-- **Multi-user Support**: Each user has their own isolated bookmarks
+- **Stealth UI**: Minimal, unobtrusive navigation that fades in when needed
+
+### Technical Features
+- **Multi-user Support**: Each user has their own isolated bookmarks and boards
 - **Import/Export**: Backup and restore your bookmarks as JSON
 - **Dark Mode**: Beautiful dark theme with readable color palette
-- **Stealth UI**: Minimal, unobtrusive navigation that fades in when needed
 - **Minimal Footprint**: Docker image < 15MB
 - **Secure**: Argon2id password hashing, secure cookie-based sessions
 - **Fast**: Lightweight Go backend with SQLite database

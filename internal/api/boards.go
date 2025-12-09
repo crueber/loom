@@ -191,6 +191,13 @@ func GetBoardData(database *db.DB) http.HandlerFunc {
 			return
 		}
 
+		// Get all boards for the user (for board switcher)
+		boards, err := database.GetBoards(userID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		// Verify board ownership
 		board, err := database.GetBoardByID(boardID, userID)
 		if err != nil {
@@ -236,9 +243,10 @@ func GetBoardData(database *db.DB) http.HandlerFunc {
 		}
 
 		response := map[string]interface{}{
-			"board":     board,
-			"lists":     lists,
-			"items": filteredItems,
+			"board":  board,
+			"boards": boards,
+			"lists":  lists,
+			"items":  filteredItems,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
