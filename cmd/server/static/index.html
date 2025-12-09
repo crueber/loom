@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Loom</title>
+    <title x-data="boardsManager" x-text="currentBoard.title == 'Loading...' ? 'Loom' : currentBoard.title+' Loom'"></title>
 
     <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
