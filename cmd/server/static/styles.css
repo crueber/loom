@@ -145,8 +145,7 @@ nav strong {
     display: flex;
     gap: var(--list-gap);
     padding: 1rem;
-    padding-bottom: 3rem;
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 90px);
     overflow-x: auto;
     overflow-y: hidden;
     justify-content: safe center;
@@ -157,7 +156,7 @@ nav strong {
 .list-card {
     flex-shrink: 0;
     width: var(--list-width);
-    height: calc(100vh - 140px);
+    height: calc(100vh - 90px);
     background: var(--pico-card-background-color);
     border-radius: var(--pico-border-radius);
     display: flex;
