@@ -297,6 +297,95 @@ func (db *DB) UpdateListPositions(userID int, positions map[int]int) error {
 	return nil
 }
 
+// MoveOrCopyListToBoard moves or copies a list (with all its items) to another board
+func (db *DB) MoveOrCopyListToBoard(listID, userID, targetBoardID int, copy bool) (*models.List, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Verify list ownership and get list details
+	var list models.List
+	err = tx.QueryRow(
+		"SELECT id, user_id, board_id, title, color, position, collapsed, created_at FROM lists WHERE id = ? AND user_id = ?",
+		listID, userID,
+	).Scan(&list.ID, &list.UserID, &list.BoardID, &list.Title, &list.Color, &list.Position, &list.Collapsed, &list.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("list not found")
+	}
+
+	// Verify target board ownership
+	var boardExists bool
+	err = tx.QueryRow(
+		"SELECT EXISTS(SELECT 1 FROM boards WHERE id = ? AND user_id = ?)",
+		targetBoardID, userID,
+	).Scan(&boardExists)
+	if err != nil || !boardExists {
+		return nil, fmt.Errorf("target board not found")
+	}
+
+	// Get the max position in target board
+	var maxPosition int
+	err = tx.QueryRow(
+		"SELECT COALESCE(MAX(position), -1) FROM lists WHERE board_id = ?",
+		targetBoardID,
+	).Scan(&maxPosition)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get max position: %w", err)
+	}
+
+	newPosition := maxPosition + 1
+
+	if copy {
+		// Create a copy of the list
+		result, err := tx.Exec(
+			"INSERT INTO lists (user_id, board_id, title, color, position, collapsed) VALUES (?, ?, ?, ?, ?, ?)",
+			userID, targetBoardID, list.Title+" (copy)", list.Color, newPosition, list.Collapsed,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy list: %w", err)
+		}
+
+		newListID, err := result.LastInsertId()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get new list ID: %w", err)
+		}
+
+		// Copy all items from the original list to the new list
+		_, err = tx.Exec(
+			"INSERT INTO items (list_id, type, title, url, content, favicon_url, position) SELECT ?, type, title, url, content, favicon_url, position FROM items WHERE list_id = ?",
+			newListID, listID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy items: %w", err)
+		}
+
+		list.ID = int(newListID)
+		list.BoardID = targetBoardID
+		list.Title = list.Title + " (copy)"
+		list.Position = newPosition
+	} else {
+		// Move the list
+		_, err = tx.Exec(
+			"UPDATE lists SET board_id = ?, position = ? WHERE id = ? AND user_id = ?",
+			targetBoardID, newPosition, listID, userID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to move list: %w", err)
+		}
+
+		list.BoardID = targetBoardID
+		list.Position = newPosition
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return &list, nil
+}
+
 // Bookmark queries
 
 // CreateBookmark creates a new bookmark

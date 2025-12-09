@@ -20,16 +20,24 @@ func NewDataAPI(database *db.DB) *DataAPI {
 
 // DataResponse represents the combined response with all user data
 type DataResponse struct {
-	Lists     []*models.List         `json:"lists"`
-	Bookmarks map[int][]*models.Item `json:"bookmarks"` // keyed by list_id, contains all items (bookmarks and notes)
+	Boards []*models.Board        `json:"boards"`
+	Lists  []*models.List         `json:"lists"`
+	Items  map[int][]*models.Item `json:"items"` // keyed by list_id, contains all items (bookmarks and notes)
 }
 
-// HandleGetAllData returns all lists and items for the authenticated user in a single request
+// HandleGetAllData returns boards, lists, and items for the authenticated user in a single request
 func (api *DataAPI) HandleGetAllData(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from session
 	userID, ok := getUserID(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Fetch all boards
+	boards, err := api.db.GetBoards(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -54,8 +62,9 @@ func (api *DataAPI) HandleGetAllData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := DataResponse{
-		Lists:     lists,
-		Bookmarks: itemsByList, // Keep field name for backward compatibility with frontend
+		Boards: boards,
+		Lists:  lists,
+		Items:  itemsByList,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

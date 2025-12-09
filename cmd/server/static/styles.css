@@ -485,6 +485,30 @@ nav strong {
     box-shadow: 0 0 0 2px var(--pico-background-color);
 }
 
+.config-board-target {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+
+.config-board-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.config-copy-btn,
+.config-move-btn {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.config-copy-btn:disabled,
+.config-move-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .config-actions {
     margin-top: auto;
     display: flex;

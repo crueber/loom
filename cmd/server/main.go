@@ -189,6 +189,7 @@ func main() {
 			r.Put("/lists/{id}", listsAPI.HandleUpdateList)
 			r.Delete("/lists/{id}", listsAPI.HandleDeleteList)
 			r.Put("/lists/reorder", listsAPI.HandleReorderLists)
+			r.Post("/lists/{id}/copy-or-move", listsAPI.HandleCopyOrMoveList)
 
 			// Bookmarks (backward compatibility, deprecated)
 			r.Get("/lists/{list_id}/bookmarks", bookmarksAPI.HandleGetBookmarks)

@@ -67,6 +67,13 @@ async function reorderLists(listsData) {
     });
 }
 
+async function copyOrMoveList(listId, targetBoardId, copy) {
+    return apiCall(`/lists/${listId}/copy-or-move`, {
+        method: 'POST',
+        body: JSON.stringify({ target_board_id: targetBoardId, copy })
+    });
+}
+
 // Bookmarks API
 async function getBookmarks(listId) {
     return apiCall(`/lists/${listId}/bookmarks`);
@@ -213,6 +220,7 @@ export {
     updateList,
     deleteList,
     reorderLists,
+    copyOrMoveList,
     getBookmarks,
     createBookmark,
     updateBookmark,

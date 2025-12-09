@@ -279,3 +279,43 @@ func (l *ListsAPI) HandleReorderLists(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// CopyOrMoveListRequest represents a request to copy or move a list to another board
+type CopyOrMoveListRequest struct {
+	TargetBoardID int  `json:"target_board_id"`
+	Copy          bool `json:"copy"` // true for copy, false for move
+}
+
+// HandleCopyOrMoveList copies or moves a list to another board
+func (l *ListsAPI) HandleCopyOrMoveList(w http.ResponseWriter, r *http.Request) {
+	userID, ok := getUserID(r.Context())
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "Not authenticated")
+		return
+	}
+
+	listID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid list ID")
+		return
+	}
+
+	var req CopyOrMoveListRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Call database method to copy or move the list
+	resultList, err := l.db.MoveOrCopyListToBoard(listID, userID, req.TargetBoardID, req.Copy)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		respondError(w, http.StatusInternalServerError, "Failed to copy/move list")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, resultList)
+}

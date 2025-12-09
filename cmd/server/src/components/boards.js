@@ -23,6 +23,13 @@ document.addEventListener('alpine:init', () => {
                 this.currentBoard = { title: 'Loading...' };
             });
 
+            // Listen for boards data loaded from data endpoint
+            document.addEventListener('boardsDataLoaded', (event) => {
+                if (event.detail.boards) {
+                    this.boards = event.detail.boards;
+                }
+            });
+
             // Listen for list/bookmark updates to update cache
             document.addEventListener('listsUpdated', (event) => {
                 this.updateCache({ lists: event.detail.lists });
@@ -83,14 +90,23 @@ document.addEventListener('alpine:init', () => {
                 if (cachedData && cachedData.board && cachedData.board.id === boardId) {
                     this.currentBoard = cachedData.board;
 
-                    // Dispatch cached data immediately
+                    // Dispatch cached data immediately (support both old and new cache format)
                     const cachedEvent = new CustomEvent('boardDataLoaded', {
                         detail: {
+                            board: cachedData.board,
                             lists: cachedData.lists,
-                            bookmarks: cachedData.bookmarks
+                            items: cachedData.items || cachedData.bookmarks
                         }
                     });
                     document.dispatchEvent(cachedEvent);
+                }
+
+                // Also dispatch boards list for components that need it
+                if (this.boards.length > 0) {
+                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
+                        detail: { boards: this.boards }
+                    });
+                    document.dispatchEvent(boardsEvent);
                 }
 
                 // Step 2: Fetch fresh data from server in background
@@ -112,14 +128,23 @@ document.addEventListener('alpine:init', () => {
                     // Dispatch fresh data
                     const event = new CustomEvent('boardDataLoaded', {
                         detail: {
+                            board: freshData.board,
                             lists: freshData.lists,
-                            bookmarks: freshData.bookmarks
+                            items: freshData.items
                         }
                     });
                     document.dispatchEvent(event);
 
                     // Save to cache for next load
                     saveToCache(freshData);
+                }
+
+                // Also dispatch boards list for components that need it (in case it wasn't dispatched from cache)
+                if (this.boards.length > 0) {
+                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
+                        detail: { boards: this.boards }
+                    });
+                    document.dispatchEvent(boardsEvent);
                 }
             } catch (error) {
                 console.error('Failed to load board:', error);

@@ -61,14 +61,17 @@ The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
 **Backend Layers:**
 1. **API Handlers** (`internal/api/`) - HTTP request handling, organized by domain:
    - `auth.go` - Login/logout/registration
-   - `lists.go` - List CRUD and reordering
-   - `bookmarks.go` - Bookmark CRUD and reordering
+   - `data.go` - Combined data endpoint (boards, lists, items) for instant loads
+   - `boards.go` - Board CRUD and board-specific data loading
+   - `lists.go` - List CRUD, reordering, and copy/move between boards
+   - `items.go` - Items (bookmarks & notes) CRUD and reordering
+   - `bookmarks.go` - Deprecated, kept for backward compatibility
    - `export.go` - Import/export JSON functionality
 
 2. **Database** (`internal/db/`) - SQLite with modernc.org/sqlite (pure Go, no CGO):
    - `db.go` - Connection management, enables WAL mode and foreign keys
    - `migrations.go` - Schema migrations run on startup
-   - `queries.go` - All SQL queries for users, lists, bookmarks
+   - `queries.go` - All SQL queries for users, boards, lists, items
 
 3. **Auth** (`internal/auth/`) - Security layer:
    - `password.go` - Argon2id hashing/verification
@@ -115,7 +118,8 @@ Located in `cmd/server/static/`:
 1. **Initialization**: Server loads session keys (or generates them) → initializes DB → runs migrations → starts HTTP server
 2. **Authentication**: Cookie-based sessions via Gorilla sessions, middleware on protected routes
 3. **User isolation**: All queries filter by `user_id` from session context
-4. **Ordering**: Lists and bookmarks have `position` fields, reorder endpoints update all positions atomically
+4. **Ordering**: Lists and items have `position` fields, reorder endpoints update all positions atomically
+5. **Instant Loads**: `/api/data` endpoint returns boards, lists, and items in a single request for optimal performance. Data is cached locally for instant page loads with background refresh.
 
 ## Important Patterns
 
@@ -137,7 +141,17 @@ Located in `cmd/server/static/`:
 **List Configuration** (3D transform approach):
 - CSS: `perspective: 1000px`, `transform-style: preserve-3d`, `rotateY(180deg)`
 - Gear icon (⚙️) replaces edit/color/delete buttons
-- Configuration panel includes: title input, inline color grid, delete/cancel/save buttons
+- Configuration panel includes:
+  - Title input
+  - Inline color grid
+  - Board selector with Copy/Move buttons (when multiple boards exist)
+  - Delete/cancel/save buttons
+- Copy/Move functionality:
+  - Board selector dropdown shows all boards except current
+  - Copy button duplicates list (with all items) to target board, appends "(copy)" to title
+  - Move button transfers list (with all items) to target board
+  - Both buttons disabled until board selected
+  - After operation, prompts user to navigate to target board
 - Managed by [components/lists.js](cmd/server/static/components/lists.js)
 - `pointer-events: none` on hidden card sides prevents click-through
 - List header collapse disabled when flipped
@@ -264,12 +278,15 @@ document.addEventListener('eventName', (event) => {
 **Key Events:**
 - `userLoggedIn` - Dispatched when user logs in successfully
 - `userLoggedOut` - Dispatched when user logs out
-- `bookmarksDataLoaded` - Lists manager notifies items manager of bookmark data
-- `renderListBookmarks` - Request to render bookmarks for a specific list
+- `boardsDataLoaded` - Boards data loaded from `/api/data` endpoint
+- `boardDataLoaded` - Specific board data loaded (for non-default boards)
+- `bookmarksDataLoaded` - Lists manager notifies items manager of items data (maintains legacy name for compatibility)
+- `renderListBookmarks` - Request to render items for a specific list
 - `addBookmarkRequested` - Request to add a new bookmark to a list
+- `addNoteRequested` - Request to add a new note to a list
 - `listDeleted` - Notify items manager that a list was deleted
 - `listsUpdated` - Notify cache update needed after list changes
-- `listFlipped` / `bookmarkFlipped` - Notify that a card was flipped
+- `listFlipped` / `bookmarkFlipped` / `noteFlipped` - Notify that a card was flipped
 - `removeTempList` - Request to remove temporary list from state
 - `reloadDataRequested` - Trigger full data reload
 
@@ -277,10 +294,22 @@ document.addEventListener('eventName', (event) => {
 
 [components/cache.js](cmd/server/static/components/cache.js) provides instant page loads:
 1. Load cached data from localStorage immediately (instant render)
-2. Fetch fresh data from server in background
+2. Fetch fresh data from server in background (single `/api/data` call includes boards, lists, and items)
 3. Compare cached vs fresh data using JSON.stringify
 4. Only re-render if data has changed
 5. Save fresh data to cache for next page load
+
+**Cache Data Structure:**
+```json
+{
+  "boards": [...],
+  "lists": [...],
+  "items": {
+    "1": [...],  // items keyed by list_id
+    "2": [...]
+  }
+}
+```
 
 ### Component Responsibilities
 

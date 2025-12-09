@@ -1,6 +1,6 @@
 // Lists Management Component
 
-import { getLists, createList, updateList, deleteList, reorderLists, escapeHtml } from '../utils/api.js';
+import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml } from '../utils/api.js';
 import { loadFromCache, saveToCache } from './cache.js';
 import { flipToList, closeFlippedCard, setListsSortable } from './flipCard.js';
 
@@ -19,20 +19,28 @@ const COLORS = [
 document.addEventListener('alpine:init', () => {
     Alpine.data('listsManager', () => ({
     lists: [],
+    boards: [],
+    currentBoardId: null,
     listsSortable: null,
 
     init() {
         // Listen for board data loaded (from boards manager)
         document.addEventListener('boardDataLoaded', (event) => {
             this.lists = event.detail.lists || [];
+            this.currentBoardId = event.detail.board?.id || null;
 
-            // Dispatch bookmarks to items manager
+            // Dispatch items to items manager (support both old 'bookmarks' and new 'items' format)
             const bookmarksEvent = new CustomEvent('bookmarksDataLoaded', {
-                detail: { bookmarks: event.detail.bookmarks }
+                detail: { bookmarks: event.detail.items || event.detail.bookmarks }
             });
             document.dispatchEvent(bookmarksEvent);
 
             this.$nextTick(() => this.renderLists());
+        });
+
+        // Listen for boards data loaded (from boards manager)
+        document.addEventListener('boardsDataLoaded', (event) => {
+            this.boards = event.detail.boards || [];
         });
 
         // Listen for user logout event
@@ -77,9 +85,17 @@ document.addEventListener('alpine:init', () => {
         if (cachedData) {
             this.lists = cachedData.lists;
 
-            // Dispatch cached bookmarks to items manager
+            // Dispatch cached boards if available
+            if (cachedData.boards) {
+                const cachedBoardsEvent = new CustomEvent('boardsDataLoaded', {
+                    detail: { boards: cachedData.boards }
+                });
+                document.dispatchEvent(cachedBoardsEvent);
+            }
+
+            // Dispatch cached items to items manager (support both old 'bookmarks' and new 'items' format)
             const cachedEvent = new CustomEvent('bookmarksDataLoaded', {
-                detail: { bookmarks: cachedData.bookmarks }
+                detail: { bookmarks: cachedData.items || cachedData.bookmarks }
             });
             document.dispatchEvent(cachedEvent);
 
@@ -98,9 +114,17 @@ document.addEventListener('alpine:init', () => {
             if (!cachedData || hasDataChanged(cachedData, freshData)) {
                 this.lists = freshData.lists;
 
-                // Dispatch event with bookmark data for items manager
+                // Dispatch boards data
+                if (freshData.boards) {
+                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
+                        detail: { boards: freshData.boards }
+                    });
+                    document.dispatchEvent(boardsEvent);
+                }
+
+                // Dispatch event with items data for items manager
                 const event = new CustomEvent('bookmarksDataLoaded', {
-                    detail: { bookmarks: freshData.bookmarks }
+                    detail: { bookmarks: freshData.items }
                 });
                 document.dispatchEvent(event);
 
@@ -267,6 +291,21 @@ document.addEventListener('alpine:init', () => {
                                 `).join('')}
                             </div>
                         </div>
+                        ${this.boards.length > 1 ? `
+                        <div class="config-form-group">
+                            <label for="config-board-target-${list.id}">Copy/Move to Board</label>
+                            <select id="config-board-target-${list.id}" class="config-board-target">
+                                <option value="">Select a board...</option>
+                                ${this.boards.filter(b => b.id !== this.currentBoardId).map(board => `
+                                    <option value="${board.id}">${escapeHtml(board.title)}</option>
+                                `).join('')}
+                            </select>
+                            <div class="config-board-actions">
+                                <button class="config-copy-btn secondary" disabled>Copy to Board</button>
+                                <button class="config-move-btn secondary" disabled>Move to Board</button>
+                            </div>
+                        </div>
+                        ` : ''}
                         <div class="config-actions">
                             <button class="config-delete-btn secondary">Delete List</button>
                             <button class="config-cancel-btn secondary">Cancel</button>
@@ -318,6 +357,29 @@ document.addEventListener('alpine:init', () => {
         div.querySelector('.config-delete-btn').addEventListener('click', () => {
             this.deleteListFromConfig(list.id);
         });
+
+        // Board selector - enable/disable copy/move buttons
+        const boardSelector = div.querySelector('.config-board-target');
+        const copyBtn = div.querySelector('.config-copy-btn');
+        const moveBtn = div.querySelector('.config-move-btn');
+
+        if (boardSelector && copyBtn && moveBtn) {
+            boardSelector.addEventListener('change', () => {
+                const hasSelection = boardSelector.value !== '';
+                copyBtn.disabled = !hasSelection;
+                moveBtn.disabled = !hasSelection;
+            });
+
+            // Copy button
+            copyBtn.addEventListener('click', () => {
+                this.copyOrMoveListToBoard(list.id, parseInt(boardSelector.value), true);
+            });
+
+            // Move button
+            moveBtn.addEventListener('click', () => {
+                this.copyOrMoveListToBoard(list.id, parseInt(boardSelector.value), false);
+            });
+        }
 
         // Enter key to save
         div.querySelector('.config-list-title').addEventListener('keypress', (e) => {
@@ -478,6 +540,43 @@ document.addEventListener('alpine:init', () => {
                 panel.innerHTML = originalHTML;
             }
         });
+    },
+
+    async copyOrMoveListToBoard(listId, targetBoardId, copy) {
+        const list = this.lists.find(l => l.id === listId);
+        if (!list) return;
+
+        const targetBoard = this.boards.find(b => b.id === targetBoardId);
+        if (!targetBoard) return;
+
+        const operationType = copy ? 'copy' : 'move';
+
+        try {
+            await copyOrMoveList(listId, targetBoardId, copy);
+
+            // Close config panel
+            closeFlippedCard();
+
+            // If moving, remove the list from current board
+            if (!copy) {
+                // Remove from local state
+                this.lists = this.lists.filter(l => l.id !== listId);
+
+                // Notify items manager to clean up items for this list
+                const deleteEvent = new CustomEvent('listDeleted', { detail: { listId } });
+                document.dispatchEvent(deleteEvent);
+
+                // Update cache
+                const updateEvent = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
+                document.dispatchEvent(updateEvent);
+
+                // Re-render lists
+                this.renderLists();
+            }
+        } catch (error) {
+            console.error(`Failed to ${operationType} list:`, error);
+            alert(`Failed to ${operationType} list to board`);
+        }
     },
 
     async toggleListCollapse(listId) {

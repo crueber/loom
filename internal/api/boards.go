@@ -238,7 +238,7 @@ func GetBoardData(database *db.DB) http.HandlerFunc {
 		response := map[string]interface{}{
 			"board":     board,
 			"lists":     lists,
-			"bookmarks": filteredItems,
+			"items": filteredItems,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

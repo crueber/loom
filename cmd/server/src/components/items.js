@@ -72,7 +72,7 @@ document.addEventListener('alpine:init', () => {
         document.addEventListener('listsUpdated', (event) => {
             const cachedData = loadFromCache();
             if (cachedData) {
-                saveToCache({ lists: event.detail.lists, bookmarks: this.items });
+                saveToCache({ lists: event.detail.lists, items: this.items });
             }
         });
 
@@ -594,7 +594,7 @@ document.addEventListener('alpine:init', () => {
         // Get current lists from cache
         const cachedData = loadFromCache();
         if (cachedData) {
-            saveToCache({ lists: cachedData.lists, bookmarks: this.items });
+            saveToCache({ lists: cachedData.lists, items: this.items });
         }
     }
 }));
