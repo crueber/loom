@@ -4,6 +4,30 @@ import { createItem, updateItem, deleteItem, reorderItems, escapeHtml } from '..
 import { flipToBookmark, flipToNote, closeFlippedCard, setBookmarkSortable } from './flipCard.js';
 import { loadFromCache, saveToCache } from './cache.js';
 
+// Helper function to process color tags in note content
+// Converts [color=X]...[/color] to <span style="color: X">...</span>
+// The inner content can still contain markdown which will be processed by marked.js
+function processColorTags(content) {
+    // Match [color=VALUE]...[/color] where VALUE can be:
+    // - HTML color names (red, blue, yellow, etc.)
+    // - Hex colors (#123456 or #123)
+    const colorRegex = /\[color=([^\]]+)\]([\s\S]*?)\[\/color\]/gi;
+
+    return content.replace(colorRegex, (_match, color, text) => {
+        // Validate color format (hex or named color)
+        const isValidHex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(color);
+        const isValidNamed = /^[a-z]+$/i.test(color);
+
+        if (isValidHex || isValidNamed) {
+            // Convert to HTML span - marked.js will preserve this if we enable HTML
+            return `<span style="color: ${color}">${text}</span>`;
+        }
+
+        // If invalid color, return just the text without styling
+        return text;
+    });
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('itemsManager', () => ({
     items: {},  // Changed from bookmarks to items
@@ -251,7 +275,10 @@ document.addEventListener('alpine:init', () => {
         }
 
         const noteContent = note.content || '';
-        const renderedContent = noteContent ? marked.parse(noteContent, {
+        // Process color tags first (converts [color=X]...[/color] to HTML spans)
+        const processedContent = noteContent ? processColorTags(noteContent) : '';
+        // Then render markdown with HTML enabled so our color spans are preserved
+        const renderedContent = processedContent ? marked.parse(processedContent, {
             breaks: true,        // Convert \n to <br> for better formatting
             gfm: false,         // Disable GitHub Flavored Markdown extras
             headerIds: false,   // Disable auto-generated header IDs

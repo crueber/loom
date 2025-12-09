@@ -18,7 +18,8 @@
       "Bash(ls:*)",
       "Bash(find:*)",
       "Bash(npm run build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(node build.js:*)"
     ],
     "deny": [],
     "ask": []
