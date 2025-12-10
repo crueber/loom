@@ -2,7 +2,9 @@ package favicon
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,8 +31,8 @@ func New() *Fetcher {
 	}
 }
 
-// FetchFaviconURL fetches the favicon URL for a given website URL
-// Returns the favicon URL or nil if not available
+// FetchFaviconURL fetches the favicon for a given website URL and returns it as a Base64 data URI
+// Returns the data URI or nil if not available
 func (f *Fetcher) FetchFaviconURL(websiteURL string) *string {
 	domain, err := extractDomain(websiteURL)
 	if err != nil {
@@ -39,7 +41,7 @@ func (f *Fetcher) FetchFaviconURL(websiteURL string) *string {
 
 	faviconURL := fmt.Sprintf("%s?domain=%s&sz=%s", googleFaviconService, domain, faviconSize)
 
-	// Test if the favicon URL is accessible
+	// Fetch the favicon bytes
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
@@ -54,11 +56,32 @@ func (f *Fetcher) FetchFaviconURL(websiteURL string) *string {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		return &faviconURL
+	if resp.StatusCode != http.StatusOK {
+		return nil
 	}
 
-	return nil
+	// Read the favicon bytes
+	faviconBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	// Don't cache if the response is empty or suspiciously small
+	if len(faviconBytes) < 100 {
+		return nil
+	}
+
+	// Encode to Base64 and create data URI
+	encoded := base64.StdEncoding.EncodeToString(faviconBytes)
+
+	// Determine content type from response header, default to png
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	dataURI := fmt.Sprintf("data:%s;base64,%s", contentType, encoded)
+	return &dataURI
 }
 
 // extractDomain extracts the domain from a URL

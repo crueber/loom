@@ -1,9 +1,14 @@
 package db
 
 import (
+	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
+	"time"
 )
 
 // migrate runs all database migrations
@@ -118,6 +123,14 @@ func (db *DB) migrate() error {
 				CREATE INDEX IF NOT EXISTS idx_items_type ON items(list_id, type);
 			`,
 		},
+		{
+			version: 4,
+			sql: `
+				-- Migration v4: Convert Google favicon URLs to Base64 data URIs
+				-- This is handled by the migrateDataForFaviconsV4 function
+				-- No schema changes needed - just data conversion
+			`,
+		},
 	}
 
 	// Run each migration
@@ -155,6 +168,12 @@ func (db *DB) migrate() error {
 		}
 		if migration.version == 3 {
 			if err := db.migrateDataForItemsV3(tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
+			}
+		}
+		if migration.version == 4 {
+			if err := db.migrateDataForFaviconsV4(tx); err != nil {
 				tx.Rollback()
 				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
 			}
@@ -297,6 +316,107 @@ func (db *DB) migrateDataForItemsV3(tx *sql.Tx) error {
 	log.Println("  Dropped old bookmarks table")
 	log.Println("  Migration to items table complete")
 
+	return nil
+}
+
+// migrateDataForFaviconsV4 converts existing Google favicon URLs to Base64 data URIs
+func (db *DB) migrateDataForFaviconsV4(tx *sql.Tx) error {
+	log.Println("  Converting Google favicon URLs to Base64 data URIs...")
+
+	// Get all items with Google favicon URLs
+	rows, err := tx.Query(`
+		SELECT id, favicon_url
+		FROM items
+		WHERE favicon_url IS NOT NULL
+		AND favicon_url LIKE 'https://www.google.com/s2/favicons%'
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query items with favicon URLs: %w", err)
+	}
+	defer rows.Close()
+
+	type itemWithFavicon struct {
+		id         int
+		faviconURL string
+	}
+
+	var itemsToUpdate []itemWithFavicon
+	for rows.Next() {
+		var item itemWithFavicon
+		if err := rows.Scan(&item.id, &item.faviconURL); err != nil {
+			return fmt.Errorf("failed to scan item: %w", err)
+		}
+		itemsToUpdate = append(itemsToUpdate, item)
+	}
+
+	if len(itemsToUpdate) == 0 {
+		log.Println("  No Google favicon URLs to convert")
+		return nil
+	}
+
+	log.Printf("  Found %d items with Google favicon URLs to convert", len(itemsToUpdate))
+
+	// Create HTTP client for fetching favicons
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+	}
+
+	converted := 0
+	failed := 0
+
+	for _, item := range itemsToUpdate {
+		// Fetch the favicon
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		req, err := http.NewRequestWithContext(ctx, "GET", item.faviconURL, nil)
+		if err != nil {
+			cancel()
+			failed++
+			continue
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			cancel()
+			failed++
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			cancel()
+			failed++
+			continue
+		}
+
+		// Get content type before reading body
+		contentType := resp.Header.Get("Content-Type")
+		if contentType == "" {
+			contentType = "image/png"
+		}
+
+		// Read favicon bytes
+		faviconBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel()
+
+		if err != nil || len(faviconBytes) < 100 {
+			failed++
+			continue
+		}
+
+		// Encode to Base64
+		encoded := base64.StdEncoding.EncodeToString(faviconBytes)
+		dataURI := fmt.Sprintf("data:%s;base64,%s", contentType, encoded)
+
+		// Update the item
+		if _, err := tx.Exec("UPDATE items SET favicon_url = ? WHERE id = ?", dataURI, item.id); err != nil {
+			return fmt.Errorf("failed to update item %d: %w", item.id, err)
+		}
+
+		converted++
+	}
+
+	log.Printf("  Converted %d favicons successfully, %d failed", converted, failed)
 	return nil
 }
 
