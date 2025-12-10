@@ -273,7 +273,7 @@ document.addEventListener('alpine:init', () => {
                             <input type="text" id="config-list-title-${list.id}" name="list-title" class="config-list-title" value="${escapeHtml(list.title)}" autocomplete="off">
                         </div>
                         <div class="config-form-group">
-                            <label>Color</label>
+                            <div>Color</div>
                             <div class="config-color-presets">
                                 ${COLORS.map(c => `
                                     <button type="button"
@@ -286,7 +286,7 @@ document.addEventListener('alpine:init', () => {
                                 `).join('')}
                             </div>
                             <div class="config-color-custom">
-                                <label>Custom:</label>
+                                <label for="color-picker-${list.id}">Custom:</label>
                                 <input type="color"
                                        class="color-picker-input"
                                        id="color-picker-${list.id}"
