@@ -9,6 +9,7 @@ A self-hosted, minimalistic bookmark manager with a beautiful Fizzy-like interfa
 - **Fizzy-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
 - **Notes with Markdown**: Add markdown-formatted notes alongside bookmarks with custom color syntax
 - **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
+- **Flexible Color Picker**: Choose from 8 preset colors or select any custom hex color for list headers
 - **Copy/Move Lists**: Transfer lists between boards with all items intact
 - **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
 - **Adaptive Compression**: Bookmark URLs automatically hide when lists have 7+ bookmarks for compact display
@@ -157,7 +158,10 @@ docker exec -it loom /user <command>
 1. Click the "+ Add List" button on the right
 2. A new list card appears, flipped to show the configuration panel
 3. Enter a title (required)
-4. Optionally change the color from the default (Blue)
+4. Optionally change the color:
+   - Click one of the 8 preset color buttons for quick selection
+   - Or use the color picker to choose any custom hex color
+   - Default color is Blue (#3D6D95)
 5. Click "Save" to create the list, or "Cancel" / press ESC to discard
    - Saving with an empty title will cancel the operation
 
@@ -178,7 +182,7 @@ docker exec -it loom /user <command>
 - **Click list header** to collapse/expand (lists collapse to vertical tabs)
 - **Configure lists**: Click the gear icon (⚙️) to flip the card and:
   - Edit list title
-  - Change color from 8-color inline picker
+  - Change color from 8 preset colors or choose any custom hex color
   - Delete list (with confirmation)
 - **Configure bookmarks**: Click the gear icon (⚙️) to flip the card and:
   - Edit bookmark title and URL
@@ -205,7 +209,7 @@ docker exec -it loom /user <command>
 - Argon2id (password hashing)
 
 **Frontend:**
-- Alpine JS (~5KB)
+- Alpine JS (~15KB)
 - Pico.css (minimal CSS framework, ~10KB)
 - SortableJS (drag-and-drop, ~2KB)
 
@@ -246,6 +250,7 @@ docker exec -it loom /user <command>
 - Target 20-30 bookmarks per list, ~10 lists per page.
 - Aims for 1000 links per user while keeping near 100ms response times.
 - Small codebase, memory footprint, both in browser and server.
+- Less than 40kb cache size (under 150kb fresh) for page load.
 
 ## License
 
