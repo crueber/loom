@@ -22,7 +22,6 @@ document.addEventListener('alpine:init', () => {
 
             // Listen for board data loaded - this includes the boards list
             document.addEventListener('boardDataLoaded', (event) => {
-                console.log('boardDataLoaded event received:', event.detail);
                 if (event.detail.board) {
                     this.currentBoard = event.detail.board;
                 }

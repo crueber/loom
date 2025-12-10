@@ -1,12 +1,12 @@
 # Loom
 
-A self-hosted, minimalistic bookmark manager with a beautiful Trello-like interface. Built with Go and designed for containerized deployment.
+A self-hosted, minimalistic bookmark manager with a beautiful Fizzy-like interface. Built with Go and designed for containerized deployment.
 
 ## Features
 
 ### Core Functionality
 - **Multiple Boards**: Organize bookmarks across separate boards for different contexts (work, personal, projects)
-- **Trello-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
+- **Fizzy-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
 - **Notes with Markdown**: Add markdown-formatted notes alongside bookmarks with custom color syntax
 - **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
 - **Copy/Move Lists**: Transfer lists between boards with all items intact
@@ -195,9 +195,7 @@ docker exec -it loom /user <command>
   - **Merge**: Adds new data, updates existing by ID
   - **Replace**: Deletes all data and imports fresh
 
-## Architecture
-
-### Technology Stack
+## Technology Stack
 
 **Backend:**
 - Go 1.23+
@@ -207,34 +205,9 @@ docker exec -it loom /user <command>
 - Argon2id (password hashing)
 
 **Frontend:**
-- Vanilla JavaScript (no frameworks)
+- Alpine JS (~5KB)
 - Pico.css (minimal CSS framework, ~10KB)
 - SortableJS (drag-and-drop, ~2KB)
-
-**Deployment:**
-- Docker multi-stage build
-- Scratch base image for minimal size
-- Single binary deployment
-
-### Project Structure
-
-```
-loom/
-├── cmd/
-│   ├── server/          # Main server application
-│   │   ├── main.go
-│   │   └── static/      # Embedded frontend assets
-│   └── user/            # User management CLI
-├── internal/
-│   ├── api/             # HTTP handlers
-│   ├── auth/            # Authentication & sessions
-│   ├── db/              # Database layer
-│   ├── favicon/         # Favicon fetching
-│   └── models/          # Data models
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
 
 ## Security Considerations
 
@@ -243,75 +216,6 @@ loom/
 3. **Session Keys**: Generate and set `SESSION_KEY` and `ENCRYPTION_KEY` in production
 4. **Rate Limiting**: Consider adding rate limiting at the reverse proxy level
 5. **Backups**: Regularly backup your SQLite database and exported JSON
-
-## Reverse Proxy Setup
-
-### Caddy Example
-
-```caddyfile
-bookmarks.example.com {
-    reverse_proxy localhost:8080
-}
-```
-
-### nginx Example
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name bookmarks.example.com;
-
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
-## Color Palette
-
-Darker, more readable colors optimized for dark mode:
-
-- Blue: `#3D6D95`
-- Green: `#4D7831`
-- Orange: `#B85720`
-- Red: `#A43529`
-- Purple: `#6B3D7D`
-- Pink: `#924F7D`
-- Teal: `#358178`
-- Gray: `#697374`
-
-## Database Schema
-
-### users
-- `id` - Primary key
-- `username` - Unique username
-- `password_hash` - Argon2id hash
-- `created_at` - Timestamp
-
-### lists
-- `id` - Primary key
-- `user_id` - Foreign key to users
-- `title` - List title
-- `color` - Hex color code
-- `position` - Sort order
-- `collapsed` - Boolean collapsed state
-- `created_at` - Timestamp
-
-### bookmarks
-- `id` - Primary key
-- `list_id` - Foreign key to lists
-- `title` - Bookmark title
-- `url` - Bookmark URL
-- `favicon_url` - Cached favicon URL
-- `position` - Sort order within list
-- `created_at` - Timestamp
 
 ## Troubleshooting
 
@@ -337,12 +241,11 @@ Darker, more readable colors optimized for dark mode:
 - Check `SESSION_MAX_AGE` environment variable
 - Default is 1 year (31536000 seconds)
 
-## Performance
+## Development Goals
 
-- Targets 20-30 bookmarks per list, ~10 lists
-- Supports up to 1000 bookmarks per user
-- Sub-50ms API response times
-- Minimal memory footprint (~20MB runtime)
+- Target 20-30 bookmarks per list, ~10 lists per page.
+- Aims for 1000 links per user while keeping near 100ms response times.
+- Small codebase, memory footprint, both in browser and server.
 
 ## License
 
@@ -351,16 +254,6 @@ MIT License - feel free to use and modify as needed.
 ## Contributing
 
 This is a personal project, but suggestions and bug reports are welcome!
-
-## Roadmap
-
-Future enhancements to consider:
-- [ ] Browser extension for quick bookmark additions
-- [ ] Bookmark tags and search
-- [ ] Bookmark screenshots/thumbnails
-- [ ] Shared lists between users
-- [ ] API keys for automation
-- [ ] Mobile app
 
 ---
 

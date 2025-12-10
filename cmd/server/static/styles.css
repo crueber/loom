@@ -613,31 +613,54 @@ nav strong {
     font-size: 0.875rem;
 }
 
-.config-color-grid {
+.config-color-section {
+    margin: 1rem 0;
+}
+
+.config-color-presets {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    padding: 0.5rem 0;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
 }
 
-.config-color-option {
+.color-preset-btn {
     width: 100%;
     aspect-ratio: 1;
-    border-radius: var(--pico-border-radius);
     border: 2px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
     cursor: pointer;
     transition: border-color 0.2s, transform 0.2s;
+    padding: 0;
 }
 
-.config-color-option:hover {
+.color-preset-btn:hover {
     transform: scale(1.05);
     border-color: var(--pico-contrast);
 }
 
-.config-color-option.selected {
+.config-color-custom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.config-color-custom label {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.color-picker-input {
+    width: 60px;
+    height: 40px;
+    border: 2px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    cursor: pointer;
+    padding: 2px;
+}
+
+.color-picker-input:hover {
     border-color: var(--pico-contrast);
-    border-width: 3px;
-    box-shadow: 0 0 0 2px var(--pico-background-color);
 }
 
 .config-board-target {
@@ -989,15 +1012,7 @@ nav strong {
     opacity: 1;
 }
 
-/* Color Palette Classes - Darker, more readable colors */
-.color-blue { background-color: #3D6D95; }
-.color-green { background-color: #4D7831; }
-.color-orange { background-color: #B85720; }
-.color-red { background-color: #A43529; }
-.color-purple { background-color: #6B3D7D; }
-.color-pink { background-color: #924F7D; }
-.color-teal { background-color: #358178; }
-.color-gray { background-color: #697374; }
+/* Color classes removed - now using inline styles */
 
 /* Sortable Dragging */
 .sortable-drag {
@@ -1056,9 +1071,9 @@ dialog article {
         font-size: 16px;
     }
 
-    /* Adjust color grid for mobile */
-    .config-color-grid {
-        gap: 0.5rem;
+    /* Adjust color presets for mobile */
+    .config-color-presets {
+        gap: 0.4rem;
     }
 }
 

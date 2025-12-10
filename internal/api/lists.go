@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -43,25 +44,10 @@ type ReorderListsRequest struct {
 	} `json:"lists"`
 }
 
-var validColors = []string{
-	"#3D6D95", // Blue (darker)
-	"#4D7831", // Green (darker)
-	"#B85720", // Orange (darker)
-	"#A43529", // Red (darker)
-	"#6B3D7D", // Purple (darker)
-	"#924F7D", // Pink (darker)
-	"#358178", // Teal (darker)
-	"#697374", // Gray (darker)
-}
-
-// isValidColor checks if a color is in the valid palette
-func isValidColor(color string) bool {
-	for _, c := range validColors {
-		if c == color {
-			return true
-		}
-	}
-	return false
+// isValidHexColor checks if a color is a valid hex format (#RRGGBB)
+func isValidHexColor(color string) bool {
+	matched, _ := regexp.MatchString(`^#[0-9A-Fa-f]{6}$`, color)
+	return matched
 }
 
 // HandleGetLists returns all lists for the authenticated user
@@ -110,7 +96,7 @@ func (l *ListsAPI) HandleCreateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isValidColor(req.Color) {
+	if !isValidHexColor(req.Color) {
 		respondError(w, http.StatusBadRequest, "Invalid color")
 		return
 	}
@@ -198,7 +184,7 @@ func (l *ListsAPI) HandleUpdateList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.Color != nil && !isValidColor(*req.Color) {
+	if req.Color != nil && !isValidHexColor(*req.Color) {
 		respondError(w, http.StatusBadRequest, "Invalid color")
 		return
 	}

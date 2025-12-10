@@ -6,14 +6,14 @@ import { flipToList, closeFlippedCard, setListsSortable } from './flipCard.js';
 
 // Color palette - Darker, more readable colors
 const COLORS = [
-    { name: 'Blue', value: '#3D6D95', class: 'color-blue' },
-    { name: 'Green', value: '#4D7831', class: 'color-green' },
-    { name: 'Orange', value: '#B85720', class: 'color-orange' },
-    { name: 'Red', value: '#A43529', class: 'color-red' },
-    { name: 'Purple', value: '#6B3D7D', class: 'color-purple' },
-    { name: 'Pink', value: '#924F7D', class: 'color-pink' },
-    { name: 'Teal', value: '#358178', class: 'color-teal' },
-    { name: 'Gray', value: '#697374', class: 'color-gray' }
+    { name: 'Blue', value: '#3D6D95' },
+    { name: 'Green', value: '#4D7831' },
+    { name: 'Orange', value: '#B85720' },
+    { name: 'Red', value: '#A43529' },
+    { name: 'Purple', value: '#6B3D7D' },
+    { name: 'Pink', value: '#924F7D' },
+    { name: 'Teal', value: '#358178' },
+    { name: 'Gray', value: '#697374' }
 ];
 
 document.addEventListener('alpine:init', () => {
@@ -245,13 +245,12 @@ document.addEventListener('alpine:init', () => {
             div.dataset.isTemp = 'true';
         }
 
-        const colorClass = this.getColorClass(list.color);
         const countDisplay = list.collapsed ? ` &mdash; ${itemCount}` : '';
 
         div.innerHTML = `
             <div class="list-card-inner">
                 <div class="list-card-front">
-                    <div class="list-header ${colorClass}" data-list-id="${list.id}">
+                    <div class="list-header" style="background-color: ${list.color};" data-list-id="${list.id}">
                         <h3>${escapeHtml(list.title)}${countDisplay}</h3>
                         <div class="list-actions">
                             <button class="list-action-btn config-list" title="Configure">⚙️</button>
@@ -274,21 +273,24 @@ document.addEventListener('alpine:init', () => {
                             <input type="text" id="config-list-title-${list.id}" name="list-title" class="config-list-title" value="${escapeHtml(list.title)}" autocomplete="off">
                         </div>
                         <div class="config-form-group">
-                            <div>Color</div>
-                            <div class="config-color-grid" role="radiogroup" aria-label="List color">
-                                ${COLORS.map((color, index) => `
-                                    <label class="config-color-option ${color.class} ${color.value === list.color ? 'selected' : ''}"
-                                           for="color-${list.id}-${index}"
-                                           title="${color.name}"> ${color.name}
-                                        <input type="radio"
-                                                id="color-${list.id}-${index}"
-                                                name="color-${list.id}"
-                                                value="${color.value}"
-                                                data-color="${color.value}"
-                                                ${color.value === list.color ? 'checked' : ''}
-                                                style="position: absolute; opacity: 0; pointer-events: none;">
-                                    </label>
+                            <label>Color</label>
+                            <div class="config-color-presets">
+                                ${COLORS.map(c => `
+                                    <button type="button"
+                                            class="color-preset-btn"
+                                            data-color="${c.value}"
+                                            style="background-color: ${c.value};"
+                                            title="${c.name}"
+                                            aria-label="${c.name}">
+                                    </button>
                                 `).join('')}
+                            </div>
+                            <div class="config-color-custom">
+                                <label>Custom:</label>
+                                <input type="color"
+                                       class="color-picker-input"
+                                       id="color-picker-${list.id}"
+                                       value="${list.color}">
                             </div>
                         </div>
                         ${this.boards.length > 1 ? `
@@ -340,13 +342,34 @@ document.addEventListener('alpine:init', () => {
             closeFlippedCard();
         });
 
-        // Color selection
-        div.querySelectorAll('.config-color-option input[type="radio"]').forEach(radio => {
-            radio.addEventListener('change', () => {
-                div.querySelectorAll('.config-color-option').forEach(o => o.classList.remove('selected'));
-                radio.closest('.config-color-option').classList.add('selected');
+        // Color preset buttons
+        div.querySelectorAll('.color-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const color = btn.dataset.color;
+                const colorPicker = div.querySelector('.color-picker-input');
+                if (colorPicker) {
+                    colorPicker.value = color;
+                    // Update header color immediately
+                    const header = div.closest('.list').querySelector('.list-header');
+                    if (header) {
+                        header.style.backgroundColor = color;
+                    }
+                }
             });
         });
+
+        // Color picker change handler
+        const colorPicker = div.querySelector('.color-picker-input');
+        if (colorPicker) {
+            colorPicker.addEventListener('change', () => {
+                const color = colorPicker.value;
+                // Update header color immediately
+                const header = div.closest('.list').querySelector('.list-header');
+                if (header) {
+                    header.style.backgroundColor = color;
+                }
+            });
+        }
 
         // Save button
         div.querySelector('.config-save-btn').addEventListener('click', () => {
@@ -411,8 +434,8 @@ document.addEventListener('alpine:init', () => {
 
         const isTemp = card.dataset.isTemp === 'true';
         const newTitle = card.querySelector('.config-list-title').value.trim();
-        const selectedColorRadio = card.querySelector('.config-color-option input[type="radio"]:checked');
-        const selectedColor = selectedColorRadio?.value;
+        const colorPicker = card.querySelector('.color-picker-input');
+        const selectedColor = colorPicker?.value;
 
         if (isTemp) {
             // Cancel if empty
@@ -477,9 +500,7 @@ document.addEventListener('alpine:init', () => {
                 }
                 if (updates.color) {
                     const headerEl = card.querySelector('.list-header');
-                    COLORS.forEach(c => headerEl.classList.remove(c.class));
-                    const colorClass = this.getColorClass(updates.color);
-                    headerEl.classList.add(colorClass);
+                    headerEl.style.backgroundColor = updates.color;
                 }
             }
 
@@ -646,10 +667,5 @@ document.addEventListener('alpine:init', () => {
         // Flip to back
         flipToList(tempId);
     },
-
-    getColorClass(colorValue) {
-        const color = COLORS.find(c => c.value === colorValue);
-        return color ? color.class : 'color-blue';
-    }
 }));
 });
