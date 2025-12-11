@@ -8,9 +8,12 @@
 
 [OAuth2 Setup](#oauth2-provider-setup) • [Troubleshooting](#troubleshooting) • [Contributing](#contributing)
 
-A self-hosted, minimalistic dashboard for links and notes with a beautiful Fizzy-like interface. Built to become your browser's home.
-
+[MIT License](LICENSE.md) &mdash; Free as in Freedom
 </div>
+
+---
+
+A self-hosted, minimalistic dashboard for links and notes with a beautiful Fizzy-like interface. Built to become your browser's home.
 
 ---
 
@@ -433,12 +436,6 @@ Guiderails for submissions:
 - No backward incompatible changes without migrations.
 - Don't hardcode colors or icons, et al.
 - Provide screenshot of changes in PR.
-
----
-
-## License
-
-[MIT License](LICENSE.md) - feel free to use and modify as needed.
 
 ---
 
