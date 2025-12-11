@@ -421,23 +421,30 @@ CGO_ENABLED=0 go build -o loom ./cmd/server
 
 ## Contributing
 
-This is a personal project, but suggestions and bug reports are welcome! Feel free to:
+Suggestions and bug reports are welcome!
 
-- 🐛 Report bugs via [GitHub Issues](https://github.com/crueber/loom/issues)
-- 💡 Suggest features or improvements
-- 🔧 Submit pull requests
+- Report bugs, features, or improvements via [GitHub Issues](https://github.com/crueber/loom/issues)
+
+If you want to work on a new feature, it's preferable to submit the feature first and work through the details before sending a PR. Unsolicited PRs will most likely be just be closed.
+
+Guiderails for submissions:
+
+- No new dependencies unless strictly necessary. The maintainer will let you know.
+- No backward incompatible changes without migrations.
+- Don't hardcode colors or icons, et al.
+- Provide screenshot of changes in PR.
 
 ---
 
 ## License
 
-[MIT License](LICENSE) - feel free to use and modify as needed.
+[MIT License](LICENSE.md) - feel free to use and modify as needed.
 
 ---
 
 <div align="center">
 
-Built with ❤️ using Go and AlpineJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).
+Authored with ❤️ using Go and AlpineJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).<br/>...and maybe other contributors at some point?
 
 **[⬆ Back to Top](#loom)**
 
