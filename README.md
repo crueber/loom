@@ -14,32 +14,22 @@ A self-hosted, minimalistic dashboard for links and notes with a beautiful Fizzy
 
 ---
 
-## Features
+### Features
 
-**Core Functionality**
-- 📋 **Multiple Boards** - Organize links across separate boards for different contexts
-- 🎯 **Fizzy-like Interface** - Draggable lists with horizontal and vertical drag-and-drop
-- 📝 **Markdown Notes** - Add markdown-formatted notes with custom color syntax
-- ⚙️ **Card Flip UI** - Clean configuration interface with gear icon interactions
-- 🎨 **Flexible Colors** - 8 preset colors or custom hex colors for list headers
-- 📦 **Copy/Move Lists** - Transfer lists between boards with all items intact
-- 📊 **Collapsible Lists** - Save screen space by collapsing lists to vertical tabs
+- **Multiple Boards** - Organize links and notes across boards for different contexts
+- **Fizzy-inspired Interface** - Draggable lists with horizontal and vertical drag-and-drop
+- **Markdown Notes** - Add markdown-formatted notes with custom color syntax
+- **Auto Favicons** - Automatically fetches and displays site favicons
+- **Copy/Move Lists** - Transfer lists between boards with all items intact
+- **Mobile Responsive** - Full feature access on mobile devices with touch optimization
+- **Stealth UI** - Minimal navigation that fades in when needed
 
-**User Experience**
-- 📱 **Mobile Responsive** - Full feature access on mobile devices with touch optimization
-- 🖱️ **Drag-to-Scroll** - Click and drag whitespace to scroll horizontally
-- ⌨️ **Keyboard Shortcuts** - ESC to close, Enter to save
-- ⚡ **Instant Loading** - LocalStorage caching with background refresh
-- 🔖 **Auto Favicons** - Automatically fetches and displays site favicons
-- 🎭 **Stealth UI** - Minimal navigation that fades in when needed
+### Built for Performance
 
-**Technical Features**
-- 👥 **Multi-user** - OAuth2/OIDC authentication with auto-provisioning
-- 💾 **Import/Export** - Backup and restore as JSON
-- 🌙 **Dark Mode** - Beautiful dark theme
-- 📦 **Minimal Footprint** - Docker image < 15MB
-- 🔒 **Secure** - OAuth2/OIDC authentication, secure sessions
-- ⚡ **Fast** - Lightweight Go backend with SQLite
+- **Lightweight** - Go backend with SQLite, AlpineJS front end.
+- **Minimal Footprint** - Docker image under 20MB
+- **Instant Load** - ~100ms full page load.
+- **Fast** - Less than 20kb with cache loaded, ~150kb including cache hydration.
 
 ---
 
@@ -374,14 +364,14 @@ CGO_ENABLED=0 go build -o loom ./cmd/server
 ## Security Considerations
 
 🔒 **Production Checklist**
-- ✅ Use HTTPS (reverse proxy with nginx, Caddy, or Traefik)
-- ✅ Set `SECURE_COOKIE=true` when using HTTPS
-- ✅ Generate strong `SESSION_KEY` and `ENCRYPTION_KEY` (never reuse) in .env
-- ✅ Keep `OAUTH2_CLIENT_SECRET` secret (never commit to git)
-- ✅ Use HTTPS for OAuth2 redirect URL in production
-- ✅ Disable ID token encryption in OAuth2 provider
-- ✅ Enable rate limiting at reverse proxy level
-- ✅ Regularly backup SQLite database
+- Use HTTPS (reverse proxy with nginx, Caddy, or Traefik)
+- Set `SECURE_COOKIE=true` when using HTTPS
+- Generate strong `SESSION_KEY` and `ENCRYPTION_KEY` (never reuse) in .env
+- Keep `OAUTH2_CLIENT_SECRET` secret (never commit to git)
+- Use HTTPS for OAuth2 redirect URL in production
+- Disable ID token encryption in OAuth2 provider
+- Enable rate limiting at reverse proxy level
+- Regularly backup SQLite database
 
 ---
 
@@ -437,15 +427,6 @@ CGO_ENABLED=0 go build -o loom ./cmd/server
 
 <hr>
 </details>
-
----
-
-## Performance Goals
-
-- 📊 Target: 20-30 links per list, ~10 lists per page
-- ⚡ Goal: 1000 links per user with <100ms response times
-- 💾 Cache: <40KB cached, <150KB fresh page load
-- 📦 Small codebase and minimal memory footprint
 
 ---
 
