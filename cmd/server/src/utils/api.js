@@ -68,7 +68,7 @@ async function updateList(id, data) {
 }
 
 async function deleteList(id) {
-    return apiCall(`/lists/${id}`, { method: 'DELETE' });
+    return apiCallExpectEmpty(`/lists/${id}`, { method: 'DELETE' });
 }
 
 async function reorderLists(listsData) {

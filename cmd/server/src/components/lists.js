@@ -2,7 +2,7 @@
 
 import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml } from '../utils/api.js';
 import { loadFromCache, saveToCache } from './cache.js';
-import { flipToList, closeFlippedCard, setListsSortable } from './flipCard.js';
+import { flipToList, closeFlippedCard, setListsSortable, setCurrentlyFlippedCard } from './flipCard.js';
 
 // Color palette - Darker, more readable colors
 const COLORS = [
@@ -27,6 +27,7 @@ document.addEventListener('alpine:init', () => {
         // Listen for board data loaded (from boards manager)
         document.addEventListener('boardDataLoaded', (event) => {
             this.lists = event.detail.lists || [];
+            this.boards = event.detail.boards || [];
             this.currentBoardId = event.detail.board?.id || null;
 
             // Dispatch items to items manager (support both old 'bookmarks' and new 'items' format)
@@ -36,11 +37,6 @@ document.addEventListener('alpine:init', () => {
             document.dispatchEvent(bookmarksEvent);
 
             this.$nextTick(() => this.renderLists());
-        });
-
-        // Listen for boards data loaded (from boards manager)
-        document.addEventListener('boardsDataLoaded', (event) => {
-            this.boards = event.detail.boards || [];
         });
 
         // Listen for user logout event

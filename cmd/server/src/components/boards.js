@@ -67,10 +67,7 @@ document.addEventListener('alpine:init', () => {
 
                 const newBoard = await response.json();
 
-                // Reload boards list
-                await this.loadBoards();
-
-                // Navigate to new board
+                // Navigate to new board (this will trigger a fresh data load)
                 window.location.href = `/boards/${newBoard.id}`;
             } catch (error) {
                 console.error('Failed to create board:', error);
@@ -151,38 +148,6 @@ document.addEventListener('alpine:init', () => {
                 console.error('Failed to delete board:', error);
                 alert('Failed to delete board: ' + error.message);
                 this.showDeleteUI = false;
-            }
-        },
-
-        async deleteBoard(boardId) {
-            const board = this.boards.find(b => b.id === boardId);
-            if (!board) return;
-
-            if (board.is_default) {
-                alert('Cannot delete the default board');
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/boards/${boardId}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.status !== 200) {
-                    const error = await response.text();
-                    throw new Error(error || 'Failed to delete board');
-                }
-
-                // If we deleted the current board, redirect to default
-                if (boardId === this.currentBoard?.id) {
-                    window.location.href = '/';
-                } else {
-                    // Just reload boards list
-                    await this.loadBoards();
-                }
-            } catch (error) {
-                console.error('Failed to delete board:', error);
-                alert('Failed to delete board: ' + error.message);
             }
         }
     }));
