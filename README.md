@@ -280,17 +280,6 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 
 ---
 
-## Technology Stack
-
-**Backend**
-- Go 1.23+ • Chi router • SQLite (pure Go, CGO-free)
-- Gorilla sessions • OAuth2/OIDC (go-oidc, golang.org/x/oauth2)
-
-**Frontend**
-- Alpine.js (~15KB) • Pico.css (~10KB) • SortableJS (~2KB) • Marked.js (markdown rendering)
-
----
-
 ## Development
 
 <details>
