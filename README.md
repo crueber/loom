@@ -13,7 +13,7 @@
 
 ---
 
-A self-hosted, minimalistic dashboard for links and notes with a beautiful Fizzy-like interface. Built to become your browser's home.
+A self-hosted, minimalistic browser home/dashboard for links and notes with a beautiful Fizzy-inspired interface. Built to become your browser's home.
 
 ---
 
