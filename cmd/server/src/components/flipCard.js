@@ -83,6 +83,16 @@ function flipToList(listId) {
         sortable.option("disabled", true);
     });
 
+    // Focus on title input and move cursor to end
+    setTimeout(() => {
+        const titleInput = card.querySelector('.config-list-title');
+        if (titleInput) {
+            titleInput.focus();
+            const length = titleInput.value.length;
+            titleInput.setSelectionRange(length, length);
+        }
+    }, 0);
+
     // Dispatch event for component to handle form reset
     const event = new CustomEvent('listFlipped', { detail: { listId } });
     document.dispatchEvent(event);
