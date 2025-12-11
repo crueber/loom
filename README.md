@@ -8,7 +8,7 @@
 
 [OAuth2 Setup](#oauth2-provider-setup) • [Troubleshooting](#troubleshooting) • [Contributing](#contributing)
 
-A self-hosted, minimalistic link and note store with a beautiful Fizzy-like interface. Built to become your browser's home.
+A self-hosted, minimalistic dashboard for links and notes with a beautiful Fizzy-like interface. Built to become your browser's home.
 
 </div>
 
@@ -45,7 +45,9 @@ A self-hosted, minimalistic link and note store with a beautiful Fizzy-like inte
 
 ## Prerequisites
 
-**⚠️ OAuth2 authentication is required.** Loom uses OAuth2/OIDC for authentication and does not support local password authentication. You must have an OAuth2 provider (such as Authentik, Keycloak, or any OIDC-compliant provider) configured before running Loom.
+**⚠️ OAuth2 authentication is required.** 
+
+Loom uses OAuth2/OIDC for authentication and does not support local password authentication. You must have an OAuth2 provider (such as Authentik, Keycloak, or any OIDC-compliant provider) configured before running Loom.
 
 ---
 
@@ -372,9 +374,9 @@ CGO_ENABLED=0 go build -o loom ./cmd/server
 ## Security Considerations
 
 🔒 **Production Checklist**
-- ✅ Use HTTPS (reverse proxy with Caddy, nginx, or Traefik)
+- ✅ Use HTTPS (reverse proxy with nginx, Caddy, or Traefik)
 - ✅ Set `SECURE_COOKIE=true` when using HTTPS
-- ✅ Generate strong `SESSION_KEY` and `ENCRYPTION_KEY` (never reuse)
+- ✅ Generate strong `SESSION_KEY` and `ENCRYPTION_KEY` (never reuse) in .env
 - ✅ Keep `OAUTH2_CLIENT_SECRET` secret (never commit to git)
 - ✅ Use HTTPS for OAuth2 redirect URL in production
 - ✅ Disable ID token encryption in OAuth2 provider
@@ -465,7 +467,7 @@ This is a personal project, but suggestions and bug reports are welcome! Feel fr
 
 <div align="center">
 
-Built with ❤️ using Go and vanilla JavaScript
+Built with ❤️ using Go and AlpineJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).
 
 **[⬆ Back to Top](#loom)**
 
