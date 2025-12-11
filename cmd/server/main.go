@@ -16,6 +16,7 @@ import (
 	"github.com/crueber/loom/internal/auth"
 	"github.com/crueber/loom/internal/db"
 	"github.com/crueber/loom/internal/favicon"
+	"github.com/crueber/loom/internal/oauth"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -62,6 +63,16 @@ func main() {
 	// Determine if we're in production (HTTPS)
 	secureCookie := getEnv("SECURE_COOKIE", "false") == "true"
 
+	// OAuth2 configuration (mandatory)
+	oauth2IssuerURL := os.Getenv("OAUTH2_ISSUER_URL")
+	oauth2ClientID := os.Getenv("OAUTH2_CLIENT_ID")
+	oauth2ClientSecret := os.Getenv("OAUTH2_CLIENT_SECRET")
+	oauth2RedirectURL := os.Getenv("OAUTH2_REDIRECT_URL")
+
+	if oauth2IssuerURL == "" || oauth2ClientID == "" || oauth2ClientSecret == "" || oauth2RedirectURL == "" {
+		log.Fatal("OAUTH2_ISSUER_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, and OAUTH2_REDIRECT_URL must be set")
+	}
+
 	// Initialize database
 	database, err := db.New(dbPath)
 	if err != nil {
@@ -69,51 +80,48 @@ func main() {
 	}
 	defer database.Close()
 
-	// Generate or load session keys
-	var authKey []byte
-	sessionKeyHex := getEnv("SESSION_KEY", "")
-	if sessionKeyHex == "" {
-		authKey, err = auth.GenerateKey(32)
-		if err != nil {
-			log.Fatalf("Failed to generate auth key: %v", err)
-		}
-		log.Println("WARNING: Using auto-generated session key. Set SESSION_KEY environment variable for production.")
-	} else {
-		authKey, err = hex.DecodeString(sessionKeyHex)
-		if err != nil {
-			log.Fatalf("Failed to decode SESSION_KEY: %v", err)
-		}
-		if len(authKey) != 32 && len(authKey) != 64 {
-			log.Fatalf("SESSION_KEY must be 32 or 64 bytes (64 or 128 hex characters), got %d bytes", len(authKey))
-		}
+	// Load session keys (mandatory - no auto-generation)
+	sessionKeyHex := os.Getenv("SESSION_KEY")
+	encryptionKeyHex := os.Getenv("ENCRYPTION_KEY")
+
+	if sessionKeyHex == "" || encryptionKeyHex == "" {
+		log.Fatal("SESSION_KEY and ENCRYPTION_KEY must be set for persistent sessions.\n" +
+			"Generate keys with: openssl rand -hex 32")
 	}
 
-	var encryptionKey []byte
-	encryptionKeyHex := getEnv("ENCRYPTION_KEY", "")
-	if encryptionKeyHex == "" {
-		encryptionKey, err = auth.GenerateKey(32)
-		if err != nil {
-			log.Fatalf("Failed to generate encryption key: %v", err)
-		}
-		log.Println("WARNING: Using auto-generated encryption key. Set ENCRYPTION_KEY environment variable for production.")
-	} else {
-		encryptionKey, err = hex.DecodeString(encryptionKeyHex)
-		if err != nil {
-			log.Fatalf("Failed to decode ENCRYPTION_KEY: %v", err)
-		}
-		if len(encryptionKey) != 16 && len(encryptionKey) != 24 && len(encryptionKey) != 32 {
-			log.Fatalf("ENCRYPTION_KEY must be 16, 24, or 32 bytes (32, 48, or 64 hex characters), got %d bytes", len(encryptionKey))
-		}
+	// Decode and validate session key
+	authKey, err := hex.DecodeString(sessionKeyHex)
+	if err != nil {
+		log.Fatalf("Failed to decode SESSION_KEY: %v", err)
+	}
+	if len(authKey) != 32 {
+		log.Fatalf("SESSION_KEY must be 32 bytes (64 hex characters), got %d bytes", len(authKey))
+	}
+
+	// Decode and validate encryption key
+	encryptionKey, err := hex.DecodeString(encryptionKeyHex)
+	if err != nil {
+		log.Fatalf("Failed to decode ENCRYPTION_KEY: %v", err)
+	}
+	if len(encryptionKey) != 32 {
+		log.Fatalf("ENCRYPTION_KEY must be 32 bytes (64 hex characters), got %d bytes", len(encryptionKey))
 	}
 
 	// Initialize session manager
 	sessionManager := auth.NewSessionManager(authKey, encryptionKey, sessionMaxAge, secureCookie)
 
+	// Initialize OAuth2 client
+	oauthClient, err := oauth.NewClient(oauth2IssuerURL, oauth2ClientID, oauth2ClientSecret, oauth2RedirectURL)
+	if err != nil {
+		log.Fatalf("Failed to initialize OAuth2 client: %v", err)
+	}
+	log.Printf("OAuth2 client initialized with issuer: %s", oauth2IssuerURL)
+
 	// Initialize favicon fetcher
 	faviconFetcher := favicon.New()
 
 	// Initialize API handlers
-	authAPI := api.NewAuthAPI(database, sessionManager)
+	authAPI := api.NewAuthAPI(database, sessionManager, oauthClient)
 	listsAPI := api.NewListsAPI(database)
 	bookmarksAPI := api.NewBookmarksAPI(database, faviconFetcher)
 	itemsAPI := api.NewItemsAPI(database, faviconFetcher)
@@ -158,9 +166,13 @@ func main() {
 	r.Get("/", serveApp)
 	r.Get("/boards/{id}", serveApp)
 
+	// OAuth2 routes (outside /api)
+	r.Get("/auth/login", authAPI.HandleOAuthLogin)
+	r.Get("/auth/callback", authAPI.HandleOAuthCallback)
+
 	// API routes
 	r.Route("/api", func(r chi.Router) {
-		// Public routes
+		// Public routes (deprecated - will be removed)
 		r.Post("/login", authAPI.HandleLogin)
 		r.Post("/register", authAPI.HandleRegister)
 

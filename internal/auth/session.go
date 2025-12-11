@@ -30,7 +30,7 @@ func NewSessionManager(authKey, encryptionKey []byte, maxAge int, secureCookie b
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   secureCookie, // Set to true in production with HTTPS
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode, // Lax allows cookies on OAuth redirects
 	}
 
 	return &SessionManager{
@@ -112,4 +112,14 @@ func GenerateKey(length int) ([]byte, error) {
 // SessionExpiry calculates the expiry time for a session
 func SessionExpiry(maxAge int) time.Time {
 	return time.Now().Add(time.Duration(maxAge) * time.Second)
+}
+
+// GetSession gets the session from the request
+func (sm *SessionManager) GetSession(r *http.Request) (*sessions.Session, error) {
+	return sm.store.Get(r, sessionName)
+}
+
+// SaveSession saves the session
+func (sm *SessionManager) SaveSession(w http.ResponseWriter, r *http.Request, session *sessions.Session) error {
+	return session.Save(r, w)
 }

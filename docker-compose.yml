@@ -11,11 +11,13 @@ services:
       - DATABASE_PATH=/data/bookmarks.db
       - PORT=8080
       - SECURE_COOKIE=false
-      # Generate secure keys for production:
-      # SESSION_KEY: openssl rand -hex 32
-      # ENCRYPTION_KEY: openssl rand -hex 32
-      - SESSION_KEY=8ca5d929bfa2b7e0dbf936f26318b56ff9c8cbceb77b6505a3408651ec06aaaf
-      - ENCRYPTION_KEY=421e529ccc2bc9e3f4c7833b30f9d0df077c6c81af8b8f26eb32fe31df5092ea
+      # OAuth2 Configuration (REQUIRED)
+      - OAUTH2_ISSUER_URL=${OAUTH2_ISSUER_URL}
+      - OAUTH2_CLIENT_ID=${OAUTH2_CLIENT_ID}
+      - OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+      - OAUTH2_REDIRECT_URL=${OAUTH2_REDIRECT_URL:-http://localhost:8080/auth/callback}
+      - SESSION_KEY=${SESSION_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - SESSION_MAX_AGE=31536000
     restart: unless-stopped
 

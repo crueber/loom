@@ -3,15 +3,18 @@ module github.com/crueber/loom
 go 1.24.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/gorilla/sessions v1.4.0
 	golang.org/x/crypto v0.45.0
+	golang.org/x/oauth2 v0.34.0
 	golang.org/x/term v0.37.0
 	modernc.org/sqlite v1.40.1
 )
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

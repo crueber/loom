@@ -4,10 +4,13 @@ import "time"
 
 // User represents a user account
 type User struct {
-	ID           int       `json:"id"`
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID            int       `json:"id"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	PasswordHash  string    `json:"-"`
+	OAuthProvider *string   `json:"oauth_provider,omitempty"`
+	OAuthSub      *string   `json:"oauth_sub,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Board represents a collection of lists

@@ -30,16 +30,28 @@ func (db *DB) CreateUser(username, passwordHash string) (*models.User, error) {
 // GetUserByID retrieves a user by ID
 func (db *DB) GetUserByID(id int) (*models.User, error) {
 	var user models.User
+	var email sql.NullString
+	var oauthProvider, oauthSub sql.NullString
 	err := db.QueryRow(
-		"SELECT id, username, password_hash, created_at FROM users WHERE id = ?",
+		"SELECT id, username, email, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE id = ?",
 		id,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
+	).Scan(&user.ID, &user.Username, &email, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if email.Valid {
+		user.Email = email.String
+	}
+	if oauthProvider.Valid {
+		user.OAuthProvider = &oauthProvider.String
+	}
+	if oauthSub.Valid {
+		user.OAuthSub = &oauthSub.String
 	}
 
 	return &user, nil
@@ -48,16 +60,28 @@ func (db *DB) GetUserByID(id int) (*models.User, error) {
 // GetUserByUsername retrieves a user by username
 func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
+	var email sql.NullString
+	var oauthProvider, oauthSub sql.NullString
 	err := db.QueryRow(
-		"SELECT id, username, password_hash, created_at FROM users WHERE username = ?",
+		"SELECT id, username, email, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE username = ?",
 		username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
+	).Scan(&user.ID, &user.Username, &email, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if email.Valid {
+		user.Email = email.String
+	}
+	if oauthProvider.Valid {
+		user.OAuthProvider = &oauthProvider.String
+	}
+	if oauthSub.Valid {
+		user.OAuthSub = &oauthSub.String
 	}
 
 	return &user, nil
@@ -84,7 +108,7 @@ func (db *DB) DeleteUser(username string) error {
 
 // ListUsers returns all users
 func (db *DB) ListUsers() ([]*models.User, error) {
-	rows, err := db.Query("SELECT id, username, password_hash, created_at FROM users ORDER BY username")
+	rows, err := db.Query("SELECT id, username, email, password_hash, oauth_provider, oauth_sub, created_at FROM users ORDER BY username")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
@@ -93,8 +117,19 @@ func (db *DB) ListUsers() ([]*models.User, error) {
 	var users []*models.User
 	for rows.Next() {
 		var user models.User
-		if err := rows.Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt); err != nil {
+		var email sql.NullString
+		var oauthProvider, oauthSub sql.NullString
+		if err := rows.Scan(&user.ID, &user.Username, &email, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+		if email.Valid {
+			user.Email = email.String
+		}
+		if oauthProvider.Valid {
+			user.OAuthProvider = &oauthProvider.String
+		}
+		if oauthSub.Valid {
+			user.OAuthSub = &oauthSub.String
 		}
 		users = append(users, &user)
 	}
@@ -119,6 +154,51 @@ func (db *DB) UpdateUserPassword(username, passwordHash string) error {
 	}
 
 	return nil
+}
+
+// GetUserByEmail retrieves a user by email address
+func (db *DB) GetUserByEmail(email string) (*models.User, error) {
+	var user models.User
+	var oauthProvider, oauthSub sql.NullString
+	err := db.QueryRow(
+		"SELECT id, username, email, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE email = ?",
+		email,
+	).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
+
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if oauthProvider.Valid {
+		user.OAuthProvider = &oauthProvider.String
+	}
+	if oauthSub.Valid {
+		user.OAuthSub = &oauthSub.String
+	}
+
+	return &user, nil
+}
+
+// CreateOAuthUser creates a new user from OAuth2 authentication
+func (db *DB) CreateOAuthUser(email, provider, sub string) (*models.User, error) {
+	// Use email as username for new OAuth users (can be changed later if needed)
+	result, err := db.Exec(
+		"INSERT INTO users (username, email, oauth_provider, oauth_sub, password_hash) VALUES (?, ?, ?, ?, '')",
+		email, email, provider, sub,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OAuth user: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %w", err)
+	}
+
+	return db.GetUserByID(int(id))
 }
 
 // List queries

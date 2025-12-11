@@ -22,20 +22,11 @@
             <article>
                 <header>
                     <h1>Loom</h1>
-                    <p>Your personal bookmark manager</p>
+                    <p>Your personal links and notes</p>
                 </header>
-                <form id="login-form" @submit="handleLogin">
-                    <label for="login-username">
-                        Username
-                        <input type="text" id="login-username" name="username" autocomplete="username" required autofocus>
-                    </label>
-                    <label for="login-password">
-                        Password
-                        <input type="password" id="login-password" name="password" autocomplete="current-password" required>
-                    </label>
-                    <div id="login-error" class="error" x-show="loginError" x-text="loginError" style="display: none;"></div>
-                    <button type="submit">Log In</button>
-                </form>
+                <div style="text-align: center; padding: 2rem;">
+                    <button @click="login()">Login using OAuth2</button>
+                </div>
             </article>
         </main>
     </div>

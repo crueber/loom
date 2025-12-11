@@ -8,19 +8,27 @@ Loom is a self-hosted bookmark manager with a Trello-like interface. It's a Go b
 
 ## Build & Run Commands
 
-**IMPORTANT: Always use Docker for testing and development. Do not use local binaries for testing as they use auto-generated session keys that change on every restart, causing session issues.**
+**IMPORTANT: Always use Docker for testing and development. OAuth2 configuration is required for authentication.**
+
+### Prerequisites
+
+Before running Loom, you must:
+1. Have an OAuth2/OIDC provider configured (Authentik, Keycloak, etc.)
+2. Create a `.env` file with OAuth2 credentials and session keys (see `.env.example`)
+3. Generate session keys: `openssl rand -hex 32`
 
 ### Docker (Recommended for All Development)
 
 ```bash
+# Ensure .env file exists with OAuth2 configuration
+cp .env.example .env
+# Edit .env with your OAuth2 credentials and session keys
+
 # Build and run with docker-compose
 docker-compose up --build -d
 
 # View logs
 docker-compose logs -f
-
-# Create a user in the container
-docker exec -it loom /user create <username>
 
 # Rebuild and restart (after code changes)
 docker-compose down && docker-compose up --build -d
@@ -32,15 +40,10 @@ docker-compose down
 ### Local Binary Building (For Build Testing Only - Not for Running)
 
 ```bash
-# Build both binaries
+# Build server binary
 go build -o bin/server ./cmd/server
-go build -o bin/user ./cmd/user
 
-# User management (local)
-./bin/user create <username>
-./bin/user list
-./bin/user delete <username>
-./bin/user reset-password <username>
+# Note: /user CLI tool has been removed - users are auto-provisioned via OAuth2
 ```
 
 ### Building for Production
@@ -54,13 +57,12 @@ The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
 
 ### Core Components
 
-**Two Binaries:**
+**Single Binary:**
 - `cmd/server/main.go` - Web server with embedded static assets
-- `cmd/user/main.go` - CLI tool for user management
 
 **Backend Layers:**
 1. **API Handlers** (`internal/api/`) - HTTP request handling, organized by domain:
-   - `auth.go` - Login/logout/registration
+   - `auth.go` - OAuth2 authentication (login/logout/callback)
    - `data.go` - Combined data endpoint (boards, lists, items) for instant loads
    - `boards.go` - Board CRUD and board-specific data loading
    - `lists.go` - List CRUD, reordering, and copy/move between boards
@@ -74,12 +76,14 @@ The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
    - `queries.go` - All SQL queries for users, boards, lists, items
 
 3. **Auth** (`internal/auth/`) - Security layer:
-   - `password.go` - Argon2id hashing/verification
-   - `session.go` - Gorilla sessions with cookie-based storage
+   - `session.go` - Gorilla sessions with cookie-based storage (SameSite=Lax for OAuth2)
 
-4. **Models** (`internal/models/`) - Data structures shared across layers
+4. **OAuth2** (`internal/oauth/`) - OAuth2/OIDC client:
+   - `client.go` - OIDC auto-discovery, token exchange, ID token verification
 
-5. **Favicon** (`internal/favicon/`) - Fetches favicons using Google's service
+5. **Models** (`internal/models/`) - Data structures shared across layers
+
+6. **Favicon** (`internal/favicon/`) - Fetches favicons using Google's service
 
 ### Frontend Architecture
 
@@ -115,8 +119,13 @@ Located in `cmd/server/static/`:
 
 ### Data Flow
 
-1. **Initialization**: Server loads session keys (or generates them) → initializes DB → runs migrations → starts HTTP server
-2. **Authentication**: Cookie-based sessions via Gorilla sessions, middleware on protected routes
+1. **Initialization**: Server validates OAuth2 config → loads session keys → initializes DB → runs migrations → starts HTTP server
+2. **Authentication**:
+   - User clicks "Log In" → redirected to OAuth2 provider (e.g., Authentik)
+   - OAuth2 provider redirects back with authorization code
+   - Server exchanges code for ID token, verifies token, extracts user email
+   - Auto-provision: Create user if first login, create default board
+   - Create Gorilla session with user_id
 3. **User isolation**: All queries filter by `user_id` from session context
 4. **Ordering**: Lists and items have `position` fields, reorder endpoints update all positions atomically
 5. **Instant Loads**: `/api/data` endpoint returns boards, lists, and items in a single request for optimal performance. Data is cached locally for instant page loads with background refresh.
@@ -224,12 +233,29 @@ Colors must match between frontend and backend. When changing colors:
 2. Update CSS classes in [styles.css](cmd/server/static/styles.css)
 3. Update `validColors` slice in [internal/api/lists.go](internal/api/lists.go)
 
+### OAuth2 Authentication
+
+**Requirements:**
+- OAuth2/OIDC provider must be configured (Authentik, Keycloak, etc.)
+- Required environment variables: `OAUTH2_ISSUER_URL`, `OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`, `OAUTH2_REDIRECT_URL`
+- Provider must include `openid`, `profile`, and `email` scopes
+- **ID token encryption must be disabled** (use signed JWT, not encrypted JWE)
+- Issuer URL should NOT include `/.well-known/openid-configuration` (auto-appended)
+
+**Auto-Provisioning:**
+- Users are identified by email from OAuth2 claims
+- On first login, user account is created automatically
+- Default board "My Bookmarks" is created for new users
+- Existing users (by email) log in to existing accounts
+
 ### Session Management
 
-- Session keys should be 32 or 64 bytes (hex-encoded)
-- Encryption keys should be 16, 24, or 32 bytes (hex-encoded)
-- Auto-generated keys are logged as warnings in development
+- Session keys must be 32 bytes (64 hex characters)
+- Encryption keys must be 32 bytes (64 hex characters)
+- **Session keys are mandatory** - no auto-generation in production
+- Generate keys with: `openssl rand -hex 32`
 - Set `SECURE_COOKIE=true` when behind HTTPS
+- SameSite=Lax for OAuth2 redirect compatibility
 
 ### Database Migrations
 
@@ -252,12 +278,23 @@ Static files are embedded at compile time using `//go:embed static` in `cmd/serv
 
 All configuration via environment variables (no config files):
 
+### Required Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `OAUTH2_ISSUER_URL` | OAuth2 provider issuer URL | `https://auth.example.com/application/o/loom/` |
+| `OAUTH2_CLIENT_ID` | OAuth2 client ID | `abc123` |
+| `OAUTH2_CLIENT_SECRET` | OAuth2 client secret | `secret123` |
+| `OAUTH2_REDIRECT_URL` | OAuth2 callback URL | `http://localhost:8080/auth/callback` |
+| `SESSION_KEY` | Cookie signing key (64 hex chars) | Generate with `openssl rand -hex 32` |
+| `ENCRYPTION_KEY` | Cookie encryption key (64 hex chars) | Generate with `openssl rand -hex 32` |
+
+### Optional Variables
+
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATABASE_PATH` | SQLite database location | `./data/bookmarks.db` |
 | `PORT` | HTTP server port | `8080` |
-| `SESSION_KEY` | Cookie signing key (hex) | Auto-generated |
-| `ENCRYPTION_KEY` | Cookie encryption key (hex) | Auto-generated |
 | `SESSION_MAX_AGE` | Session duration in seconds | `31536000` (1 year) |
 | `SECURE_COOKIE` | Enable secure flag on cookies | `false` |
 
@@ -342,9 +379,11 @@ document.addEventListener('eventName', (event) => {
 ### Component Responsibilities
 
 **authManager** ([components/auth.js](cmd/server/static/components/auth.js)):
-- Login/logout functionality
+- OAuth2 login flow (redirects to `/auth/login`)
+- Logout functionality
 - Current user state management
 - Screen visibility (login vs app)
+- Manual login button (no auto-redirect after logout)
 - Dispatches `userLoggedIn` and `userLoggedOut` events
 
 **boardsManager** ([components/boards.js](cmd/server/src/components/boards.js)):
@@ -404,11 +443,17 @@ document.addEventListener('eventName', (event) => {
 
 ### Debug Output
 
-The codebase has DEBUG println statements in `internal/auth/session.go`. These can be removed for production but are helpful for diagnosing session issues.
+The codebase has DEBUG println statements in `internal/auth/session.go` and `internal/api/auth.go`. These can be removed for production but are helpful for diagnosing authentication issues.
 
 ### Common Issues
 
+- **OAuth2 login fails**:
+  - **"Failed to initialize OAuth2 client"**: Check `OAUTH2_ISSUER_URL` is correct and doesn't include `/.well-known/openid-configuration`
+  - **"Invalid session state"**: Check cookies are enabled, SameSite=Lax should work with OAuth2
+  - **"Failed to verify ID token"**: Disable ID token encryption in OAuth2 provider (use signed JWT, not encrypted JWE)
+  - Ensure redirect URL matches exactly between `.env` and OAuth2 provider config
+- **Auto-provisioning fails**: Check OAuth2 provider sends `email` claim in ID token
 - **Color picker 400 errors**: Color not in `validColors` array in `internal/api/lists.go`
 - **Session expiry**: Check `SESSION_MAX_AGE` and that session keys persist across restarts
 - **Favicons not loading**: Requires outbound HTTPS access to Google's favicon service
-- **Static files not updating**: Assets are embedded at build time, rebuild required
+- **Static files not updating**: Assets are embedded at build time, rebuild required (run `node build.js` in `cmd/server/`)

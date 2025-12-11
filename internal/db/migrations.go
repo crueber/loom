@@ -131,6 +131,18 @@ func (db *DB) migrate() error {
 				-- No schema changes needed - just data conversion
 			`,
 		},
+		{
+			version: 5,
+			sql: `
+				-- Migration v5: Add OAuth2 fields for authentication
+				ALTER TABLE users ADD COLUMN email TEXT;
+				ALTER TABLE users ADD COLUMN oauth_provider TEXT;
+				ALTER TABLE users ADD COLUMN oauth_sub TEXT;
+
+				-- Create unique index on email
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+			`,
+		},
 	}
 
 	// Run each migration
@@ -174,6 +186,12 @@ func (db *DB) migrate() error {
 		}
 		if migration.version == 4 {
 			if err := db.migrateDataForFaviconsV4(tx); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
+			}
+		}
+		if migration.version == 5 {
+			if err := db.migrateDataForOAuth2V5(tx); err != nil {
 				tx.Rollback()
 				return fmt.Errorf("failed to migrate data for version %d: %w", migration.version, err)
 			}
@@ -417,6 +435,31 @@ func (db *DB) migrateDataForFaviconsV4(tx *sql.Tx) error {
 	}
 
 	log.Printf("  Converted %d favicons successfully, %d failed", converted, failed)
+	return nil
+}
+
+// migrateDataForOAuth2V5 migrates existing user to OAuth2 authentication
+func (db *DB) migrateDataForOAuth2V5(tx *sql.Tx) error {
+	log.Println("  Migrating existing users to OAuth2 authentication...")
+
+	// Migrate the crueber user to have email crueber@gmail.com
+	result, err := tx.Exec(`
+		UPDATE users
+		SET email = 'crueber@gmail.com',
+		    oauth_provider = 'authentik'
+		WHERE username = 'crueber'
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to migrate crueber user: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected > 0 {
+		log.Printf("  Migrated user 'crueber' to email 'crueber@gmail.com'")
+	} else {
+		log.Println("  User 'crueber' not found, skipping migration")
+	}
+
 	return nil
 }
 
