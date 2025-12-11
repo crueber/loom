@@ -1,18 +1,18 @@
 # Loom
 
-A self-hosted, minimalistic bookmark manager with a beautiful Fizzy-like interface. Built with Go and designed for containerized deployment.
+A self-hosted, minimalistic link and note store with a beautiful Fizzy-like interface. Built to become your browsers home.
 
 ## Features
 
 ### Core Functionality
-- **Multiple Boards**: Organize bookmarks across separate boards for different contexts (work, personal, projects)
-- **Fizzy-like Interface**: Organize bookmarks in draggable lists with horizontal and vertical drag-and-drop
-- **Notes with Markdown**: Add markdown-formatted notes alongside bookmarks with custom color syntax
+- **Multiple Boards**: Organize links across separate boards for different contexts (work, personal, projects)
+- **Fizzy-like Interface**: Organize links in draggable lists with horizontal and vertical drag-and-drop
+- **Notes with Markdown**: Add markdown-formatted notes alongside links with custom color syntax
 - **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
 - **Flexible Color Picker**: Choose from 8 preset colors or select any custom hex color for list headers
 - **Copy/Move Lists**: Transfer lists between boards with all items intact
 - **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
-- **Adaptive Compression**: Bookmark URLs automatically hide when lists have 7+ bookmarks for compact display
+- **Adaptive Compression**: Lists automatically compress when they have 7+ links for smaller display
 
 ### User Experience
 - **Mobile Responsive**: Hamburger menu (< 768px) with full feature access on mobile devices
@@ -21,13 +21,13 @@ A self-hosted, minimalistic bookmark manager with a beautiful Fizzy-like interfa
 - **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
 - **Inline Confirmations**: No browser confirm dialogs - all destructive actions use inline UI
 - **Instant Loading**: LocalStorage caching with background refresh for instant page loads
-- **Automatic Favicons**: Automatically fetches and displays favicons for your bookmarks
+- **Automatic Favicons**: Automatically fetches and displays favicons for your links
 - **Stealth UI**: Minimal, unobtrusive navigation that fades in when needed
 
 ### Technical Features
-- **Multi-user Support**: Each user has their own isolated bookmarks and boards
+- **Multi-user Support**: Each user has their own isolated links and boards
 - **OAuth2 Authentication**: Secure authentication via OpenID Connect (OIDC) providers like Authentik
-- **Import/Export**: Backup and restore your bookmarks as JSON
+- **Import/Export**: Backup and restore your links as JSON
 - **Dark Mode**: Beautiful dark theme with readable color palette
 - **Minimal Footprint**: Docker image < 15MB
 - **Secure**: OAuth2/OIDC authentication, secure cookie-based sessions
@@ -92,7 +92,7 @@ Save these keys - you'll need them in the next step.
    ENCRYPTION_KEY=your_64_character_hex_string_here
 
    # Optional Configuration
-   DATABASE_PATH=/data/bookmarks.db
+   DATABASE_PATH=/data/loom.db
    PORT=8080
    SESSION_MAX_AGE=31536000
    SECURE_COOKIE=false  # Set to true in production with HTTPS
@@ -188,7 +188,7 @@ Configuration is done via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_PATH` | Path to SQLite database file | `./data/bookmarks.db` |
+| `DATABASE_PATH` | Path to SQLite database file | `./data/loom.db` |
 | `PORT` | HTTP server port | `8080` |
 | `SESSION_MAX_AGE` | Session duration in seconds | `31536000` (1 year) |
 | `SECURE_COOKIE` | Enable secure cookies (HTTPS only) | `false` |
@@ -203,7 +203,7 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 
 - Users are identified by their **email address** from the OAuth2 provider
 - On first login, a new user account is created automatically
-- A default board "My Bookmarks" is created for each new user
+- A default board is created for each new user
 - Existing users (identified by email) will log in to their existing account
 
 ## Usage Guide
@@ -220,12 +220,12 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 5. Click "Save" to create the list, or "Cancel" / press ESC to discard
    - Saving with an empty title will cancel the operation
 
-### Adding Bookmarks
+### Adding Links
 
-1. Click "+ Add Bookmark" at the bottom of any list
-2. A new bookmark card appears, flipped to show the configuration panel
+1. Click "+ Add Link" at the bottom of any list
+2. A new link card appears, flipped to show the configuration panel
 3. Enter a URL (required) and title (required)
-4. Click "Save" to create the bookmark, or "Cancel" / press ESC to discard
+4. Click "Save" to create the link, or "Cancel" / press ESC to discard
    - Saving with empty fields will cancel the operation
 5. Favicon will be fetched automatically after creation
 
@@ -233,15 +233,15 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 
 - **Drag lists horizontally** by their header to reorder them (auto-scrolls near edges)
 - **Drag-to-scroll**: Click and drag on list whitespace or container background to scroll horizontally
-- **Drag bookmarks vertically** within and between lists
+- **Drag links vertically** within and between lists
 - **Click list header** to collapse/expand (lists collapse to vertical tabs)
 - **Configure lists**: Click the gear icon (⚙️) to flip the card and:
   - Edit list title
   - Change color from 8 preset colors or choose any custom hex color
   - Delete list (with confirmation)
-- **Configure bookmarks**: Click the gear icon (⚙️) to flip the card and:
-  - Edit bookmark title and URL
-  - Delete bookmark (with confirmation)
+- **Configure links**: Click the gear icon (⚙️) to flip the card and:
+  - Edit link title and URL
+  - Delete link (with confirmation)
 - **Keyboard shortcuts**:
   - `ESC` - Close any open configuration panel
   - `Enter` - Save changes (when in input fields)
@@ -249,7 +249,7 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 
 ### Import/Export
 
-- **Export**: Click "Export" to download your bookmarks as JSON
+- **Export**: Click "Export" to download your links as JSON
 - **Import**: Click "Import", choose a file, and select merge or replace mode
   - **Merge**: Adds new data, updates existing by ID
   - **Replace**: Deletes all data and imports fresh
@@ -316,7 +316,7 @@ See [`.env.example`](.env.example) for a complete example configuration file.
 
 ## Development Goals
 
-- Target 20-30 bookmarks per list, ~10 lists per page.
+- Target 20-30 links per list, ~10 lists per page.
 - Aims for 1000 links per user while keeping near 100ms response times.
 - Small codebase, memory footprint, both in browser and server.
 - Less than 40kb cache size (under 150kb fresh) for page load.
