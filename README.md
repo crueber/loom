@@ -15,6 +15,8 @@
 
 A self-hosted, minimalistic browser home/dashboard for links and notes with a beautiful Fizzy-inspired interface. Built to become your browser's home.
 
+![full screenshot](docs/full-screen.png)
+
 ---
 
 ### Features
