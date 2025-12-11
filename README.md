@@ -1,121 +1,103 @@
+<div align="center">
+
+<img src="cmd/server/static/loom-logo.png" width="128" alt="Loom Logo">
+
 # Loom
 
-A self-hosted, minimalistic link and note store with a beautiful Fizzy-like interface. Built to become your browsers home.
+[Quick Start](#quick-start) • [Configuration](#configuration) • [Features](#features) • [Technology](#technology-stack)
+
+[OAuth2 Setup](#oauth2-provider-setup) • [Troubleshooting](#troubleshooting) • [Contributing](#contributing)
+
+A self-hosted, minimalistic link and note store with a beautiful Fizzy-like interface. Built to become your browser's home.
+
+</div>
+
+---
 
 ## Features
 
-### Core Functionality
-- **Multiple Boards**: Organize links across separate boards for different contexts (work, personal, projects)
-- **Fizzy-like Interface**: Organize links in draggable lists with horizontal and vertical drag-and-drop
-- **Notes with Markdown**: Add markdown-formatted notes alongside links with custom color syntax
-- **Card Flip UI**: Clean configuration interface - click the gear icon (⚙️) to flip cards and edit
-- **Flexible Color Picker**: Choose from 8 preset colors or select any custom hex color for list headers
-- **Copy/Move Lists**: Transfer lists between boards with all items intact
-- **Collapsible Lists**: Save screen space by collapsing lists to vertical tabs
-- **Adaptive Compression**: Lists automatically compress when they have 7+ links for smaller display
+**Core Functionality**
+- 📋 **Multiple Boards** - Organize links across separate boards for different contexts
+- 🎯 **Fizzy-like Interface** - Draggable lists with horizontal and vertical drag-and-drop
+- 📝 **Markdown Notes** - Add markdown-formatted notes with custom color syntax
+- ⚙️ **Card Flip UI** - Clean configuration interface with gear icon interactions
+- 🎨 **Flexible Colors** - 8 preset colors or custom hex colors for list headers
+- 📦 **Copy/Move Lists** - Transfer lists between boards with all items intact
+- 📊 **Collapsible Lists** - Save screen space by collapsing lists to vertical tabs
 
-### User Experience
-- **Mobile Responsive**: Hamburger menu (< 768px) with full feature access on mobile devices
-- **Touch-Optimized**: Long-press to drag (200ms), always-visible controls, 44px touch targets
-- **Drag-to-Scroll**: Click and drag the whitespace to smoothly scroll through your lists horizontally
-- **Keyboard Shortcuts**: ESC to close configuration panels, Enter to save changes
-- **Inline Confirmations**: No browser confirm dialogs - all destructive actions use inline UI
-- **Instant Loading**: LocalStorage caching with background refresh for instant page loads
-- **Automatic Favicons**: Automatically fetches and displays favicons for your links
-- **Stealth UI**: Minimal, unobtrusive navigation that fades in when needed
+**User Experience**
+- 📱 **Mobile Responsive** - Full feature access on mobile devices with touch optimization
+- 🖱️ **Drag-to-Scroll** - Click and drag whitespace to scroll horizontally
+- ⌨️ **Keyboard Shortcuts** - ESC to close, Enter to save
+- ⚡ **Instant Loading** - LocalStorage caching with background refresh
+- 🔖 **Auto Favicons** - Automatically fetches and displays site favicons
+- 🎭 **Stealth UI** - Minimal navigation that fades in when needed
 
-### Technical Features
-- **Multi-user Support**: Each user has their own isolated links and boards
-- **OAuth2 Authentication**: Secure authentication via OpenID Connect (OIDC) providers like Authentik
-- **Import/Export**: Backup and restore your links as JSON
-- **Dark Mode**: Beautiful dark theme with readable color palette
-- **Minimal Footprint**: Docker image < 15MB
-- **Secure**: OAuth2/OIDC authentication, secure cookie-based sessions
-- **Fast**: Lightweight Go backend with SQLite database
+**Technical Features**
+- 👥 **Multi-user** - OAuth2/OIDC authentication with auto-provisioning
+- 💾 **Import/Export** - Backup and restore as JSON
+- 🌙 **Dark Mode** - Beautiful dark theme
+- 📦 **Minimal Footprint** - Docker image < 15MB
+- 🔒 **Secure** - OAuth2/OIDC authentication, secure sessions
+- ⚡ **Fast** - Lightweight Go backend with SQLite
+
+---
 
 ## Prerequisites
 
-**IMPORTANT: OAuth2 authentication is required.** Loom uses OAuth2/OIDC for authentication and does not support local password authentication. You must have an OAuth2 provider (such as Authentik, Keycloak, or any OIDC-compliant provider) configured before running Loom.
+**⚠️ OAuth2 authentication is required.** Loom uses OAuth2/OIDC for authentication and does not support local password authentication. You must have an OAuth2 provider (such as Authentik, Keycloak, or any OIDC-compliant provider) configured before running Loom.
+
+---
 
 ## Quick Start
 
-### Step 1: Configure OAuth2 Provider (Authentik Example)
+<details>
+<summary><strong>🚀 Docker Compose (Recommended)</strong></summary>
+<br>
 
-1. **Create an OAuth2/OIDC Application in Authentik:**
-   - Go to your Authentik admin panel → Applications → Providers
-   - Click "Create" → Select "OAuth2/OpenID Provider"
-   - Configure the provider:
-     - **Name**: Loom
-     - **Authorization flow**: Explicit consent or Implicit consent
-     - **Redirect URIs**: `http://localhost:8080/auth/callback` (adjust for your domain)
-     - **Scopes**: Make sure `openid`, `profile`, and `email` are included
-     - **ID Token encryption**: **Disable** (leave ID token as signed JWT, not encrypted)
-   - Save and note the **Client ID** and **Client Secret**
+**1. Configure OAuth2 Provider & Generate Keys**
 
-2. **Find your Issuer URL:**
-   - In Authentik, go to your provider details
-   - Copy the **OpenID Configuration Issuer** URL
-   - Example: `https://auth.example.com/application/o/loom/`
-   - **Note**: Do not include `/.well-known/openid-configuration` - Loom will append this automatically
+See the [OAuth2 Provider Setup](#oauth2-provider-setup) section below for detailed instructions on configuring Authentik or another OIDC provider.
 
-### Step 2: Generate Session Keys
-
-Generate secure keys for session management:
-
+Generate session keys:
 ```bash
-# Generate session key (32 bytes = 64 hex characters)
-openssl rand -hex 32
-
-# Generate encryption key (32 bytes = 64 hex characters)
-openssl rand -hex 32
+openssl rand -hex 32  # SESSION_KEY
+openssl rand -hex 32  # ENCRYPTION_KEY
 ```
 
-Save these keys - you'll need them in the next step.
+**2. Configure Environment**
 
-### Step 3: Configure Environment Variables
+```bash
+cp .env.example .env
+# Edit .env with your OAuth2 credentials and session keys
+```
 
-1. **Copy the example environment file:**
-   ```bash
-   cp .env.example .env
-   ```
+Required variables in `.env`:
+```bash
+OAUTH2_ISSUER_URL=https://auth.example.com/application/o/loom/
+OAUTH2_CLIENT_ID=your_client_id
+OAUTH2_CLIENT_SECRET=your_client_secret
+OAUTH2_REDIRECT_URL=http://localhost:8080/auth/callback
+SESSION_KEY=your_64_char_hex_string
+ENCRYPTION_KEY=your_64_char_hex_string
+```
 
-2. **Edit `.env` with your OAuth2 configuration:**
-   ```bash
-   # OAuth2 Configuration (REQUIRED)
-   OAUTH2_ISSUER_URL=https://auth.example.com/application/o/loom/
-   OAUTH2_CLIENT_ID=your_client_id_from_authentik
-   OAUTH2_CLIENT_SECRET=your_client_secret_from_authentik
-   OAUTH2_REDIRECT_URL=http://localhost:8080/auth/callback
+**3. Start Loom**
 
-   # Session Keys (REQUIRED - Use the keys generated in Step 2)
-   SESSION_KEY=your_64_character_hex_string_here
-   ENCRYPTION_KEY=your_64_character_hex_string_here
+```bash
+docker-compose up -d
+```
 
-   # Optional Configuration
-   DATABASE_PATH=/data/loom.db
-   PORT=8080
-   SESSION_MAX_AGE=31536000
-   SECURE_COOKIE=false  # Set to true in production with HTTPS
-   ```
+**4. Access & Login**
 
-### Step 4: Start the Application
+Open [http://localhost:8080](http://localhost:8080) and click "Login using OAuth2". You'll be redirected to your OAuth2 provider, and upon successful login, your user account and default board will be created automatically.
 
-1. **Start the container:**
-   ```bash
-   docker-compose up -d
-   ```
+<hr>
+</details>
 
-2. **Access the application:**
-   Open your browser to [http://localhost:8080](http://localhost:8080)
-
-3. **First Login:**
-   - Click "Log In"
-   - You'll be redirected to your OAuth2 provider (Authentik)
-   - Log in with your provider credentials
-   - You'll be redirected back to Loom
-   - **Auto-provisioning**: A new user account and default board will be created automatically on first login
-
-### Alternative: Docker Run (Without docker-compose)
+<details>
+<summary><strong>🐳 Docker Run</strong></summary>
+<br>
 
 ```bash
 # Create a volume for data persistence
@@ -135,45 +117,65 @@ docker run -d \
   loom:latest
 ```
 
-### Local Development
+<hr>
+</details>
 
-**Note**: Even in local development, OAuth2 configuration is required.
+---
 
-1. **Prerequisites:**
-   - Go 1.23 or later
-   - OAuth2 provider (Authentik, Keycloak, etc.) configured
+## OAuth2 Provider Setup
 
-2. **Clone and build:**
-   ```bash
-   git clone <repository-url>
-   cd loom
-   go mod download
-   go build -o bin/server ./cmd/server
-   ```
+<details>
+<summary><strong>🔐 Authentik Configuration</strong></summary>
+<br>
 
-3. **Set environment variables:**
-   ```bash
-   export OAUTH2_ISSUER_URL=https://auth.example.com/application/o/loom/
-   export OAUTH2_CLIENT_ID=your_client_id
-   export OAUTH2_CLIENT_SECRET=your_client_secret
-   export OAUTH2_REDIRECT_URL=http://localhost:8080/auth/callback
-   export SESSION_KEY=$(openssl rand -hex 32)
-   export ENCRYPTION_KEY=$(openssl rand -hex 32)
-   ```
+**1. Create OAuth2/OIDC Application**
 
-4. **Run the server:**
-   ```bash
-   ./bin/server
-   ```
+- Go to Authentik admin panel → **Applications** → **Providers**
+- Click **"Create"** → Select **"OAuth2/OpenID Provider"**
 
-5. **Access the application:**
-   Open [http://localhost:8080](http://localhost:8080) and click "Log In"
+**2. Configure Provider**
+
+- **Name**: `Loom`
+- **Authorization flow**: Explicit consent or Implicit consent
+- **Redirect URIs**: `http://localhost:8080/auth/callback` (adjust for your domain)
+- **Scopes**: Ensure `openid`, `profile`, and `email` are included
+- **⚠️ ID Token encryption**: **DISABLE** (leave ID token as signed JWT, not encrypted)
+
+**3. Save Credentials**
+
+- Note the **Client ID** and **Client Secret**
+- Copy the **OpenID Configuration Issuer** URL
+  - Example: `https://auth.example.com/application/o/loom/`
+  - ⚠️ **Do NOT include** `/.well-known/openid-configuration` (Loom appends this automatically)
+
+<hr>
+</details>
+
+<details>
+<summary><strong>🔑 Other OIDC Providers (Keycloak, etc.)</strong></summary>
+<br>
+
+Loom works with any OIDC-compliant provider. Ensure your provider:
+
+- Supports **OpenID Connect Discovery** (`/.well-known/openid-configuration`)
+- Includes **`openid`, `profile`, and `email`** scopes
+- Returns an **`email` claim** in the ID token
+- Uses **signed JWT tokens** (not encrypted JWE tokens)
+
+Configure the redirect URI to: `http://your-domain:8080/auth/callback`
+
+<hr>
+</details>
+
+---
 
 ## Configuration
 
-Configuration is done via environment variables:
+<details>
+<summary><strong>⚙️ Environment Variables</strong></summary>
+<br>
 
-### Required Variables
+### Required
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -184,7 +186,7 @@ Configuration is done via environment variables:
 | `SESSION_KEY` | 32-byte hex key for session signing (64 chars) | Generate with `openssl rand -hex 32` |
 | `ENCRYPTION_KEY` | 32-byte hex key for cookie encryption (64 chars) | Generate with `openssl rand -hex 32` |
 
-### Optional Variables
+### Optional
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -193,142 +195,278 @@ Configuration is done via environment variables:
 | `SESSION_MAX_AGE` | Session duration in seconds | `31536000` (1 year) |
 | `SECURE_COOKIE` | Enable secure cookies (HTTPS only) | `false` |
 
-### Example .env File
-
 See [`.env.example`](.env.example) for a complete example configuration file.
+
+<hr>
+</details>
+
+---
 
 ## User Management
 
-**Auto-Provisioning**: Users are automatically created when they first log in via OAuth2. No manual user management is required.
+**🔄 Auto-Provisioning** - Users are automatically created when they first log in via OAuth2. No manual user management is required.
 
 - Users are identified by their **email address** from the OAuth2 provider
 - On first login, a new user account is created automatically
 - A default board is created for each new user
 - Existing users (identified by email) will log in to their existing account
 
+---
+
 ## Usage Guide
 
-### Creating Lists
+<details>
+<summary><strong>📝 Creating Lists & Links</strong></summary>
+<br>
+
+**Creating Lists**
 
 1. Click the "+ Add List" button on the right
 2. A new list card appears, flipped to show the configuration panel
 3. Enter a title (required)
 4. Optionally change the color:
-   - Click one of the 8 preset color buttons for quick selection
-   - Or use the color picker to choose any custom hex color
-   - Default color is Blue (#3D6D95)
-5. Click "Save" to create the list, or "Cancel" / press ESC to discard
-   - Saving with an empty title will cancel the operation
+   - Click one of the 8 preset color buttons
+   - Or use the color picker for any custom hex color
+   - Default: Blue (#3D6D95)
+5. Click "Save" or press ESC to cancel
 
-### Adding Links
+**Adding Links**
 
 1. Click "+ Add Link" at the bottom of any list
-2. A new link card appears, flipped to show the configuration panel
-3. Enter a URL (required) and title (required)
-4. Click "Save" to create the link, or "Cancel" / press ESC to discard
-   - Saving with empty fields will cancel the operation
-5. Favicon will be fetched automatically after creation
+2. Enter a URL (required) and title (required)
+3. Click "Save" or press ESC to cancel
+4. Favicon fetched automatically
 
-### Organizing
+<hr>
+</details>
 
-- **Drag lists horizontally** by their header to reorder them (auto-scrolls near edges)
-- **Drag-to-scroll**: Click and drag on list whitespace or container background to scroll horizontally
+<details>
+<summary><strong>🎯 Organizing & Navigation</strong></summary>
+<br>
+
+**Drag & Drop**
+- **Drag lists horizontally** by header to reorder (auto-scrolls near edges)
 - **Drag links vertically** within and between lists
-- **Click list header** to collapse/expand (lists collapse to vertical tabs)
-- **Configure lists**: Click the gear icon (⚙️) to flip the card and:
-  - Edit list title
-  - Change color from 8 preset colors or choose any custom hex color
-  - Delete list (with confirmation)
-- **Configure links**: Click the gear icon (⚙️) to flip the card and:
-  - Edit link title and URL
-  - Delete link (with confirmation)
-- **Keyboard shortcuts**:
-  - `ESC` - Close any open configuration panel
-  - `Enter` - Save changes (when in input fields)
-- **Mobile**: Long-press (200ms) to initiate drag, tap normally to open links or configurations
+- **Drag-to-scroll**: Click and drag whitespace to scroll horizontally
+- **Mobile**: Long-press (200ms) to initiate drag
 
-### Import/Export
+**List Management**
+- **Click list header** to collapse/expand
+- **Gear icon (⚙️)** to configure:
+  - Edit title
+  - Change color
+  - Copy/move to other boards
+  - Delete list
 
-- **Export**: Click "Export" to download your links as JSON
-- **Import**: Click "Import", choose a file, and select merge or replace mode
-  - **Merge**: Adds new data, updates existing by ID
-  - **Replace**: Deletes all data and imports fresh
+**Link Management**
+- **Gear icon (⚙️)** to configure:
+  - Edit title and URL
+  - Delete link
 
-## Technology Stack
+**Keyboard Shortcuts**
+- `ESC` - Close configuration panel
+- `Enter` - Save changes
 
-**Backend:**
-- Go 1.23+
-- Chi router (lightweight HTTP router)
-- SQLite (modernc.org/sqlite - pure Go, CGO-free)
-- Gorilla sessions (secure cookie-based sessions)
-- OAuth2/OIDC authentication (go-oidc, golang.org/x/oauth2)
+<hr>
+</details>
 
-**Frontend:**
-- Alpine JS (~15KB)
-- Pico.css (minimal CSS framework, ~10KB)
-- SortableJS (drag-and-drop, ~2KB)
+<details>
+<summary><strong>💾 Import/Export</strong></summary>
+<br>
 
-## Security Considerations
+**Export**
+- Click "Export" to download your links as JSON
+- Backup your entire board structure
 
-1. **HTTPS**: Use a reverse proxy (Caddy, nginx, Traefik) for HTTPS in production
-2. **Secure Cookies**: Set `SECURE_COOKIE=true` when using HTTPS
-3. **Session Keys**: Generate strong random keys for `SESSION_KEY` and `ENCRYPTION_KEY` in production
-4. **OAuth2 Configuration**:
-   - Keep `OAUTH2_CLIENT_SECRET` secret and never commit to version control
-   - Use HTTPS for your OAuth2 redirect URL in production
-   - Disable ID token encryption in your OAuth2 provider (use signed tokens instead)
-   - Ensure your OAuth2 provider includes `openid`, `profile`, and `email` scopes
-5. **Rate Limiting**: Consider adding rate limiting at the reverse proxy level
-6. **Backups**: Regularly backup your SQLite database and exported JSON
+**Import**
+- Click "Import" and choose a JSON file
+- **Merge mode**: Adds new data, updates existing by ID
+- **Replace mode**: Deletes all data and imports fresh
 
-## Troubleshooting
-
-### Cannot access the application
-
-- Check if the server is running: `docker ps`
-- Check logs: `docker logs loom`
-- Verify port is not in use: `lsof -i :8080`
-- Ensure all required OAuth2 environment variables are set
-
-### OAuth2 login fails
-
-- **"Failed to initialize OAuth2 client"**: Check that `OAUTH2_ISSUER_URL` is correct and does not include `/.well-known/openid-configuration`
-- **"Invalid session state"**: This can happen if cookies are blocked or if using SameSite=Strict. Loom uses SameSite=Lax which should work correctly.
-- **"Failed to verify ID token"**: Ensure ID token encryption is **disabled** in your OAuth2 provider. The ID token should be signed (JWT) but not encrypted (JWE).
-- **Check redirect URL**: Ensure `OAUTH2_REDIRECT_URL` matches exactly what's configured in your OAuth2 provider
-
-### Auto-provisioning fails
-
-- Check logs for "Failed to provision user" errors
-- Ensure the OAuth2 provider is sending an `email` claim in the ID token
-- Verify database is writable
-
-### Favicons not loading
-
-- Favicon fetching uses Google's favicon service
-- Requires outbound HTTPS access
-- Some sites may not have favicons
-
-### Session expires too quickly
-
-- Check `SESSION_MAX_AGE` environment variable
-- Default is 1 year (31536000 seconds)
-
-## Development Goals
-
-- Target 20-30 links per list, ~10 lists per page.
-- Aims for 1000 links per user while keeping near 100ms response times.
-- Small codebase, memory footprint, both in browser and server.
-- Less than 40kb cache size (under 150kb fresh) for page load.
-
-## License
-
-MIT License - feel free to use and modify as needed.
-
-## Contributing
-
-This is a personal project, but suggestions and bug reports are welcome!
+<hr>
+</details>
 
 ---
 
-Built with ❤️ using Go and vanilla JavaScript.
+## Technology Stack
+
+**Backend**
+- Go 1.23+ • Chi router • SQLite (pure Go, CGO-free)
+- Gorilla sessions • OAuth2/OIDC (go-oidc, golang.org/x/oauth2)
+
+**Frontend**
+- Alpine.js (~15KB) • Pico.css (~10KB) • SortableJS (~2KB) • Marked.js (markdown rendering)
+
+---
+
+## Development
+
+<details>
+<summary><strong>🛠️ Local Development Setup</strong></summary>
+<br>
+
+**Prerequisites**
+- Go 1.23 or later
+- Node.js (for frontend bundling)
+- OAuth2 provider configured (see [OAuth2 Provider Setup](#oauth2-provider-setup))
+
+**Build & Run**
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd loom
+
+# Install Go dependencies
+go mod download
+
+# Build frontend bundle
+cd cmd/server
+node build.js
+cd ../..
+
+# Set environment variables
+export OAUTH2_ISSUER_URL=https://auth.example.com/application/o/loom/
+export OAUTH2_CLIENT_ID=your_client_id
+export OAUTH2_CLIENT_SECRET=your_client_secret
+export OAUTH2_REDIRECT_URL=http://localhost:8080/auth/callback
+export SESSION_KEY=$(openssl rand -hex 32)
+export ENCRYPTION_KEY=$(openssl rand -hex 32)
+
+# Build and run
+go build -o bin/server ./cmd/server
+./bin/server
+```
+
+Access at [http://localhost:8080](http://localhost:8080)
+
+<hr>
+</details>
+
+<details>
+<summary><strong>🏗️ Build for Production</strong></summary>
+<br>
+
+**Docker Build**
+
+```bash
+docker build -t loom:latest .
+```
+
+The Dockerfile uses multi-stage builds:
+- Stage 1: `golang:1.24-alpine` builder (CGO disabled for static binaries)
+- Stage 2: `scratch` runtime (final image < 15MB)
+- Frontend assets embedded via `//go:embed static`
+
+**Binary Build**
+
+```bash
+CGO_ENABLED=0 go build -o loom ./cmd/server
+```
+
+<hr>
+</details>
+
+---
+
+## Security Considerations
+
+🔒 **Production Checklist**
+- ✅ Use HTTPS (reverse proxy with Caddy, nginx, or Traefik)
+- ✅ Set `SECURE_COOKIE=true` when using HTTPS
+- ✅ Generate strong `SESSION_KEY` and `ENCRYPTION_KEY` (never reuse)
+- ✅ Keep `OAUTH2_CLIENT_SECRET` secret (never commit to git)
+- ✅ Use HTTPS for OAuth2 redirect URL in production
+- ✅ Disable ID token encryption in OAuth2 provider
+- ✅ Enable rate limiting at reverse proxy level
+- ✅ Regularly backup SQLite database
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><strong>❌ OAuth2 Login Issues</strong></summary>
+<br>
+
+**"Failed to initialize OAuth2 client"**
+- Check `OAUTH2_ISSUER_URL` is correct
+- Do NOT include `/.well-known/openid-configuration` in URL
+- Verify provider is accessible
+
+**"Invalid session state"**
+- Check cookies are enabled
+- Loom uses `SameSite=Lax` for OAuth2 compatibility
+- Clear browser cookies and try again
+
+**"Failed to verify ID token"**
+- ⚠️ **Disable ID token encryption** in OAuth2 provider
+- ID token must be signed JWT, not encrypted JWE
+- Check provider scopes include `openid`, `profile`, `email`
+
+**Redirect issues**
+- Ensure `OAUTH2_REDIRECT_URL` matches provider configuration exactly
+- Check for trailing slashes
+
+<hr>
+</details>
+
+<details>
+<summary><strong>🔧 General Issues</strong></summary>
+<br>
+
+**Cannot access application**
+- Check server is running: `docker ps` or `docker logs loom`
+- Verify port is free: `lsof -i :8080`
+- Ensure all required OAuth2 env vars are set
+
+**Auto-provisioning fails**
+- Check logs for "Failed to provision user"
+- Verify OAuth2 provider sends `email` claim in ID token
+- Check database is writable
+
+**Favicons not loading**
+- Requires outbound HTTPS to Google's favicon service
+- Some sites may not have favicons
+
+**Session expires too quickly**
+- Check `SESSION_MAX_AGE` environment variable
+- Default: 31536000 (1 year)
+
+<hr>
+</details>
+
+---
+
+## Performance Goals
+
+- 📊 Target: 20-30 links per list, ~10 lists per page
+- ⚡ Goal: 1000 links per user with <100ms response times
+- 💾 Cache: <40KB cached, <150KB fresh page load
+- 📦 Small codebase and minimal memory footprint
+
+---
+
+## Contributing
+
+This is a personal project, but suggestions and bug reports are welcome! Feel free to:
+
+- 🐛 Report bugs via [GitHub Issues](https://github.com/crueber/loom/issues)
+- 💡 Suggest features or improvements
+- 🔧 Submit pull requests
+
+---
+
+## License
+
+[MIT License](LICENSE) - feel free to use and modify as needed.
+
+---
+
+<div align="center">
+
+Built with ❤️ using Go and vanilla JavaScript
+
+**[⬆ Back to Top](#loom)**
+
+</div>
