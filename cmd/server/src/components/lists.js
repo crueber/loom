@@ -167,21 +167,7 @@ document.addEventListener('alpine:init', () => {
             bubbleScroll: true,
             delay: 200,
             delayOnTouchOnly: true,
-            onStart: (evt) => {
-                // Hide the back of the card during drag by setting a custom ghost
-                const listCard = evt.item;
-                const cardBack = listCard.querySelector('.list-card-back');
-                if (cardBack) {
-                    cardBack.style.display = 'none';
-                }
-            },
             onEnd: (evt) => {
-                // Restore the back of the card after drag
-                const listCard = evt.item;
-                const cardBack = listCard.querySelector('.list-card-back');
-                if (cardBack) {
-                    cardBack.style.display = '';
-                }
                 this.handleListReorder(evt);
             }
         });
@@ -245,7 +231,7 @@ document.addEventListener('alpine:init', () => {
                         <button class="add-note-btn secondary" data-list-id="${list.id}">+ Note</button>
                     </div>
                 </div>
-                <div class="list-card-back">
+                <div class="list-card-back" style="display: none;">
                     <div class="list-config-panel">
                         <div class="list-config-header">
                             <h4>Configure List</h4>

@@ -77,11 +77,6 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
     }
 });
 
-// Color picker modal (currently unused, kept for compatibility)
-document.getElementById('close-color-picker').addEventListener('click', () => {
-    document.getElementById('color-picker-modal').close();
-});
-
 // Listen for user login to bootstrap data
 document.addEventListener(Events.USER_LOGGED_IN, async () => {
     await bootstrapData();

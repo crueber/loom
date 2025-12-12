@@ -87,6 +87,11 @@ export function closeFlippedCard() {
     if (currentlyFlipped.type === 'list') {
         const card = document.querySelector(`.list-card[data-list-id="${currentlyFlipped.id}"]`);
         if (card) {
+            const cardBack = card.querySelector('.list-card-back');
+            if (cardBack) {
+                cardBack.style.display = 'none';
+            }
+
             // Remove if temp
             if (card.dataset.isTemp === 'true') {
                 // Remove from lists array - will be handled by component
@@ -135,6 +140,11 @@ export function flipToList(listId) {
 
     const card = document.querySelector(`.list-card[data-list-id="${listId}"]`);
     if (!card) return;
+
+    const cardBack = card.querySelector('.list-card-back');
+    if (cardBack) {
+        cardBack.style.display = '';
+    }
 
     card.dataset.flipped = 'true';
     store.setCurrentlyFlipped({ type: 'list', id: listId });
