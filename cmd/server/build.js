@@ -22,6 +22,7 @@ esbuild.build({
     sourcemap: false,
     minify: false, // No minification as requested
     treeShaking: true, // Remove unused code
+    legalComments: 'none', // Strip all comments including legal ones
     // External dependencies that should not be bundled (loaded separately)
     external: [],
 }).then(() => {
