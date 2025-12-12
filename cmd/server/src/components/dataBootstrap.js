@@ -8,24 +8,16 @@ import { Events } from './events.js';
 
 /**
  * Bootstrap application data on page load
- * - Parses URL to determine target board
+ * - Parses browser URL to determine target board
  * - Loads from cache for instant display
  * - Fetches fresh data from server
  * - Dispatches events for other components to consume
  */
 export async function bootstrapData() {
-    // Parse URL to determine which board to load
     const path = window.location.pathname;
     const match = path.match(/^\/boards\/(\d+)$/);
     const boardId = match ? parseInt(match[1]) : null;
-
-    if (boardId) {
-        // Load specific board
-        await loadBoardData(boardId);
-    } else {
-        // Load default board
-        await loadDefaultBoard();
-    }
+    await loadBoardData(boardId);
 }
 
 /**
@@ -34,10 +26,9 @@ export async function bootstrapData() {
  */
 async function loadBoardData(boardId) {
     try {
-        // Step 1: Try to load from cache first for instant display
+        // Dispatch immediately for instant load when cached.
         const cachedData = loadFromCache();
-        if (cachedData && cachedData.board && cachedData.board.id === boardId) {
-            // Dispatch cached data immediately
+        if (cachedData && cachedData.board && (cachedData.board.id === boardId || cachedData.board.is_default)) {
             dispatchBoardDataLoaded({
                 board: cachedData.board,
                 boards: cachedData.boards,
@@ -46,7 +37,10 @@ async function loadBoardData(boardId) {
             });
         }
 
-        // Step 2: Fetch fresh data from server in background
+        // Fetch fresh data in background.
+        if (!boardId) {
+            boardId = await getDefaultBoardId();
+        }
         const response = await fetch(`/api/boards/${boardId}/data`);
         if (response.status === 404) {
             window.location.href = '/';
@@ -57,7 +51,7 @@ async function loadBoardData(boardId) {
         }
         const freshData = await response.json();
 
-        // Step 3: Only re-render if data changed
+        // Dispatch if data has changed.
         if (!cachedData || hasDataChanged(cachedData, freshData)) {
             // Dispatch fresh data
             dispatchBoardDataLoaded({
@@ -84,28 +78,19 @@ async function loadBoardData(boardId) {
  * Load the default board
  * Tries cache first, falls back to API call to find default board
  */
-async function loadDefaultBoard() {
-    // Try loading from cache first
+async function getDefaultBoardId() {
     const cachedData = loadFromCache();
     if (cachedData && cachedData.board && cachedData.board.is_default) {
-        // We have default board in cache, use it
-        await loadBoardData(cachedData.board.id);
-    } else {
-        // No cache - need to get boards list to find default
-        try {
-            const response = await fetch('/api/boards');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const boards = await response.json();
-            const defaultBoard = boards.find(b => b.is_default);
-            if (defaultBoard) {
-                await loadBoardData(defaultBoard.id);
-            }
-        } catch (error) {
-            console.error('Failed to load boards:', error);
-        }
+        return cachedData.board.id;
     }
+
+    const response = await fetch('/api/boards');
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const boards = await response.json();
+    const defaultBoard = boards.find(b => b.is_default);
+    return defaultBoard.id
 }
 
 /**
