@@ -220,6 +220,30 @@ function hideError(elementId) {
     errorEl.style.display = 'none';
 }
 
+// Event Dispatcher Facade
+/**
+ * Dispatches a CustomEvent on the document
+ * Provides a cleaner API than manually creating CustomEvent instances
+ *
+ * @param {string} eventName - Event name (should use Events constants from events.js)
+ * @param {*} detail - Event detail payload (optional)
+ *
+ * @example
+ * import { Events } from '../components/events.js';
+ * import { dispatchEvent } from '../utils/api.js';
+ *
+ * dispatchEvent(Events.BOARD_DATA_LOADED, {
+ *     board: boardData,
+ *     lists: listsData
+ * });
+ */
+function dispatchEvent(eventName, detail = null) {
+    const event = detail !== null
+        ? new CustomEvent(eventName, { detail })
+        : new CustomEvent(eventName);
+    document.dispatchEvent(event);
+}
+
 // Export all functions
 export {
     apiCall,
@@ -253,5 +277,6 @@ export {
     importData,
     escapeHtml,
     showError,
-    hideError
+    hideError,
+    dispatchEvent
 };
