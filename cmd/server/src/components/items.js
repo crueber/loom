@@ -1,8 +1,9 @@
 // Items Management Component (Bookmarks & Notes)
 
-import { createItem, updateItem, deleteItem, reorderItems, escapeHtml } from '../utils/api.js';
-import { flipToBookmark, flipToNote, closeFlippedCard, setBookmarkSortable } from './flipCard.js';
+import { createItem, updateItem, deleteItem, reorderItems, escapeHtml, dispatchEvent } from '../utils/api.js';
+import { flipToBookmark, flipToNote, closeFlippedCard } from './flipCard.js';
 import { loadFromCache, saveToCache } from './cache.js';
+import { Events } from './events.js';
 
 // Helper function to process color tags in note content
 // Converts [color=X]...[/color] to <span style="color: X">...</span>
@@ -35,7 +36,7 @@ document.addEventListener('alpine:init', () => {
 
     init() {
         // Listen for items data loaded from lists manager (backward compat with bookmarks)
-        document.addEventListener('bookmarksDataLoaded', (event) => {
+        document.addEventListener(Events.BOOKMARKS_DATA_LOADED, (event) => {
             // Convert bookmarks to items format if needed
             const bookmarks = event.detail.bookmarks;
             for (const listId in bookmarks) {
@@ -48,28 +49,28 @@ document.addEventListener('alpine:init', () => {
         });
 
         // Listen for render request for specific list
-        document.addEventListener('renderListBookmarks', (event) => {
+        document.addEventListener(Events.RENDER_LIST_BOOKMARKS, (event) => {
             this.renderItems(event.detail.listId);
         });
 
         // Listen for add bookmark request
-        document.addEventListener('addBookmarkRequested', (event) => {
+        document.addEventListener(Events.ADD_BOOKMARK_REQUESTED, (event) => {
             this.addItem(event.detail.listId, 'bookmark');
         });
 
         // Listen for add note request
-        document.addEventListener('addNoteRequested', (event) => {
+        document.addEventListener(Events.ADD_NOTE_REQUESTED, (event) => {
             this.addItem(event.detail.listId, 'note');
         });
 
         // Listen for list deletion to clean up items
-        document.addEventListener('listDeleted', (event) => {
+        document.addEventListener(Events.LIST_DELETED, (event) => {
             delete this.items[event.detail.listId];
             this.updateCache();
         });
 
         // Listen for lists updates to maintain cache
-        document.addEventListener('listsUpdated', (event) => {
+        document.addEventListener(Events.LISTS_UPDATED, (event) => {
             const cachedData = loadFromCache();
             if (cachedData) {
                 saveToCache({ lists: event.detail.lists, items: this.items });
@@ -77,16 +78,16 @@ document.addEventListener('alpine:init', () => {
         });
 
         // Listen for item flipped event
-        document.addEventListener('bookmarkFlipped', () => {
+        document.addEventListener(Events.BOOKMARK_FLIPPED, () => {
             this.disableAllSortables();
         });
 
-        document.addEventListener('noteFlipped', () => {
+        document.addEventListener(Events.NOTE_FLIPPED, () => {
             this.disableAllSortables();
         });
 
         // Listen for user logout
-        document.addEventListener('userLoggedOut', () => {
+        document.addEventListener(Events.USER_LOGGED_OUT, () => {
             this.items = {};
             Object.values(this.itemSortables).forEach(sortable => sortable.destroy());
             this.itemSortables = {};
@@ -127,7 +128,7 @@ document.addEventListener('alpine:init', () => {
             dragClass: 'sortable-drag',
             onStart: (evt) => {
                 // If any card is flipped, cancel the drag
-                if (getCurrentlyFlippedCard()) {
+                if (Alpine.store('flipCard').hasFlippedCard) {
                     evt.item.dispatchEvent(new Event('mouseup'));
                     return false;
                 }
@@ -139,8 +140,8 @@ document.addEventListener('alpine:init', () => {
             }
         });
 
-        // Store reference globally for flipCard component
-        setBookmarkSortable(listId, this.itemSortables[listId]);
+        // Store reference in Alpine.store for flipCard component
+        Alpine.store('flipCard').setBookmarkSortable(listId, this.itemSortables[listId]);
     },
 
     disableAllSortables() {
@@ -585,8 +586,7 @@ document.addEventListener('alpine:init', () => {
         } catch (error) {
             console.error('Failed to reorder items:', error);
             // Reload on failure - dispatch event to lists manager
-            const event = new CustomEvent('reloadDataRequested');
-            document.dispatchEvent(event);
+            dispatchEvent(Events.RELOAD_DATA_REQUESTED);
         }
     },
 

@@ -1,8 +1,9 @@
 // Lists Management Component
 
-import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml } from '../utils/api.js';
+import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { loadFromCache, saveToCache } from './cache.js';
-import { flipToList, closeFlippedCard, setListsSortable, setCurrentlyFlippedCard } from './flipCard.js';
+import { flipToList, closeFlippedCard } from './flipCard.js';
+import { Events } from './events.js';
 
 // Color palette - Darker, more readable colors
 const COLORS = [
@@ -25,22 +26,21 @@ document.addEventListener('alpine:init', () => {
 
     init() {
         // Listen for board data loaded (from boards manager)
-        document.addEventListener('boardDataLoaded', (event) => {
+        document.addEventListener(Events.BOARD_DATA_LOADED, (event) => {
             this.lists = event.detail.lists || [];
             this.boards = event.detail.boards || [];
             this.currentBoardId = event.detail.board?.id || null;
 
             // Dispatch items to items manager (support both old 'bookmarks' and new 'items' format)
-            const bookmarksEvent = new CustomEvent('bookmarksDataLoaded', {
-                detail: { bookmarks: event.detail.items || event.detail.bookmarks }
+            dispatchEvent(Events.BOOKMARKS_DATA_LOADED, {
+                bookmarks: event.detail.items || event.detail.bookmarks
             });
-            document.dispatchEvent(bookmarksEvent);
 
             this.$nextTick(() => this.renderLists());
         });
 
         // Listen for user logout event
-        document.addEventListener('userLoggedOut', () => {
+        document.addEventListener(Events.USER_LOGGED_OUT, () => {
             this.lists = [];
             if (this.listsSortable) {
                 this.listsSortable.destroy();
@@ -49,12 +49,12 @@ document.addEventListener('alpine:init', () => {
         });
 
         // Listen for flipCard events to update sortable state
-        document.addEventListener('listFlipped', () => {
+        document.addEventListener(Events.LIST_FLIPPED, () => {
             this.disableSortable();
         });
 
         // Listen for removeTempList event
-        document.addEventListener('removeTempList', (event) => {
+        document.addEventListener(Events.REMOVE_TEMP_LIST, (event) => {
             const index = this.lists.findIndex(l => l.id === event.detail.id);
             if (index !== -1) {
                 this.lists.splice(index, 1);
@@ -83,17 +83,11 @@ document.addEventListener('alpine:init', () => {
 
             // Dispatch cached boards if available
             if (cachedData.boards) {
-                const cachedBoardsEvent = new CustomEvent('boardsDataLoaded', {
-                    detail: { boards: cachedData.boards }
-                });
-                document.dispatchEvent(cachedBoardsEvent);
+                dispatchEvent(Events.BOARDS_DATA_LOADED, { boards: cachedData.boards });
             }
 
             // Dispatch cached items to items manager (support both old 'bookmarks' and new 'items' format)
-            const cachedEvent = new CustomEvent('bookmarksDataLoaded', {
-                detail: { bookmarks: cachedData.items || cachedData.bookmarks }
-            });
-            document.dispatchEvent(cachedEvent);
+            dispatchEvent(Events.BOOKMARKS_DATA_LOADED, { bookmarks: cachedData.items || cachedData.bookmarks });
 
             this.$nextTick(() => this.renderLists());
         }
@@ -112,17 +106,11 @@ document.addEventListener('alpine:init', () => {
 
                 // Dispatch boards data
                 if (freshData.boards) {
-                    const boardsEvent = new CustomEvent('boardsDataLoaded', {
-                        detail: { boards: freshData.boards }
-                    });
-                    document.dispatchEvent(boardsEvent);
+                    dispatchEvent(Events.BOARDS_DATA_LOADED, { boards: freshData.boards });
                 }
 
                 // Dispatch event with items data for items manager
-                const event = new CustomEvent('bookmarksDataLoaded', {
-                    detail: { bookmarks: freshData.items }
-                });
-                document.dispatchEvent(event);
+                dispatchEvent(Events.BOOKMARKS_DATA_LOADED, { bookmarks: freshData.items });
 
                 // Save to cache for next load
                 saveToCache(freshData);
@@ -153,8 +141,7 @@ document.addEventListener('alpine:init', () => {
             container.insertBefore(listEl, addListContainer);
 
             // Dispatch event to render bookmarks for this list
-            const event = new CustomEvent('renderListBookmarks', { detail: { listId: list.id } });
-            document.dispatchEvent(event);
+            dispatchEvent(Events.RENDER_LIST_BOOKMARKS, { listId: list.id });
         });
 
         // Initialize Sortable for lists
@@ -199,8 +186,8 @@ document.addEventListener('alpine:init', () => {
             }
         });
 
-        // Store reference globally for flipCard component
-        setListsSortable(this.listsSortable);
+        // Store reference in Alpine.store for flipCard component
+        Alpine.store('flipCard').setListsSortable(this.listsSortable);
     },
 
     disableSortable() {
@@ -410,14 +397,12 @@ document.addEventListener('alpine:init', () => {
 
         // Add bookmark button - dispatch event for items manager
         div.querySelector('.add-bookmark-btn').addEventListener('click', () => {
-            const event = new CustomEvent('addBookmarkRequested', { detail: { listId: list.id } });
-            document.dispatchEvent(event);
+            dispatchEvent(Events.ADD_BOOKMARK_REQUESTED, { listId: list.id });
         });
 
         // Add note button - dispatch event for items manager
         div.querySelector('.add-note-btn').addEventListener('click', () => {
-            const event = new CustomEvent('addNoteRequested', { detail: { listId: list.id } });
-            document.dispatchEvent(event);
+            dispatchEvent(Events.ADD_NOTE_REQUESTED, { listId: list.id });
         });
 
         return div;
@@ -457,8 +442,7 @@ document.addEventListener('alpine:init', () => {
                 this.lists.push(createdList);
 
                 // Update cache
-                const event = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
-                document.dispatchEvent(event);
+                dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
 
                 this.renderLists();
                 closeFlippedCard();
@@ -487,8 +471,7 @@ document.addEventListener('alpine:init', () => {
                 if (updates.color) list.color = updates.color;
 
                 // Update cache via event
-                const event = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
-                document.dispatchEvent(event);
+                dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
 
                 // Update front of card
                 if (updates.title) {
@@ -542,14 +525,12 @@ document.addEventListener('alpine:init', () => {
                 this.lists = this.lists.filter(l => l.id !== listId);
 
                 // Notify items manager to delete bookmarks
-                const event = new CustomEvent('listDeleted', { detail: { listId } });
-                document.dispatchEvent(event);
+                dispatchEvent(Events.LIST_DELETED, { listId });
 
                 // Update cache
-                const updateEvent = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
-                document.dispatchEvent(updateEvent);
+                dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
 
-                setCurrentlyFlippedCard(null);
+                Alpine.store('flipCard').setCurrentlyFlipped(null);
                 card.remove();
             } catch (error) {
                 console.error('Failed to delete list:', error);
@@ -580,12 +561,10 @@ document.addEventListener('alpine:init', () => {
                 this.lists = this.lists.filter(l => l.id !== listId);
 
                 // Notify items manager to clean up items for this list
-                const deleteEvent = new CustomEvent('listDeleted', { detail: { listId } });
-                document.dispatchEvent(deleteEvent);
+                dispatchEvent(Events.LIST_DELETED, { listId });
 
                 // Update cache
-                const updateEvent = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
-                document.dispatchEvent(updateEvent);
+                dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
 
                 // Re-render lists
                 this.renderLists();
@@ -639,8 +618,7 @@ document.addEventListener('alpine:init', () => {
             this.lists.sort((a, b) => a.position - b.position);
 
             // Update cache via event
-            const event = new CustomEvent('listsUpdated', { detail: { lists: this.lists } });
-            document.dispatchEvent(event);
+            dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
         } catch (error) {
             console.error('Failed to reorder lists:', error);
             // Reload on failure
@@ -660,8 +638,10 @@ document.addEventListener('alpine:init', () => {
         this.lists.push(tempList);
         this.renderLists();
 
-        // Flip to back
-        flipToList(tempId);
+        // Wait for render then flip to back
+        this.$nextTick(() => {
+            flipToList(tempId);
+        });
     },
 }));
 });

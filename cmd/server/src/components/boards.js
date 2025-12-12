@@ -2,9 +2,13 @@
 
 import { getBoards, getBoardData, createBoard, updateBoard, deleteBoard } from '../utils/api.js';
 import { loadFromCache, saveToCache } from './cache.js';
+import { Events } from './events.js';
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('boardsManager', () => ({
+        // ============================================================
+        // State
+        // ============================================================
         boards: [],
         currentBoard: { title: 'Loading...' },
         boardSwitcherOpen: false,
@@ -13,15 +17,18 @@ document.addEventListener('alpine:init', () => {
         showDeleteUI: false,
         renameBoardTitle: '',
 
+        // ============================================================
+        // Lifecycle
+        // ============================================================
         init() {
             // Listen for logout to clear boards
-            document.addEventListener('userLoggedOut', () => {
+            document.addEventListener(Events.USER_LOGGED_OUT, () => {
                 this.boards = [];
                 this.currentBoard = { title: 'Loading...' };
             });
 
             // Listen for board data loaded - this includes the boards list
-            document.addEventListener('boardDataLoaded', (event) => {
+            document.addEventListener(Events.BOARD_DATA_LOADED, (event) => {
                 if (event.detail.board) {
                     this.currentBoard = event.detail.board;
                 }
@@ -31,14 +38,18 @@ document.addEventListener('alpine:init', () => {
             });
 
             // Listen for list/bookmark updates to update cache
-            document.addEventListener('listsUpdated', (event) => {
+            document.addEventListener(Events.LISTS_UPDATED, (event) => {
                 this.updateCache({ lists: event.detail.lists });
             });
 
-            document.addEventListener('bookmarksUpdated', (event) => {
+            document.addEventListener(Events.BOOKMARKS_UPDATED, (event) => {
                 this.updateCache({ bookmarks: event.detail.bookmarks });
             });
         },
+
+        // ============================================================
+        // Public Methods
+        // ============================================================
 
         updateCache(updates) {
             // Load current cache

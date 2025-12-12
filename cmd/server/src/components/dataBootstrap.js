@@ -3,6 +3,8 @@
 // Determines which board to load based on URL and triggers data load
 
 import { loadFromCache, saveToCache, hasDataChanged } from './cache.js';
+import { dispatchEvent } from '../utils/api.js';
+import { Events } from './events.js';
 
 /**
  * Bootstrap application data on page load
@@ -111,6 +113,5 @@ async function loadDefaultBoard() {
  * @param {Object} data - Board data to dispatch
  */
 function dispatchBoardDataLoaded(data) {
-    const event = new CustomEvent('boardDataLoaded', { detail: data });
-    document.dispatchEvent(event);
+    dispatchEvent(Events.BOARD_DATA_LOADED, data);
 }

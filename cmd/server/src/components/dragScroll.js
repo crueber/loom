@@ -1,7 +1,5 @@
 // Horizontal Drag Scrolling Component
 
-import { getCurrentlyFlippedCard } from './flipCard.js';
-
 function initializeHorizontalDragScroll(container) {
     let isDown = false;
     let startX;
@@ -9,7 +7,7 @@ function initializeHorizontalDragScroll(container) {
 
     container.addEventListener('mousedown', (e) => {
         // Don't activate if any card is flipped
-        if (getCurrentlyFlippedCard()) {
+        if (Alpine.store('flipCard').hasFlippedCard) {
             return;
         }
 

@@ -2,10 +2,17 @@
 // Alpine.js component framework with modular architecture
 
 // Import dependencies
-import { exportData, importData, showError, hideError } from './utils/api.js';
-import { getCurrentlyFlippedCard, initFlipCardListeners } from './components/flipCard.js';
+import { exportData, importData, showError, hideError, dispatchEvent } from './utils/api.js';
+import { initFlipCardStore, initFlipCardListeners } from './components/flipCard.js';
 import { initializeHorizontalDragScroll } from './components/dragScroll.js';
 import { bootstrapData } from './components/dataBootstrap.js';
+import { Events } from './components/events.js';
+
+// Initialize Alpine stores before components load
+document.addEventListener('alpine:init', () => {
+    // Initialize flip card store
+    initFlipCardStore();
+});
 
 // Import Alpine components (they register themselves)
 import './components/auth.js';
@@ -61,8 +68,7 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
         document.getElementById('import-form').reset();
 
         // Reload data by dispatching event
-        const event = new CustomEvent('reloadDataRequested');
-        document.dispatchEvent(event);
+        dispatchEvent(Events.RELOAD_DATA_REQUESTED);
 
         alert('Import successful!');
     } catch (error) {
@@ -77,12 +83,12 @@ document.getElementById('close-color-picker').addEventListener('click', () => {
 });
 
 // Listen for user login to bootstrap data
-document.addEventListener('userLoggedIn', async () => {
+document.addEventListener(Events.USER_LOGGED_IN, async () => {
     await bootstrapData();
 });
 
 // Listen for reload data requests
-document.addEventListener('reloadDataRequested', async () => {
+document.addEventListener(Events.RELOAD_DATA_REQUESTED, async () => {
     await bootstrapData();
 });
 
