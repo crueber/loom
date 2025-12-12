@@ -97,7 +97,8 @@ Located in `cmd/server/static/`:
   - `flipCard.js` - Shared card flip behavior and state management
   - `dragScroll.js` - Horizontal drag-to-scroll functionality
   - `cache.js` - LocalStorage management for instant loads
-- `utils/api.js` - API helper functions (all fetch calls)
+  - `events.js` - Event name constants registry
+- `utils/api.js` - API helper functions (all fetch calls, event dispatcher)
 - `styles.css` - Custom styles with Pico.css base (~10KB)
 - `lib/` - Third-party libraries:
   - Pico.css (~10KB)
@@ -108,6 +109,8 @@ Located in `cmd/server/static/`:
 - **Alpine.js reactive components** for state management and modularity
 - **Component-based architecture** for easier development and maintenance
 - **Event-driven communication** between components via CustomEvents
+- **Alpine.store()** for shared state (flip card state, sortable instances)
+- **Centralized event registry** (events.js) for all CustomEvent names
 - Drag-to-scroll: Click and drag whitespace to scroll horizontally
 - SortableJS handles list/bookmark reordering with auto-scroll near edges
 - Card flip UI: Gear icon (⚙️) flips lists/bookmarks to show configuration panels
@@ -116,6 +119,158 @@ Located in `cmd/server/static/`:
 - Keyboard shortcuts: ESC to close, Enter to save
 - Color picker: Inline grid in list configuration (8 predefined colors, validated server-side)
 - **LocalStorage caching** for instant page loads with background refresh
+
+### Frontend Component Guidelines
+
+**CRITICAL: Follow these patterns for all component development**
+
+#### Component File Structure
+
+Each component must follow this structure:
+
+1. **Imports** - All dependencies at top
+2. **Constants** - Component-specific constants (colors, etc.)
+3. **Component Definition** - Single `Alpine.data()` or `Alpine.store()` export
+4. **State** - Reactive properties
+5. **Lifecycle** - `init()` method
+6. **Public Methods** - Core functionality (alphabetical order)
+7. **Private Methods** - Internal helpers prefixed with `_` (alphabetical order)
+8. **Event Handlers** - Methods prefixed with `handle` (alphabetical order)
+
+#### State Management Rules
+
+- **Component state**: Use `Alpine.data()` properties for component-local state
+- **Shared state**: Use `Alpine.store()` for state shared across components (NOT global variables)
+- **External events**: Use `dispatchEvent()` facade from utils/api.js with Events constants
+- **Internal state**: Keep private with underscore prefix (`_internalState`)
+
+**Examples:**
+```javascript
+// Component-local state (auth.js)
+Alpine.data('authManager', () => ({
+    currentUser: null,  // ✅ Component state
+    loading: true,
+    // ...
+}));
+
+// Shared state (flipCard.js)
+Alpine.store('flipCard', {
+    currentlyFlipped: null,  // ✅ Shared across components
+    listsSortable: null,
+    bookmarkSortables: {}
+});
+
+// ❌ NEVER use global variables
+let currentlyFlippedCard = null;  // NO!
+```
+
+#### Event Communication Patterns
+
+**Use centralized event registry:**
+```javascript
+import { Events } from './events.js';
+import { dispatchEvent } from '../utils/api.js';
+
+// Dispatching events
+dispatchEvent(Events.BOARD_DATA_LOADED, {
+    board: boardData,
+    lists: listsData
+});
+
+// Listening for events
+document.addEventListener(Events.BOARD_DATA_LOADED, (event) => {
+    this.board = event.detail.board;
+    this.lists = event.detail.lists;
+});
+```
+
+**Event naming conventions:**
+- Use SCREAMING_SNAKE_CASE for event constant names
+- Use past tense for events (DATA_LOADED, USER_LOGGED_IN)
+- Document all events in events.js with JSDoc comments
+
+#### DOM Manipulation Rules
+
+- ✅ **ALWAYS prefer Alpine directives**: `x-show`, `x-if`, `x-for`, `x-bind`, `x-model`, `x-text`
+- ✅ **SOMETIMES use $refs**: For direct DOM access when Alpine can't handle it
+- ⚠️ **RARELY use querySelector**: Only in flipCard.js for legacy card flip logic
+- ❌ **NEVER manually create DOM elements**: Use Alpine templates with `x-for` or `x-if`
+- ❌ **NEVER use innerHTML**: Use Alpine's reactivity instead
+
+**Examples:**
+```javascript
+// ✅ Good - Alpine handles rendering
+get visibleLists() {
+    return this.lists.filter(l => !l.collapsed);
+}
+
+// ❌ Bad - Manual DOM manipulation
+renderLists() {
+    const html = this.lists.map(l => `<div>...</div>`).join('');
+    container.innerHTML = html;
+}
+```
+
+#### Template Location Rules
+
+- **Simple toggles**: Use `x-show` or `x-if` inline in index.html
+- **Repeated elements**: Use `x-for` with Alpine data objects
+- **Complex templates**: Keep in index.html, NOT in separate files
+- **Dynamic attributes**: Use `x-bind:` or `:` shorthand
+
+**IMPORTANT: Avoid `<template>` tag issues:**
+- Alpine's `x-if` uses `<template>` internally - prefer this over raw `<template>` tags
+- For `x-for`, directly use on the element to repeat, not a wrapper `<template>`
+- Only use `<template>` when you need a non-rendering container for `x-if`
+
+**Examples:**
+```html
+<!-- ✅ Good - x-for on the element itself -->
+<div x-for="list in lists" :key="list.id" class="list-card">
+    <!-- list content -->
+</div>
+
+<!-- ✅ Good - x-if with template when needed -->
+<template x-if="showDeleteUI">
+    <div class="delete-confirmation">
+        <!-- confirmation UI -->
+    </div>
+</template>
+
+<!-- ❌ Bad - unnecessary template wrapper -->
+<template x-for="list in lists">
+    <div class="list-card">...</div>
+</template>
+```
+
+#### Component Method Organization
+
+**Public methods** (no underscore prefix):
+- CRUD operations: `createList()`, `updateList()`, `deleteList()`
+- UI actions: `flipToList()`, `saveList()`, `cancelEdit()`
+- Event handlers: `handleListFlipped()`, `handleKeyDown()`
+
+**Private methods** (underscore prefix):
+- Internal helpers: `_buildListData()`, `_validateInput()`
+- DOM queries: `_getListElement()`, `_focusInput()`
+- Data transformations: `_prepareApiPayload()`
+
+**Lifecycle:**
+- Use `init()` for component initialization
+- Set up event listeners in `init()`
+- Clean up resources in component destruction (if needed)
+
+#### Testing Checklist
+
+Before committing component changes:
+- [ ] No global variables (use Alpine.store() instead)
+- [ ] All events use Events constants from events.js
+- [ ] All event dispatches use dispatchEvent() facade
+- [ ] No manual DOM creation (use Alpine templates)
+- [ ] Methods organized: public, private, handlers
+- [ ] Event listeners registered in init()
+- [ ] JSDoc comments for public methods
+- [ ] Component follows file structure guidelines
 
 ### Data Flow
 
