@@ -50,7 +50,7 @@
                             <!-- Board List (only show if not in rename/delete mode) -->
                             <div x-show="!showRenameUI && !showDeleteUI">
                                 <template x-for="board in boards" :key="board.id">
-                                    <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="board.title"></a>
+                                    <a :href="board.is_default ? '/' : `/boards/${board.id}`" x-text="(board.is_default ? '። ' : '') + board.title"></a>
                                 </template>
                                 <hr>
                                 <a href="#" @click.prevent="renameBoardTitle = currentBoard?.title || ''; showRenameUI = true; $nextTick(() => document.getElementById('rename-board-input')?.focus())">Rename Board</a>
