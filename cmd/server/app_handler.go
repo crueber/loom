@@ -65,9 +65,8 @@ func (h *AppHandler) injectVersions(html string) string {
 
 // injectBootstrapData adds the bootstrap data script to the HTML
 func (h *AppHandler) injectBootstrapData(html, bootstrapData string) string {
-	bootstrapScript := fmt.Sprintf(`<script>window.__BOOTSTRAP_DATA__ = %s;</script>
-</head>`, bootstrapData)
-	return strings.Replace(html, "</head>", bootstrapScript, 1)
+	bootstrapScript := fmt.Sprintf(`<script>window.__BOOTSTRAP_DATA__ = %s;</script>`, bootstrapData)
+	return strings.Replace(html, "<!-- Bootstrap -->", bootstrapScript, 1)
 }
 
 // getBootstrapData fetches and serializes bootstrap data for authenticated users
