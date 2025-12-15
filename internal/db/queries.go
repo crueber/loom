@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/crueber/loom/internal/models"
 )
@@ -599,17 +600,47 @@ func (db *DB) UpdateBookmarkPositions(positions map[int]struct {
 	Position int
 	ListID   int
 }) error {
+	if len(positions) == 0 {
+		return nil
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
+	// Build bulk UPDATE with CASE statements for efficiency
+	var ids []interface{}
+	var positionCases, listIDCases strings.Builder
+	positionCases.WriteString("CASE id ")
+	listIDCases.WriteString("CASE id ")
+
 	for bookmarkID, pos := range positions {
-		_, err := tx.Exec("UPDATE bookmarks SET position = ?, list_id = ? WHERE id = ?", pos.Position, pos.ListID, bookmarkID)
-		if err != nil {
-			return fmt.Errorf("failed to update bookmark position: %w", err)
-		}
+		ids = append(ids, bookmarkID)
+		positionCases.WriteString(fmt.Sprintf("WHEN %d THEN %d ", bookmarkID, pos.Position))
+		listIDCases.WriteString(fmt.Sprintf("WHEN %d THEN %d ", bookmarkID, pos.ListID))
+	}
+
+	positionCases.WriteString("END")
+	listIDCases.WriteString("END")
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(ids))
+	for i := range ids {
+		placeholders[i] = "?"
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE bookmarks
+		SET position = %s,
+		    list_id = %s
+		WHERE id IN (%s)
+	`, positionCases.String(), listIDCases.String(), strings.Join(placeholders, ","))
+
+	_, err = tx.Exec(query, ids...)
+	if err != nil {
+		return fmt.Errorf("failed to update bookmark positions: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -646,6 +677,19 @@ func (db *DB) VerifyBookmarkOwnership(bookmarkID, userID int) (bool, error) {
 }
 
 // Item queries (unified bookmarks and notes)
+
+// GetNextItemPosition returns the next position for a new item in a list
+func (db *DB) GetNextItemPosition(listID int) (int, error) {
+	var position int
+	err := db.QueryRow(
+		"SELECT COALESCE(MAX(position), -1) + 1 FROM items WHERE list_id = ?",
+		listID,
+	).Scan(&position)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get next item position: %w", err)
+	}
+	return position, nil
+}
 
 // CreateItem creates a new item (bookmark or note)
 func (db *DB) CreateItem(listID int, itemType string, title, url, content *string, faviconURL *string, position int) (*models.Item, error) {
@@ -836,17 +880,47 @@ func (db *DB) UpdateItemPositions(positions map[int]struct {
 	Position int
 	ListID   int
 }) error {
+	if len(positions) == 0 {
+		return nil
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
+	// Build bulk UPDATE with CASE statements for efficiency
+	var ids []interface{}
+	var positionCases, listIDCases strings.Builder
+	positionCases.WriteString("CASE id ")
+	listIDCases.WriteString("CASE id ")
+
 	for itemID, pos := range positions {
-		_, err := tx.Exec("UPDATE items SET position = ?, list_id = ? WHERE id = ?", pos.Position, pos.ListID, itemID)
-		if err != nil {
-			return fmt.Errorf("failed to update item position: %w", err)
-		}
+		ids = append(ids, itemID)
+		positionCases.WriteString(fmt.Sprintf("WHEN %d THEN %d ", itemID, pos.Position))
+		listIDCases.WriteString(fmt.Sprintf("WHEN %d THEN %d ", itemID, pos.ListID))
+	}
+
+	positionCases.WriteString("END")
+	listIDCases.WriteString("END")
+
+	// Build placeholders for IN clause
+	placeholders := make([]string, len(ids))
+	for i := range ids {
+		placeholders[i] = "?"
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE items
+		SET position = %s,
+		    list_id = %s
+		WHERE id IN (%s)
+	`, positionCases.String(), listIDCases.String(), strings.Join(placeholders, ","))
+
+	_, err = tx.Exec(query, ids...)
+	if err != nil {
+		return fmt.Errorf("failed to update item positions: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -870,6 +944,52 @@ func (db *DB) VerifyItemOwnership(itemID, userID int) (bool, error) {
 		return false, fmt.Errorf("failed to verify item ownership: %w", err)
 	}
 	return exists, nil
+}
+
+// VerifyItemsAndListsOwnership verifies that all items and lists belong to a user in a single query
+func (db *DB) VerifyItemsAndListsOwnership(itemIDs []int, listIDs []int, userID int) (bool, error) {
+	if len(itemIDs) == 0 {
+		return true, nil
+	}
+
+	// Build placeholders for IN clauses
+	itemPlaceholders := make([]string, len(itemIDs))
+	listPlaceholders := make([]string, len(listIDs))
+	for i := range itemIDs {
+		itemPlaceholders[i] = "?"
+	}
+	for i := range listIDs {
+		listPlaceholders[i] = "?"
+	}
+
+	// Build query to verify all items belong to user and all target lists belong to user
+	query := fmt.Sprintf(`
+		SELECT
+			(SELECT COUNT(DISTINCT i.id) FROM items i
+			 JOIN lists l ON i.list_id = l.id
+			 WHERE i.id IN (%s) AND l.user_id = ?) as item_count,
+			(SELECT COUNT(DISTINCT l.id) FROM lists l
+			 WHERE l.id IN (%s) AND l.user_id = ?) as list_count
+	`, strings.Join(itemPlaceholders, ","), strings.Join(listPlaceholders, ","))
+
+	// Build args slice
+	args := make([]interface{}, 0, len(itemIDs)+len(listIDs)+2)
+	for _, id := range itemIDs {
+		args = append(args, id)
+	}
+	args = append(args, userID)
+	for _, id := range listIDs {
+		args = append(args, id)
+	}
+	args = append(args, userID)
+
+	var itemCount, listCount int
+	err := db.QueryRow(query, args...).Scan(&itemCount, &listCount)
+	if err != nil {
+		return false, fmt.Errorf("failed to verify ownership: %w", err)
+	}
+
+	return itemCount == len(itemIDs) && listCount == len(listIDs), nil
 }
 
 // Board queries

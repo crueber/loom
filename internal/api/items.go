@@ -155,16 +155,11 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 		*req.Content = strings.TrimSpace(*req.Content)
 	}
 
-	// Get current max position
-	items, err := api.db.GetItems(req.ListID)
+	// Get next position efficiently
+	position, err := api.db.GetNextItemPosition(req.ListID)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get items")
+		respondError(w, http.StatusInternalServerError, "Failed to get next position")
 		return
-	}
-
-	position := 0
-	if len(items) > 0 {
-		position = items[len(items)-1].Position + 1
 	}
 
 	// Create item
@@ -326,35 +321,21 @@ func (api *ItemsAPI) HandleReorderItems(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Verify ownership of all items and lists
+	// Collect item IDs and list IDs for bulk verification
+	itemIDs := make([]int, 0, len(req.Items))
+	listIDs := make([]int, 0, len(req.Items))
+	listIDSet := make(map[int]bool)
 	itemPositions := make(map[int]struct {
 		Position int
 		ListID   int
 	})
 
 	for _, item := range req.Items {
-		// Verify item ownership
-		exists, err := api.db.VerifyItemOwnership(item.ID, userID)
-		if err != nil {
-			respondError(w, http.StatusInternalServerError, "Database error")
-			return
+		itemIDs = append(itemIDs, item.ID)
+		if !listIDSet[item.ListID] {
+			listIDs = append(listIDs, item.ListID)
+			listIDSet[item.ListID] = true
 		}
-		if !exists {
-			respondError(w, http.StatusNotFound, "Item not found")
-			return
-		}
-
-		// Verify list ownership (in case item is moved to different list)
-		exists, err = api.db.VerifyListOwnership(item.ListID, userID)
-		if err != nil {
-			respondError(w, http.StatusInternalServerError, "Database error")
-			return
-		}
-		if !exists {
-			respondError(w, http.StatusNotFound, "List not found")
-			return
-		}
-
 		itemPositions[item.ID] = struct {
 			Position int
 			ListID   int
@@ -362,6 +343,17 @@ func (api *ItemsAPI) HandleReorderItems(w http.ResponseWriter, r *http.Request) 
 			Position: item.Position,
 			ListID:   item.ListID,
 		}
+	}
+
+	// Verify ownership of all items and lists in a single query
+	owned, err := api.db.VerifyItemsAndListsOwnership(itemIDs, listIDs, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if !owned {
+		respondError(w, http.StatusNotFound, "One or more items or lists not found")
+		return
 	}
 
 	// Update positions

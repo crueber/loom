@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -32,6 +33,11 @@ func New(dbPath string) (*DB, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)                  // Limit concurrent connections
+	db.SetMaxIdleConns(5)                   // Keep some connections warm
+	db.SetConnMaxLifetime(5 * time.Minute)  // Recycle connections periodically
 
 	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {

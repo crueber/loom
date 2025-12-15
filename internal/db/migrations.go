@@ -143,6 +143,14 @@ func (db *DB) migrate() error {
 				CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
 			`,
 		},
+		{
+			version: 6,
+			sql: `
+				-- Migration v6: Add composite index for board queries
+				-- Optimizes queries filtering by user_id AND board_id
+				CREATE INDEX IF NOT EXISTS idx_lists_user_board_position ON lists(user_id, board_id, position);
+			`,
+		},
 	}
 
 	// Run each migration
