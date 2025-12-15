@@ -1,7 +1,6 @@
 // Boards Component
 
 import { updateBoard, deleteBoard } from '../utils/api.js';
-import { updateCache } from './cache.js';
 import { Events } from './events.js';
 
 document.addEventListener('alpine:init', () => {
@@ -37,10 +36,7 @@ document.addEventListener('alpine:init', () => {
                 }
             });
 
-            // Listen for list/bookmark updates to update cache
-            document.addEventListener(Events.LISTS_UPDATED, (event) => {
-                updateCache({ lists: event.detail.lists });
-            });
+            // Listen for list updates (no longer using cache)
         },
 
         // ============================================================
@@ -100,9 +96,6 @@ document.addEventListener('alpine:init', () => {
                 if (board) {
                     board.title = newTitle;
                 }
-
-                // Update cache
-                updateCache({ board: this.currentBoard });
 
                 this.showRenameUI = false;
                 this.renameBoardTitle = '';

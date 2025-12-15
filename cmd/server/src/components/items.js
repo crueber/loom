@@ -2,7 +2,6 @@
 
 import { createItem, updateItem, deleteItem, reorderItems, debounce, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { flipToBookmark, flipToNote, closeFlippedCard } from './flipCard.js';
-import { loadFromCache, saveToCache, updateCache } from './cache.js';
 import { Events } from './events.js';
 
 // Helper function to process color tags in note content
@@ -36,10 +35,10 @@ document.addEventListener('alpine:init', () => {
     debouncedItemReorder: null,
 
     init() {
-        // Create debounced reorder handler (300ms delay to prevent excessive API calls)
+        // Create debounced reorder handler (100ms delay to prevent excessive API calls)
         this.debouncedItemReorder = debounce((evt) => {
             this.handleItemReorder(evt);
-        }, 300);
+        }, 30);
 
         // Listen for items data loaded from lists manager (backward compat with bookmarks)
         document.addEventListener(Events.BOOKMARKS_DATA_LOADED, (event) => {
@@ -72,7 +71,6 @@ document.addEventListener('alpine:init', () => {
         // Listen for list deletion to clean up items
         document.addEventListener(Events.LIST_DELETED, (event) => {
             delete this.items[event.detail.listId];
-            this.updateCache();
         });
 
         // Listen for item flipped event
@@ -367,7 +365,6 @@ document.addEventListener('alpine:init', () => {
                 const item = await createItem(listId, 'bookmark', { title: newTitle, url: newUrl });
                 if (!this.items[listId]) this.items[listId] = [];
                 this.items[listId].push(item);
-                this.updateCache();
                 this.renderItems(listId);
                 closeFlippedCard();
             } catch (error) {
@@ -399,7 +396,6 @@ document.addEventListener('alpine:init', () => {
         try {
             const updatedItem = await updateItem(item.id, updates);
             Object.assign(item, updatedItem);
-            this.updateCache();
             this.renderItems(item.list_id);
             closeFlippedCard();
         } catch (error) {
@@ -429,7 +425,6 @@ document.addEventListener('alpine:init', () => {
                 const item = await createItem(listId, 'note', { content: newContent });
                 if (!this.items[listId]) this.items[listId] = [];
                 this.items[listId].push(item);
-                this.updateCache();
                 this.renderItems(listId);
                 closeFlippedCard();
             } catch (error) {
@@ -463,7 +458,6 @@ document.addEventListener('alpine:init', () => {
         try {
             const updatedItem = await updateItem(item.id, { content: newContent });
             Object.assign(item, updatedItem);
-            this.updateCache();
             this.renderItems(item.list_id);
             closeFlippedCard();
         } catch (error) {
@@ -495,7 +489,6 @@ document.addEventListener('alpine:init', () => {
                 const index = this.items[listId].findIndex(i => i.id == itemId);
                 if (index !== -1) {
                     this.items[listId].splice(index, 1);
-                    this.updateCache();
                     this.renderItems(parseInt(listId));
                     closeFlippedCard();
                     break;
@@ -619,17 +612,11 @@ document.addEventListener('alpine:init', () => {
             affectedListIds.forEach(listId => {
                 this.renderItems(listId);
             });
-
-            updateCache({ items: this.items });
         } catch (error) {
             console.error('Failed to reorder items:', error);
             // Reload on failure - dispatch event to lists manager
             dispatchEvent(Events.RELOAD_DATA_REQUESTED);
         }
-    },
-
-    updateCache() {
-        updateCache({ items: this.items });
     }
 }));
 });

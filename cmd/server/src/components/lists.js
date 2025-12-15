@@ -25,10 +25,10 @@ document.addEventListener('alpine:init', () => {
     debouncedListReorder: null,
 
     init() {
-        // Create debounced reorder handler (300ms delay to prevent excessive API calls)
+        // Create debounced reorder handler (100ms delay to prevent excessive API calls)
         this.debouncedListReorder = debounce((evt) => {
             this.handleListReorder(evt);
-        }, 300);
+        }, 30);
 
         // Listen for board data loaded (from boards manager)
         document.addEventListener(Events.BOARD_DATA_LOADED, (event) => {

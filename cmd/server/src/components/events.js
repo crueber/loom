@@ -71,7 +71,7 @@ export const Events = {
 
     /**
      * Dispatched when lists are updated (created, reordered, etc.)
-     * Triggers cache update
+     * Can be used by components that need to react to list changes
      * @event LISTS_UPDATED
      * @property {Array} detail.lists - Updated lists array
      */
