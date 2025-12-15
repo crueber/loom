@@ -20,10 +20,23 @@ function loadFromCache() {
     }
 }
 
+function updateCache(updates) {
+    // Load current cache
+    const cachedData = loadFromCache();
+    if (cachedData) {
+        // Update the cache with new data
+        const updatedCache = {
+            ...cachedData,
+            ...updates
+        };
+        saveToCache(updatedCache);
+    }
+}
+
 function hasDataChanged(oldData, newData) {
     // Simple deep comparison via JSON stringify
     // More efficient than comparing field by field for small datasets
     return JSON.stringify(oldData) !== JSON.stringify(newData);
 }
 
-export { saveToCache, loadFromCache, hasDataChanged };
+export { saveToCache, loadFromCache, updateCache, hasDataChanged };

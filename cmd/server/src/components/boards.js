@@ -1,7 +1,7 @@
 // Boards Component
 
-import { getBoards, getBoardData, createBoard, updateBoard, deleteBoard } from '../utils/api.js';
-import { loadFromCache, saveToCache } from './cache.js';
+import { updateBoard, deleteBoard } from '../utils/api.js';
+import { updateCache } from './cache.js';
 import { Events } from './events.js';
 
 document.addEventListener('alpine:init', () => {
@@ -39,30 +39,13 @@ document.addEventListener('alpine:init', () => {
 
             // Listen for list/bookmark updates to update cache
             document.addEventListener(Events.LISTS_UPDATED, (event) => {
-                this.updateCache({ lists: event.detail.lists });
-            });
-
-            document.addEventListener(Events.BOOKMARKS_UPDATED, (event) => {
-                this.updateCache({ bookmarks: event.detail.bookmarks });
+                updateCache({ lists: event.detail.lists });
             });
         },
 
         // ============================================================
         // Public Methods
         // ============================================================
-
-        updateCache(updates) {
-            // Load current cache
-            const cachedData = loadFromCache();
-            if (cachedData) {
-                // Update the cache with new data
-                const updatedCache = {
-                    ...cachedData,
-                    ...updates
-                };
-                saveToCache(updatedCache);
-            }
-        },
 
         async createBoard() {
             try {
@@ -119,7 +102,7 @@ document.addEventListener('alpine:init', () => {
                 }
 
                 // Update cache
-                this.updateCache({ board: this.currentBoard });
+                updateCache({ board: this.currentBoard });
 
                 this.showRenameUI = false;
                 this.renameBoardTitle = '';

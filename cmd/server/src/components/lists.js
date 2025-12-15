@@ -1,7 +1,6 @@
 // Lists Management Component
 
 import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml, dispatchEvent } from '../utils/api.js';
-import { loadFromCache, saveToCache } from './cache.js';
 import { flipToList, closeFlippedCard } from './flipCard.js';
 import { Events } from './events.js';
 
@@ -73,57 +72,6 @@ document.addEventListener('alpine:init', () => {
             }
         }
         return null;
-    },
-
-    async loadData() {
-        // Step 1: Load from cache and render immediately
-        const cachedData = loadFromCache();
-        if (cachedData) {
-            this.lists = cachedData.lists;
-
-            // Dispatch cached boards if available
-            if (cachedData.boards) {
-                dispatchEvent(Events.BOARDS_DATA_LOADED, { boards: cachedData.boards });
-            }
-
-            // Dispatch cached items to items manager (support both old 'bookmarks' and new 'items' format)
-            dispatchEvent(Events.BOOKMARKS_DATA_LOADED, { bookmarks: cachedData.items || cachedData.bookmarks });
-
-            this.$nextTick(() => this.renderLists());
-        }
-
-        // Step 2: Fetch fresh data from server in background
-        try {
-            const response = await fetch('/api/data');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const freshData = await response.json();
-
-            // Step 3: Check if data has changed or if no cache existed
-            if (!cachedData || hasDataChanged(cachedData, freshData)) {
-                this.lists = freshData.lists;
-
-                // Dispatch boards data
-                if (freshData.boards) {
-                    dispatchEvent(Events.BOARDS_DATA_LOADED, { boards: freshData.boards });
-                }
-
-                // Dispatch event with items data for items manager
-                dispatchEvent(Events.BOOKMARKS_DATA_LOADED, { bookmarks: freshData.items });
-
-                // Save to cache for next load
-                saveToCache(freshData);
-
-                // Re-render with fresh data
-                this.$nextTick(() => this.renderLists());
-            }
-        } catch (error) {
-            console.error('Failed to load data:', error);
-            if (!cachedData) {
-                alert('Failed to load bookmarks. Please refresh the page.');
-            }
-        }
     },
 
     renderLists() {
@@ -607,8 +555,6 @@ document.addEventListener('alpine:init', () => {
             dispatchEvent(Events.LISTS_UPDATED, { lists: this.lists });
         } catch (error) {
             console.error('Failed to reorder lists:', error);
-            // Reload on failure
-            this.loadData();
         }
     },
 

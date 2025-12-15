@@ -2,7 +2,7 @@
 
 import { createItem, updateItem, deleteItem, reorderItems, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { flipToBookmark, flipToNote, closeFlippedCard } from './flipCard.js';
-import { loadFromCache, saveToCache } from './cache.js';
+import { loadFromCache, saveToCache, updateCache } from './cache.js';
 import { Events } from './events.js';
 
 // Helper function to process color tags in note content
@@ -67,14 +67,6 @@ document.addEventListener('alpine:init', () => {
         document.addEventListener(Events.LIST_DELETED, (event) => {
             delete this.items[event.detail.listId];
             this.updateCache();
-        });
-
-        // Listen for lists updates to maintain cache
-        document.addEventListener(Events.LISTS_UPDATED, (event) => {
-            const cachedData = loadFromCache();
-            if (cachedData) {
-                saveToCache({ lists: event.detail.lists, items: this.items });
-            }
         });
 
         // Listen for item flipped event
@@ -581,8 +573,7 @@ document.addEventListener('alpine:init', () => {
                 this.renderItems(listId);
             });
 
-            // Update cache
-            this.updateCache();
+            updateCache({ items: this.items });
         } catch (error) {
             console.error('Failed to reorder items:', error);
             // Reload on failure - dispatch event to lists manager
@@ -591,11 +582,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     updateCache() {
-        // Get current lists from cache
-        const cachedData = loadFromCache();
-        if (cachedData) {
-            saveToCache({ lists: cachedData.lists, items: this.items });
-        }
+        updateCache({ items: this.items });
     }
 }));
 });
