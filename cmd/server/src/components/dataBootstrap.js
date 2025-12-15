@@ -26,18 +26,40 @@ export async function bootstrapData() {
  */
 async function loadBoardData(boardId) {
     try {
-        // Dispatch immediately for instant load when cached.
-        const cachedData = loadFromCache();
-        if (cachedData && cachedData.board && (cachedData.board.id === boardId || cachedData.board.is_default)) {
+        // Check for server-side bootstrapped data first
+        let initialData = null;
+        if (window.__BOOTSTRAP_DATA__) {
+            const bootstrapData = window.__BOOTSTRAP_DATA__;
+            initialData = bootstrapData;
+
+            // Use bootstrapped data immediately for instant load
             dispatchBoardDataLoaded({
-                board: cachedData.board,
-                boards: cachedData.boards,
-                lists: cachedData.lists,
-                items: cachedData.items || cachedData.bookmarks
+                board: bootstrapData.board,
+                boards: bootstrapData.boards,
+                lists: bootstrapData.lists,
+                items: bootstrapData.items
             });
+
+            // Save to cache immediately
+            saveToCache(bootstrapData);
+
+            // Clear bootstrap data so we don't use it again on subsequent loads
+            delete window.__BOOTSTRAP_DATA__;
+        } else {
+            // Fall back to cache if no bootstrap data
+            const cachedData = loadFromCache();
+            if (cachedData && cachedData.board && (cachedData.board.id === boardId || cachedData.board.is_default)) {
+                initialData = cachedData;
+                dispatchBoardDataLoaded({
+                    board: cachedData.board,
+                    boards: cachedData.boards,
+                    lists: cachedData.lists,
+                    items: cachedData.items || cachedData.bookmarks
+                });
+            }
         }
 
-        // Fetch fresh data in background.
+        // Fetch fresh data in background for updates
         if (!boardId) {
             boardId = await getDefaultBoardId();
         }
@@ -51,8 +73,8 @@ async function loadBoardData(boardId) {
         }
         const freshData = await response.json();
 
-        // Dispatch if data has changed.
-        if (!cachedData || hasDataChanged(cachedData, freshData)) {
+        // Only dispatch and save if data has changed from what we already loaded
+        if (!initialData || hasDataChanged(initialData, freshData)) {
             // Dispatch fresh data
             dispatchBoardDataLoaded({
                 board: freshData.board,
@@ -67,7 +89,7 @@ async function loadBoardData(boardId) {
     } catch (error) {
         console.error('Failed to load board data:', error);
         const cachedData = loadFromCache();
-        if (!cachedData) {
+        if (!cachedData && !window.__BOOTSTRAP_DATA__) {
             alert('Failed to load board. Redirecting to default.');
             window.location.href = '/';
         }
