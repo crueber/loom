@@ -34,9 +34,61 @@ function updateCache(updates) {
 }
 
 function hasDataChanged(oldData, newData) {
-    // Simple deep comparison via JSON stringify
-    // More efficient than comparing field by field for small datasets
-    return JSON.stringify(oldData) !== JSON.stringify(newData);
+    // Fast shallow comparison to avoid expensive JSON.stringify
+    // This is orders of magnitude faster for large datasets
+
+    if (!oldData || !newData) {
+        return true;
+    }
+
+    // Compare boards array length
+    if (oldData.boards?.length !== newData.boards?.length) {
+        return true;
+    }
+
+    // Compare lists array length
+    if (oldData.lists?.length !== newData.lists?.length) {
+        return true;
+    }
+
+    // Compare items structure (check each list's item count)
+    const oldItems = oldData.items || {};
+    const newItems = newData.items || {};
+    const oldListIds = Object.keys(oldItems);
+    const newListIds = Object.keys(newItems);
+
+    if (oldListIds.length !== newListIds.length) {
+        return true;
+    }
+
+    // Check item counts per list
+    for (const listId of newListIds) {
+        if (!oldItems[listId] || oldItems[listId].length !== newItems[listId].length) {
+            return true;
+        }
+    }
+
+    // If counts match, do a quick ID-based check on boards and lists
+    // This catches renames, reorders, etc. without full serialization
+    const boardsChanged = oldData.boards.some((board, i) =>
+        board.id !== newData.boards[i]?.id ||
+        board.title !== newData.boards[i]?.title
+    );
+    if (boardsChanged) {
+        return true;
+    }
+
+    const listsChanged = oldData.lists.some((list, i) =>
+        list.id !== newData.lists[i]?.id ||
+        list.title !== newData.lists[i]?.title ||
+        list.position !== newData.lists[i]?.position
+    );
+    if (listsChanged) {
+        return true;
+    }
+
+    // If we get here, data appears unchanged
+    return false;
 }
 
 export { saveToCache, loadFromCache, updateCache, hasDataChanged };
