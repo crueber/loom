@@ -1,6 +1,6 @@
 // Items Management Component (Bookmarks & Notes)
 
-import { createItem, updateItem, deleteItem, reorderItems, escapeHtml, dispatchEvent } from '../utils/api.js';
+import { createItem, updateItem, deleteItem, reorderItems, debounce, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { flipToBookmark, flipToNote, closeFlippedCard } from './flipCard.js';
 import { loadFromCache, saveToCache, updateCache } from './cache.js';
 import { Events } from './events.js';
@@ -33,8 +33,14 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('itemsManager', () => ({
     items: {},  // Changed from bookmarks to items
     itemSortables: {},  // Changed from bookmarkSortables
+    debouncedItemReorder: null,
 
     init() {
+        // Create debounced reorder handler (300ms delay to prevent excessive API calls)
+        this.debouncedItemReorder = debounce((evt) => {
+            this.handleItemReorder(evt);
+        }, 300);
+
         // Listen for items data loaded from lists manager (backward compat with bookmarks)
         document.addEventListener(Events.BOOKMARKS_DATA_LOADED, (event) => {
             // Convert bookmarks to items format if needed
@@ -125,7 +131,10 @@ document.addEventListener('alpine:init', () => {
                     return false;
                 }
             },
-            onEnd: (evt) => this.handleItemReorder(evt),
+            onEnd: (evt) => {
+                // Use debounced handler to prevent excessive API calls during rapid dragging
+                this.debouncedItemReorder(evt);
+            },
             onMove: (evt) => {
                 // Don't allow dragging if the item is flipped
                 return evt.related.dataset.flipped !== 'true';
@@ -534,41 +543,79 @@ document.addEventListener('alpine:init', () => {
     },
 
     async handleItemReorder(evt) {
-        const { from, to, item } = evt;
-        const itemId = parseInt(item.dataset.itemId);
-        const newListId = parseInt(to.dataset.listId);
+        const { from, to } = evt;
+        const fromListId = parseInt(from.dataset.listId);
+        const toListId = parseInt(to.dataset.listId);
 
-        const itemElements = to.querySelectorAll('.bookmark-item, .note-item');
-        const reorderedItems = Array.from(itemElements).map((el, index) => ({
-            id: parseInt(el.dataset.itemId),
-            position: index,
-            list_id: newListId
-        }));
+        // Collect ALL items from ALL affected lists to send to server
+        // This ensures we capture the CURRENT DOM state after Sortable has moved things
+        const affectedListIds = new Set([fromListId, toListId]);
+        const allReorderedItems = [];
+
+        affectedListIds.forEach(listId => {
+            const listContainer = document.querySelector(`[data-list-id="${listId}"]`);
+            if (listContainer) {
+                const itemElements = listContainer.querySelectorAll('.bookmark-item, .note-item');
+                itemElements.forEach((el, index) => {
+                    allReorderedItems.push({
+                        id: parseInt(el.dataset.itemId),
+                        position: index,
+                        list_id: listId
+                    });
+                });
+            }
+        });
 
         try {
-            await reorderItems(reorderedItems);
+            await reorderItems(allReorderedItems);
 
-            // Update local state
-            for (const listId in this.items) {
-                const itemObj = this.items[listId].find(i => i.id === itemId);
-                if (itemObj) {
-                    this.items[listId] = this.items[listId].filter(i => i.id !== itemId);
-                    itemObj.list_id = newListId;
-                    itemObj.position = reorderedItems.find(r => r.id === itemId).position;
+            // Update local state to match what we sent to server
+            // Build a map of the new positions for quick lookup
+            const positionMap = new Map();
+            allReorderedItems.forEach(item => {
+                positionMap.set(item.id, { position: item.position, list_id: item.list_id });
+            });
 
-                    if (!this.items[newListId]) this.items[newListId] = [];
-                    this.items[newListId].push(itemObj);
-                    break;
-                }
-            }
-
-            // Update all affected lists
-            const affectedListIds = new Set([...reorderedItems.map(r => r.list_id)]);
+            // Update each affected list in local state
             affectedListIds.forEach(listId => {
+                if (!this.items[listId]) {
+                    this.items[listId] = [];
+                }
+
+                // Update items that are in this list according to the server update
+                this.items[listId] = this.items[listId]
+                    .map(item => {
+                        const newPos = positionMap.get(item.id);
+                        if (newPos && newPos.list_id === listId) {
+                            return { ...item, position: newPos.position, list_id: listId };
+                        }
+                        return null;  // Item moved to another list
+                    })
+                    .filter(item => item !== null);
+
+                // Add items that moved INTO this list
+                for (const [itemId, newPos] of positionMap.entries()) {
+                    if (newPos.list_id === listId && !this.items[listId].find(i => i.id === itemId)) {
+                        // Find item in other lists
+                        for (const otherListId in this.items) {
+                            const movedItem = this.items[otherListId].find(i => i.id === itemId);
+                            if (movedItem) {
+                                this.items[listId].push({
+                                    ...movedItem,
+                                    position: newPos.position,
+                                    list_id: listId
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Sort by position to ensure correct order
                 this.items[listId].sort((a, b) => a.position - b.position);
             });
 
-            // Re-render all affected lists to reflect the new order
+            // Re-render all affected lists
             affectedListIds.forEach(listId => {
                 this.renderItems(listId);
             });

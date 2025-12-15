@@ -1,6 +1,6 @@
 // Lists Management Component
 
-import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, escapeHtml, dispatchEvent } from '../utils/api.js';
+import { getLists, createList, updateList, deleteList, reorderLists, copyOrMoveList, debounce, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { flipToList, closeFlippedCard } from './flipCard.js';
 import { Events } from './events.js';
 
@@ -22,8 +22,14 @@ document.addEventListener('alpine:init', () => {
     boards: [],
     currentBoardId: null,
     listsSortable: null,
+    debouncedListReorder: null,
 
     init() {
+        // Create debounced reorder handler (300ms delay to prevent excessive API calls)
+        this.debouncedListReorder = debounce((evt) => {
+            this.handleListReorder(evt);
+        }, 300);
+
         // Listen for board data loaded (from boards manager)
         document.addEventListener(Events.BOARD_DATA_LOADED, (event) => {
             this.lists = event.detail.lists || [];
@@ -116,7 +122,8 @@ document.addEventListener('alpine:init', () => {
             delay: 200,
             delayOnTouchOnly: true,
             onEnd: (evt) => {
-                this.handleListReorder(evt);
+                // Use debounced handler to prevent excessive API calls during rapid dragging
+                this.debouncedListReorder(evt);
             }
         });
 

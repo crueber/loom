@@ -203,6 +203,31 @@ async function importData(data, mode) {
 }
 
 // Utility Functions
+
+/**
+ * Debounces a function call, ensuring it's only called once after a delay
+ * Useful for preventing excessive API calls during rapid user interactions
+ *
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Delay in milliseconds
+ * @returns {Function} Debounced function
+ *
+ * @example
+ * const debouncedSave = debounce(() => saveData(), 300);
+ * element.addEventListener('input', debouncedSave);
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -275,6 +300,7 @@ export {
     getAllData,
     exportData,
     importData,
+    debounce,
     escapeHtml,
     showError,
     hideError,
