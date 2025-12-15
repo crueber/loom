@@ -217,32 +217,24 @@ func GetBoardData(database *db.DB) http.HandlerFunc {
 			return
 		}
 
-		// Get all items for this user (we'll filter on frontend)
-		// Or we could join through lists to get only items for this board
-		items, err := database.GetAllItems(userID)
+		// Get items for this board only (efficient single query with JOIN)
+		items, err := database.GetItemsByBoard(userID, boardID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		// Filter items to only those in lists for this board
-		listIDs := make(map[int]bool)
-		for _, list := range lists {
-			listIDs[list.ID] = true
-		}
-
-		filteredItems := make(map[int]interface{})
+		// Group items by list ID for frontend consumption
+		filteredItems := make(map[int]any)
 		for _, item := range items {
-			if listIDs[item.ListID] {
-				if _, exists := filteredItems[item.ListID]; !exists {
-					filteredItems[item.ListID] = []interface{}{}
-				}
-				listItems := filteredItems[item.ListID].([]interface{})
-				filteredItems[item.ListID] = append(listItems, item)
+			if _, exists := filteredItems[item.ListID]; !exists {
+				filteredItems[item.ListID] = []any{}
 			}
+			listItems := filteredItems[item.ListID].([]any)
+			filteredItems[item.ListID] = append(listItems, item)
 		}
 
-		response := map[string]interface{}{
+		response := map[string]any{
 			"board":  board,
 			"boards": boards,
 			"lists":  lists,

@@ -141,20 +141,18 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 		return ""
 	}
 
-	allItems, err := h.database.GetAllItems(userID)
+	// Get items for this board only (efficient single query with JOIN)
+	items, err := h.database.GetItemsByBoard(userID, boardID)
 	if err != nil {
 		return ""
 	}
 
-	// Filter items to only those in lists for this board
-	filteredItems := h.filterItemsByBoard(lists, allItems)
-
 	// Build bootstrap data structure
-	bootstrapData := map[string]interface{}{
+	bootstrapData := map[string]any{
 		"board":  board,
 		"boards": boards,
 		"lists":  lists,
-		"items":  filteredItems,
+		"items":  h.groupItemsByList(items),
 	}
 
 	// Serialize to JSON
@@ -166,25 +164,17 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 	return string(jsonData)
 }
 
-// filterItemsByBoard filters items to only include those in the given lists
-func (h *AppHandler) filterItemsByBoard(lists []*models.List, allItems []*models.Item) map[int]interface{} {
-	// Build a set of list IDs
-	listIDs := make(map[int]bool)
-	for _, list := range lists {
-		listIDs[list.ID] = true
-	}
+// groupItemsByList groups items by their list ID
+func (h *AppHandler) groupItemsByList(items []*models.Item) map[int]any {
+	itemsByList := make(map[int]any)
 
-	// Filter items by list membership
-	filteredItems := make(map[int]interface{})
-	for _, item := range allItems {
-		if listIDs[item.ListID] {
-			if _, exists := filteredItems[item.ListID]; !exists {
-				filteredItems[item.ListID] = []interface{}{}
-			}
-			listItems := filteredItems[item.ListID].([]interface{})
-			filteredItems[item.ListID] = append(listItems, item)
+	for _, item := range items {
+		if _, exists := itemsByList[item.ListID]; !exists {
+			itemsByList[item.ListID] = []any{}
 		}
+		listItems := itemsByList[item.ListID].([]any)
+		itemsByList[item.ListID] = append(listItems, item)
 	}
 
-	return filteredItems
+	return itemsByList
 }

@@ -291,7 +291,7 @@ func (db *DB) GetListsByBoard(userID int, boardID int) ([]*models.List, error) {
 // UpdateList updates a list
 func (db *DB) UpdateList(id, userID int, title, color *string, collapsed *bool) error {
 	query := "UPDATE lists SET "
-	args := []interface{}{}
+	args := []any{}
 	updates := []string{}
 
 	if title != nil {
@@ -557,7 +557,7 @@ func (db *DB) GetAllBookmarks(userID int) ([]*models.Bookmark, error) {
 // UpdateBookmark updates a bookmark
 func (db *DB) UpdateBookmark(id int, title, url *string, faviconURL **string) error {
 	query := "UPDATE bookmarks SET "
-	args := []interface{}{}
+	args := []any{}
 	updates := []string{}
 
 	if title != nil {
@@ -760,10 +760,37 @@ func (db *DB) GetAllItems(userID int) ([]*models.Item, error) {
 	return items, nil
 }
 
+// GetItemsByBoard retrieves all items for a specific board
+func (db *DB) GetItemsByBoard(userID, boardID int) ([]*models.Item, error) {
+	rows, err := db.Query(
+		`SELECT i.id, i.list_id, i.type, i.title, i.url, i.content, i.favicon_url, i.position, i.created_at
+		 FROM items i
+		 INNER JOIN lists l ON i.list_id = l.id
+		 WHERE l.user_id = ? AND l.board_id = ?
+		 ORDER BY i.list_id, i.position`,
+		userID, boardID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get items by board: %w", err)
+	}
+	defer rows.Close()
+
+	var items []*models.Item
+	for rows.Next() {
+		var item models.Item
+		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan item: %w", err)
+		}
+		items = append(items, &item)
+	}
+
+	return items, nil
+}
+
 // UpdateItem updates an item (supports partial updates)
 func (db *DB) UpdateItem(id int, title, url, content *string, faviconURL **string) error {
 	query := "UPDATE items SET "
-	args := []interface{}{}
+	args := []any{}
 	updates := []string{}
 
 	if title != nil {

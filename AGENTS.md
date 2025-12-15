@@ -8,7 +8,7 @@
 7. Run a single test: `go test ./internal/api -run TestName`.
 8. Formatting: run `gofmt -w` on touched Go files; no other formatters configured.
 9. Imports: stdlib, blank line, third-party, project (`github.com/crueber/loom/...`).
-10. Use explicit types and avoid `interface{}` unless required; keep shared structs in `internal/models`.
+10. Use explicit types and avoid `interface{}` or `any` unless required; keep shared structs in `internal/models`.
 11. Prefer short, descriptive names; exported identifiers need doc-comments.
 12. Return early on errors; wrap with context (`fmt.Errorf("...: %w", err)`) before bubbling.
 13. Never log sensitive data (session keys, passwords); rely on structured API error helpers.
