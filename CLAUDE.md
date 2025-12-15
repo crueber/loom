@@ -37,10 +37,41 @@ docker-compose down && docker-compose up --build -d
 docker-compose down
 ```
 
+### Local Development (JavaScript Changes)
+
+**IMPORTANT: Source files are in `cmd/server/src/`, NOT `cmd/server/static/`**
+
+When making JavaScript changes:
+```bash
+# Edit source files in cmd/server/src/
+# - cmd/server/src/app.js
+# - cmd/server/src/components/*.js
+# - cmd/server/src/utils/*.js
+
+# Build the bundle after changes
+cd cmd/server
+node build.js
+
+# The bundle is generated at cmd/server/static/dist/app.bundle.js
+# NEVER edit files in static/dist/ - they are build artifacts
+```
+
+**Key Points:**
+- Source files: `cmd/server/src/` (edit these)
+- Build output: `cmd/server/static/dist/app.bundle.js` (never edit, gitignored)
+- Static assets: `cmd/server/static/` (only truly static files like HTML, CSS, images, lib/)
+- Run `node build.js` after any JavaScript changes to test locally
+- Docker build handles bundling automatically in production
+
 ### Local Binary Building (For Build Testing Only - Not for Running)
 
 ```bash
-# Build server binary
+# Build the JavaScript bundle first
+cd cmd/server
+node build.js
+
+# Then build Go server binary
+cd ../..
 go build -o bin/server ./cmd/server
 
 # Note: /user CLI tool has been removed - users are auto-provisioned via OAuth2
@@ -48,9 +79,10 @@ go build -o bin/server ./cmd/server
 
 ### Building for Production
 
-The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
-- Stage 1: golang:1.24-alpine builder
-- Stage 2: scratch runtime (< 15MB final image)
+The Dockerfile uses multi-stage builds:
+- **Stage 1 (Node.js)**: Runs `node build.js` to bundle JavaScript from `src/` to `static/dist/`
+- **Stage 2 (Go)**: Builds Go binary with CGO disabled, embeds all of `static/` including the bundle
+- **Stage 3 (Runtime)**: scratch runtime (< 15MB final image)
 - Frontend assets are embedded via `//go:embed static` in cmd/server/main.go
 
 ## Architecture
@@ -87,8 +119,7 @@ The Dockerfile uses multi-stage builds with CGO disabled for static binaries:
 
 ### Frontend Architecture
 
-Located in `cmd/server/static/`:
-- `index.html` - Single-page app structure with Alpine.js directives
+**Source files** located in `cmd/server/src/` (edit these):
 - `app.js` - Main initialization (~83 lines)
 - `components/` - Modular Alpine.js components:
   - `auth.js` - Authentication logic (login/logout, user state)
@@ -98,12 +129,21 @@ Located in `cmd/server/static/`:
   - `dragScroll.js` - Horizontal drag-to-scroll functionality
   - `cache.js` - LocalStorage management for instant loads
   - `events.js` - Event name constants registry
+  - `dataBootstrap.js` - Data loading and initialization
+  - `boards.js` - Board management and navigation
 - `utils/api.js` - API helper functions (all fetch calls, event dispatcher)
+
+**Static assets** in `cmd/server/static/` (never edit components here):
+- `index.html` - Single-page app structure with Alpine.js directives
 - `styles.css` - Custom styles with Pico.css base (~10KB)
 - `lib/` - Third-party libraries:
   - Pico.css (~10KB)
   - SortableJS (drag-and-drop)
   - Alpine.js v3.x (~15KB, reactive framework)
+  - Marked.js (markdown rendering)
+- `dist/` - Build output (gitignored):
+  - `app.bundle.js` - Bundled JavaScript from src/
+  - `version.txt` - Build version hash
 
 **Key Frontend Features:**
 - **Alpine.js reactive components** for state management and modularity
@@ -320,7 +360,7 @@ Before committing component changes:
 - Adds `.touch-device` class to body for CSS targeting
 - Managed globally in app.js initialization
 
-**Flip State Management** ([components/flipCard.js](cmd/server/static/components/flipCard.js)):
+**Flip State Management** ([src/components/flipCard.js](cmd/server/src/components/flipCard.js)):
 - Global `currentlyFlippedCard` state tracks which card (if any) is flipped
 - `flipToList()` and `flipToBookmark()` functions handle flipping logic
 - `closeFlippedCard()` handles cleanup and temp card removal
@@ -342,7 +382,7 @@ Before committing component changes:
   - Move button transfers list (with all items) to target board
   - Both buttons disabled until board selected
   - After operation, prompts user to navigate to target board
-- Managed by [components/lists.js](cmd/server/static/components/lists.js)
+- Managed by [src/components/lists.js](cmd/server/src/components/lists.js)
 - `pointer-events: none` on hidden card sides prevents click-through
 - List header collapse disabled when flipped
 
@@ -350,7 +390,7 @@ Before committing component changes:
 - Uses `display: none/block` instead of 3D transforms to avoid layout issues
 - Gear icon (⚙️) replaces edit/delete buttons
 - Configuration panel includes: title input, URL input, delete/cancel/save buttons
-- Managed by [components/items.js](cmd/server/static/components/items.js)
+- Managed by [src/components/items.js](cmd/server/src/components/items.js)
 - Naturally expands to fit content without taking out of document flow
 
 **Adding Items** (temporary card pattern):
@@ -363,7 +403,7 @@ Before committing component changes:
 - Cancel/ESC removes temp card from DOM
 - `closeFlippedCard()` detects temp items and removes them instead of unflipping
 
-**SortableJS Integration** ([components/lists.js](cmd/server/static/components/lists.js), [components/items.js](cmd/server/static/components/items.js)):
+**SortableJS Integration** ([src/components/lists.js](cmd/server/src/components/lists.js), [src/components/items.js](cmd/server/src/components/items.js)):
 - `delay: 200, delayOnTouchOnly: true` for long-press drag on touch devices
 - `filter: '[data-flipped="true"]'` prevents dragging flipped cards
 - All instances disabled when any card is flipped via `.option("disabled", true)`
@@ -371,11 +411,11 @@ Before committing component changes:
 - Auto-scroll near edges, animation on drop
 - Managed separately: listsSortable for lists, bookmarkSortables for bookmarks
 
-**Keyboard Support** ([components/flipCard.js:107-111](cmd/server/static/components/flipCard.js#L107-L111)):
+**Keyboard Support** ([src/components/flipCard.js](cmd/server/src/components/flipCard.js)):
 - ESC key closes any open configuration panel (including temp items)
 - Enter key in inputs saves changes (handled in lists.js and items.js)
 
-**Drag-Scroll** ([components/dragScroll.js](cmd/server/static/components/dragScroll.js)):
+**Drag-Scroll** ([src/components/dragScroll.js](cmd/server/src/components/dragScroll.js)):
 - Excludes INPUT, BUTTON, A, TEXTAREA, SELECT from initiating drag-scroll
 - Disabled when any card is flipped to prevent interference
 - Preserves normal interaction with form elements while maintaining whitespace drag
@@ -384,7 +424,7 @@ Before committing component changes:
 ### Color Validation
 
 Colors must match between frontend and backend. When changing colors:
-1. Update `COLORS` array in [components/lists.js](cmd/server/static/components/lists.js)
+1. Update `COLORS` array in [src/components/lists.js](cmd/server/src/components/lists.js)
 2. Update CSS classes in [styles.css](cmd/server/static/styles.css)
 3. Update `validColors` slice in [internal/api/lists.go](internal/api/lists.go)
 
@@ -512,7 +552,7 @@ document.addEventListener('eventName', (event) => {
 
 ### Cache Management
 
-[components/cache.js](cmd/server/static/components/cache.js) provides instant page loads:
+[src/components/cache.js](cmd/server/src/components/cache.js) provides instant page loads:
 1. Load cached data from localStorage immediately (instant render)
 2. Fetch fresh data from server in background (single `/api/data` call includes boards, lists, and items)
 3. Compare cached vs fresh data using JSON.stringify
@@ -533,7 +573,7 @@ document.addEventListener('eventName', (event) => {
 
 ### Component Responsibilities
 
-**authManager** ([components/auth.js](cmd/server/static/components/auth.js)):
+**authManager** ([src/components/auth.js](cmd/server/src/components/auth.js)):
 - OAuth2 login flow (redirects to `/auth/login`)
 - Logout functionality
 - Current user state management
@@ -541,7 +581,7 @@ document.addEventListener('eventName', (event) => {
 - Manual login button (no auto-redirect after logout)
 - Dispatches `userLoggedIn` and `userLoggedOut` events
 
-**boardsManager** ([components/boards.js](cmd/server/src/components/boards.js)):
+**boardsManager** ([src/components/boards.js](cmd/server/src/components/boards.js)):
 - Board CRUD operations (create, rename, delete)
 - Board switching and navigation
 - Mobile menu state management
@@ -549,7 +589,7 @@ document.addEventListener('eventName', (event) => {
 - Prevents deleting the only board
 - Manages board data caching
 
-**listsManager** ([components/lists.js](cmd/server/static/components/lists.js)):
+**listsManager** ([src/components/lists.js](cmd/server/src/components/lists.js)):
 - Lists CRUD operations (create, read, update, delete)
 - List rendering with Alpine.js templates
 - SortableJS integration for drag-and-drop
@@ -559,7 +599,7 @@ document.addEventListener('eventName', (event) => {
 - Copy/move lists between boards
 - Dispatches events for bookmark rendering and cache updates
 
-**itemsManager** ([components/items.js](cmd/server/static/components/items.js)):
+**itemsManager** ([src/components/items.js](cmd/server/src/components/items.js)):
 - Items (bookmarks & notes) CRUD operations
 - Item rendering within lists
 - SortableJS integration for item reordering
@@ -569,10 +609,10 @@ document.addEventListener('eventName', (event) => {
 - Handles both bookmarks and notes (unified items approach)
 
 **Standalone Utilities:**
-- [components/flipCard.js](cmd/server/static/components/flipCard.js) - Global flip state management
-- [components/dragScroll.js](cmd/server/static/components/dragScroll.js) - Horizontal scroll functionality
-- [components/cache.js](cmd/server/static/components/cache.js) - LocalStorage helpers
-- [utils/api.js](cmd/server/static/utils/api.js) - All API fetch calls
+- [src/components/flipCard.js](cmd/server/src/components/flipCard.js) - Global flip state management
+- [src/components/dragScroll.js](cmd/server/src/components/dragScroll.js) - Horizontal scroll functionality
+- [src/components/cache.js](cmd/server/src/components/cache.js) - LocalStorage helpers
+- [src/utils/api.js](cmd/server/src/utils/api.js) - All API fetch calls
 
 ### Development Patterns
 
