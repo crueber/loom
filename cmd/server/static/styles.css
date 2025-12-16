@@ -750,7 +750,10 @@ nav strong {
 .bookmark-config-panel {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+}
+
+.bookmark-config-panel, .note-config-panel {
+    gap: 0.2rem;
 }
 
 .bookmark-config-header {
@@ -780,10 +783,15 @@ nav strong {
     color: var(--pico-contrast);
 }
 
-.bookmark-config-panel input {
-    padding: 0.5rem;
+.bookmark-config-panel input, .bookmark-config-panel select, .note-config-panel textarea {
+    padding: 0.1rem 0.5rem;
     font-size: 0.875rem;
     margin: 0;
+    height: 2rem;
+}
+
+.bookmark-config-panel label {
+    margin-bottom: 0;
 }
 
 /* Favicon preview in config panel */
