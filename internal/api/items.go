@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,18 +29,22 @@ func NewItemsAPI(database *db.DB, faviconFetcher *favicon.Fetcher) *ItemsAPI {
 
 // CreateItemRequest represents a request to create an item
 type CreateItemRequest struct {
-	ListID  int     `json:"list_id"`
-	Type    string  `json:"type"` // "bookmark" or "note"
-	Title   *string `json:"title,omitempty"`
-	URL     *string `json:"url,omitempty"`
-	Content *string `json:"content,omitempty"`
+	ListID        int     `json:"list_id"`
+	Type          string  `json:"type"` // "bookmark" or "note"
+	Title         *string `json:"title,omitempty"`
+	URL           *string `json:"url,omitempty"`
+	Content       *string `json:"content,omitempty"`
+	IconSource    string  `json:"icon_source,omitempty"`     // "auto", "custom", "service"
+	CustomIconURL *string `json:"custom_icon_url,omitempty"` // Custom icon URL or service slug
 }
 
 // UpdateItemRequest represents a request to update an item
 type UpdateItemRequest struct {
-	Title   *string `json:"title,omitempty"`
-	URL     *string `json:"url,omitempty"`
-	Content *string `json:"content,omitempty"`
+	Title         *string `json:"title,omitempty"`
+	URL           *string `json:"url,omitempty"`
+	Content       *string `json:"content,omitempty"`
+	IconSource    *string `json:"icon_source,omitempty"`     // "auto", "custom", "service"
+	CustomIconURL *string `json:"custom_icon_url,omitempty"` // Custom icon URL or service slug
 }
 
 // ReorderItemsRequest represents a request to reorder items
@@ -120,6 +125,12 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set default icon source if not provided
+	iconSource := req.IconSource
+	if iconSource == "" {
+		iconSource = "auto"
+	}
+
 	// Type-specific validation
 	var faviconURL *string
 	if req.Type == "bookmark" {
@@ -144,8 +155,9 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Fetch favicon
-		faviconURL = api.faviconFetcher.FetchFaviconURL(*req.URL)
+		// Fetch favicon based on icon source
+		domain := extractDomainFromURL(*req.URL)
+		faviconURL, _ = api.faviconFetcher.FetchIcon(iconSource, req.CustomIconURL, domain)
 	} else if req.Type == "note" {
 		// Validate note fields
 		if req.Content == nil || strings.TrimSpace(*req.Content) == "" {
@@ -163,7 +175,7 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create item
-	item, err := api.db.CreateItem(req.ListID, req.Type, req.Title, req.URL, req.Content, faviconURL, position)
+	item, err := api.db.CreateItem(req.ListID, req.Type, req.Title, req.URL, req.Content, faviconURL, iconSource, req.CustomIconURL, position)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to create item")
 		return
@@ -214,7 +226,10 @@ func (api *ItemsAPI) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newFaviconURL **string
+	// DEBUG: Log the request
+	log.Printf("UpdateItem request for item %d: IconSource=%v, CustomIconURL=%v", itemID, req.IconSource, req.CustomIconURL)
+
+	updates := make(map[string]interface{})
 
 	// Type-specific validation
 	if item.Type == "bookmark" {
@@ -228,6 +243,7 @@ func (api *ItemsAPI) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
 				respondError(w, http.StatusBadRequest, "Title must be less than 200 characters")
 				return
 			}
+			updates["title"] = req.Title
 		}
 
 		if req.URL != nil {
@@ -240,20 +256,68 @@ func (api *ItemsAPI) HandleUpdateItem(w http.ResponseWriter, r *http.Request) {
 				respondError(w, http.StatusBadRequest, "Invalid URL")
 				return
 			}
+			updates["url"] = req.URL
+		}
 
-			// Fetch new favicon if URL changed
-			faviconURL := api.faviconFetcher.FetchFaviconURL(*req.URL)
-			newFaviconURL = &faviconURL
+		// Handle icon source and custom icon URL changes
+		iconSourceChanged := req.IconSource != nil
+		customIconURLChanged := req.CustomIconURL != nil
+
+		if iconSourceChanged {
+			updates["icon_source"] = req.IconSource
+		}
+		if customIconURLChanged {
+			updates["custom_icon_url"] = req.CustomIconURL
+		}
+
+		// Re-fetch favicon if icon source or custom icon URL changed
+		if iconSourceChanged || customIconURLChanged {
+			// Determine which URL to use for favicon fetching
+			var urlForFavicon string
+			if req.URL != nil {
+				urlForFavicon = *req.URL
+			} else if item.URL != nil {
+				urlForFavicon = *item.URL
+			}
+
+			// Determine which icon source to use
+			iconSource := item.IconSource
+			if req.IconSource != nil {
+				iconSource = *req.IconSource
+			}
+
+			// Determine which custom icon URL to use
+			var customIconURL *string
+			if iconSource == "auto" {
+				// Always use nil for auto mode to fetch from domain
+				customIconURL = nil
+			} else if req.CustomIconURL != nil {
+				customIconURL = req.CustomIconURL
+			} else {
+				customIconURL = item.CustomIconURL
+			}
+
+			// Fetch new favicon
+			if urlForFavicon != "" {
+				domain := extractDomainFromURL(urlForFavicon)
+				faviconURL, err := api.faviconFetcher.FetchIcon(iconSource, customIconURL, domain)
+				if err != nil {
+					// Clear favicon_url if fetch fails
+					updates["favicon_url"] = nil
+				} else if faviconURL != nil {
+					updates["favicon_url"] = faviconURL
+				}
+			}
 		}
 	} else if item.Type == "note" {
 		if req.Content != nil {
 			*req.Content = strings.TrimSpace(*req.Content)
-			// Note: Empty content is allowed for deletion via save
+			updates["content"] = req.Content
 		}
 	}
 
 	// Update item
-	if err := api.db.UpdateItem(itemID, req.Title, req.URL, req.Content, newFaviconURL); err != nil {
+	if err := api.db.UpdateItemFields(itemID, updates); err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to update item")
 		return
 	}
@@ -363,4 +427,33 @@ func (api *ItemsAPI) HandleReorderItems(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// extractDomainFromURL extracts the domain from a URL string
+func extractDomainFromURL(rawURL string) string {
+	// Add scheme if missing
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
+	}
+
+	// Simple extraction without net/url to avoid import
+	// Find the position after the scheme
+	schemeEnd := strings.Index(rawURL, "://")
+	if schemeEnd == -1 {
+		return ""
+	}
+
+	// Start after "://"
+	domainStart := schemeEnd + 3
+
+	// Find the end of the domain (first /, :, or end of string)
+	domainEnd := len(rawURL)
+	for i := domainStart; i < len(rawURL); i++ {
+		if rawURL[i] == '/' || rawURL[i] == ':' {
+			domainEnd = i
+			break
+		}
+	}
+
+	return rawURL[domainStart:domainEnd]
 }

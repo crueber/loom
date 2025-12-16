@@ -786,6 +786,45 @@ nav strong {
     margin: 0;
 }
 
+/* Favicon preview in config panel */
+.bookmark-config-favicon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    background: var(--pico-card-background-color);
+    border-radius: 4px;
+}
+
+.bookmark-config-favicon img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+/* Icon source dropdown */
+.config-icon-source {
+    width: 100%;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Custom icon URL input */
+.bookmark-custom-icon-input {
+    margin: 0.75rem 0;
+}
+
+.config-custom-icon-url {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 4px;
+    background: var(--pico-background-color);
+    color: var(--pico-color);
+}
+
 .bookmark-config-actions {
     display: flex;
     gap: 0.5rem;

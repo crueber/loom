@@ -692,10 +692,10 @@ func (db *DB) GetNextItemPosition(listID int) (int, error) {
 }
 
 // CreateItem creates a new item (bookmark or note)
-func (db *DB) CreateItem(listID int, itemType string, title, url, content *string, faviconURL *string, position int) (*models.Item, error) {
+func (db *DB) CreateItem(listID int, itemType string, title, url, content *string, faviconURL *string, iconSource string, customIconURL *string, position int) (*models.Item, error) {
 	result, err := db.Exec(
-		"INSERT INTO items (list_id, type, title, url, content, favicon_url, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		listID, itemType, title, url, content, faviconURL, position,
+		"INSERT INTO items (list_id, type, title, url, content, favicon_url, icon_source, custom_icon_url, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		listID, itemType, title, url, content, faviconURL, iconSource, customIconURL, position,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create item: %w", err)
@@ -713,9 +713,9 @@ func (db *DB) CreateItem(listID int, itemType string, title, url, content *strin
 func (db *DB) GetItem(id int) (*models.Item, error) {
 	var item models.Item
 	err := db.QueryRow(
-		"SELECT id, list_id, type, title, url, content, favicon_url, position, created_at FROM items WHERE id = ?",
+		"SELECT id, list_id, type, title, url, content, favicon_url, icon_source, custom_icon_url, position, created_at FROM items WHERE id = ?",
 		id,
-	).Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt)
+	).Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.IconSource, &item.CustomIconURL, &item.Position, &item.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -730,7 +730,7 @@ func (db *DB) GetItem(id int) (*models.Item, error) {
 // GetItems retrieves all items for a list
 func (db *DB) GetItems(listID int) ([]*models.Item, error) {
 	rows, err := db.Query(
-		"SELECT id, list_id, type, title, url, content, favicon_url, position, created_at FROM items WHERE list_id = ? ORDER BY position",
+		"SELECT id, list_id, type, title, url, content, favicon_url, icon_source, custom_icon_url, position, created_at FROM items WHERE list_id = ? ORDER BY position",
 		listID,
 	)
 	if err != nil {
@@ -741,7 +741,7 @@ func (db *DB) GetItems(listID int) ([]*models.Item, error) {
 	var items []*models.Item
 	for rows.Next() {
 		var item models.Item
-		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.IconSource, &item.CustomIconURL, &item.Position, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		items = append(items, &item)
@@ -780,7 +780,7 @@ func (db *DB) GetAllItems(userID int) ([]*models.Item, error) {
 // GetItemsByBoard retrieves all items for a specific board
 func (db *DB) GetItemsByBoard(userID, boardID int) ([]*models.Item, error) {
 	rows, err := db.Query(
-		`SELECT i.id, i.list_id, i.type, i.title, i.url, i.content, i.favicon_url, i.position, i.created_at
+		`SELECT i.id, i.list_id, i.type, i.title, i.url, i.content, i.favicon_url, i.icon_source, i.custom_icon_url, i.position, i.created_at
 		 FROM items i
 		 INNER JOIN lists l ON i.list_id = l.id
 		 WHERE l.user_id = ? AND l.board_id = ?
@@ -795,7 +795,7 @@ func (db *DB) GetItemsByBoard(userID, boardID int) ([]*models.Item, error) {
 	var items []*models.Item
 	for rows.Next() {
 		var item models.Item
-		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.Position, &item.CreatedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.ListID, &item.Type, &item.Title, &item.URL, &item.Content, &item.FaviconURL, &item.IconSource, &item.CustomIconURL, &item.Position, &item.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		items = append(items, &item)
@@ -825,6 +825,63 @@ func (db *DB) UpdateItem(id int, title, url, content *string, faviconURL **strin
 	if faviconURL != nil {
 		updates = append(updates, "favicon_url = ?")
 		args = append(args, *faviconURL)
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	query += updates[0]
+	for i := 1; i < len(updates); i++ {
+		query += ", " + updates[i]
+	}
+
+	query += " WHERE id = ?"
+	args = append(args, id)
+
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update item: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rows == 0 {
+		return fmt.Errorf("item not found")
+	}
+
+	return nil
+}
+
+// UpdateItemFields updates an item using a map of field names to values
+func (db *DB) UpdateItemFields(id int, fields map[string]interface{}) error {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	query := "UPDATE items SET "
+	args := []any{}
+	updates := []string{}
+
+	// Allowed fields for update
+	allowedFields := map[string]bool{
+		"title":            true,
+		"url":              true,
+		"content":          true,
+		"favicon_url":      true,
+		"icon_source":      true,
+		"custom_icon_url":  true,
+	}
+
+	for field, value := range fields {
+		if !allowedFields[field] {
+			continue
+		}
+		updates = append(updates, field+" = ?")
+		args = append(args, value)
 	}
 
 	if len(updates) == 0 {

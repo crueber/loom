@@ -28,6 +28,13 @@ function processColorTags(content) {
     });
 }
 
+// Icon source options for bookmark favicons
+const ICON_SOURCES = [
+    { id: 'auto', label: 'Auto', description: 'Fetch from URL domain' },
+    { id: 'custom', label: 'Custom', description: 'Custom icon URL' },
+    { id: 'service', label: 'Service', description: 'Icon service (selfh.st)' }
+];
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('itemsManager', () => ({
     items: {},  // Changed from bookmarks to items
@@ -166,6 +173,9 @@ document.addEventListener('alpine:init', () => {
             ? `<img src="${escapeHtml(bookmark.favicon_url)}" alt="">`
             : '<span class="bookmark-favicon-placeholder">📄</span>';
 
+        // Get current icon source (default to 'auto')
+        const iconSource = bookmark.icon_source || 'auto';
+
         wrapper.innerHTML = `
             <div class="bookmark-card-inner">
                 <a href="${escapeHtml(bookmark.url)}" rel="noopener noreferrer" class="bookmark-card-front">
@@ -184,6 +194,35 @@ document.addEventListener('alpine:init', () => {
                             <h5>Edit Bookmark</h5>
                             <button class="bookmark-config-close-btn" title="Close">×</button>
                         </div>
+
+                        <!-- Favicon preview -->
+                        <div class="bookmark-config-favicon">
+                            ${faviconHtml}
+                        </div>
+
+                        <!-- Icon source dropdown -->
+                        <label for="config-icon-source-${bookmark.id}">
+                            Icon source
+                            <select id="config-icon-source-${bookmark.id}" class="config-icon-source">
+                                ${ICON_SOURCES.map(source => `
+                                    <option value="${source.id}" ${iconSource === source.id ? 'selected' : ''}>
+                                        ${source.label} - ${source.description}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </label>
+
+                        <!-- Custom icon URL input (shows when 'custom' or 'service' selected) -->
+                        <div class="bookmark-custom-icon-input"
+                             style="display: ${iconSource === 'custom' || iconSource === 'service' ? 'block' : 'none'}">
+                            <label for="config-custom-icon-url-${bookmark.id}" style="display: none;">Icon URL/Slug</label>
+                            <input type="text"
+                                   class="config-custom-icon-url"
+                                   id="config-custom-icon-url-${bookmark.id}"
+                                   placeholder="${iconSource === 'service' ? 'Icon slug (e.g., github)' : 'Icon URL'}"
+                                   value="${escapeHtml(bookmark.custom_icon_url || '')}">
+                        </div>
+
                         <label for="config-bookmark-title-${bookmark.id}">
                             Title
                             <input type="text" id="config-bookmark-title-${bookmark.id}" name="bookmark-title" class="config-bookmark-title" placeholder="Title" value="${escapeHtml(bookmark.title)}" autocomplete="off">
@@ -207,6 +246,12 @@ document.addEventListener('alpine:init', () => {
             e.preventDefault();
             e.stopPropagation();
             flipToBookmark(bookmark.id);
+        });
+
+        // Icon source dropdown
+        const iconSourceSelect = wrapper.querySelector('.config-icon-source');
+        iconSourceSelect.addEventListener('change', (e) => {
+            this.handleIconSourceChange(e, wrapper);
         });
 
         // Close button
@@ -336,6 +381,25 @@ document.addEventListener('alpine:init', () => {
         return wrapper;
     },
 
+    handleIconSourceChange(event, bookmarkEl) {
+        const selectedSource = event.target.value;
+
+        // Show/hide custom icon URL input
+        const customIconInput = bookmarkEl.querySelector('.bookmark-custom-icon-input');
+        const urlInput = bookmarkEl.querySelector('.config-custom-icon-url');
+
+        if (selectedSource === 'custom' || selectedSource === 'service') {
+            customIconInput.style.display = 'block';
+
+            // Update placeholder based on source type
+            urlInput.placeholder = selectedSource === 'service'
+                ? 'Icon slug (e.g., github, reddit)'
+                : 'Icon URL (https://...)';
+        } else {
+            customIconInput.style.display = 'none';
+        }
+    },
+
     async saveBookmarkConfig(bookmarkId) {
         const bookmarkEl = document.querySelector(`.bookmark-item[data-item-id="${bookmarkId}"]`);
         if (!bookmarkEl) return;
@@ -343,6 +407,11 @@ document.addEventListener('alpine:init', () => {
         const isTemp = bookmarkEl.dataset.isTemp === 'true';
         const newTitle = bookmarkEl.querySelector('.config-bookmark-title').value.trim();
         const newUrl = bookmarkEl.querySelector('.config-bookmark-url').value.trim();
+        const customIconUrlInput = bookmarkEl.querySelector('.config-custom-icon-url');
+        const iconSourceSelect = bookmarkEl.querySelector('.config-icon-source');
+
+        const iconSource = iconSourceSelect ? iconSourceSelect.value : 'auto';
+        const customIconUrl = customIconUrlInput ? customIconUrlInput.value.trim() : '';
 
         if (isTemp) {
             // Cancel if empty
@@ -355,7 +424,18 @@ document.addEventListener('alpine:init', () => {
             // Create new bookmark
             const listId = parseInt(bookmarkEl.dataset.listId);
             try {
-                const item = await createItem(listId, 'bookmark', { title: newTitle, url: newUrl });
+                const payload = {
+                    title: newTitle,
+                    url: newUrl,
+                    icon_source: iconSource
+                };
+
+                // Add custom_icon_url if applicable
+                if ((iconSource === 'custom' || iconSource === 'service') && customIconUrl) {
+                    payload.custom_icon_url = customIconUrl;
+                }
+
+                const item = await createItem(listId, 'bookmark', payload);
                 if (!this.items[listId]) this.items[listId] = [];
                 this.items[listId].push(item);
                 this.renderItems(listId);
@@ -380,6 +460,21 @@ document.addEventListener('alpine:init', () => {
         const updates = {};
         if (newTitle !== item.title) updates.title = newTitle;
         if (newUrl !== item.url) updates.url = newUrl;
+
+        const iconSourceChanged = iconSource !== (item.icon_source || 'auto');
+        if (iconSourceChanged) updates.icon_source = iconSource;
+
+        // Update custom_icon_url based on icon source
+        if (iconSource === 'custom' || iconSource === 'service') {
+            if (customIconUrl !== (item.custom_icon_url || '')) {
+                updates.custom_icon_url = customIconUrl || null;
+            }
+        } else if (iconSource === 'auto') {
+            // When switching to auto, always send null to trigger re-fetch
+            if (item.custom_icon_url !== null) {
+                updates.custom_icon_url = null;
+            }
+        }
 
         if (Object.keys(updates).length === 0) {
             closeFlippedCard();

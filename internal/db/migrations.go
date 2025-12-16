@@ -151,6 +151,15 @@ func (db *DB) migrate() error {
 				CREATE INDEX IF NOT EXISTS idx_lists_user_board_position ON lists(user_id, board_id, position);
 			`,
 		},
+		{
+			version: 7,
+			sql: `
+				-- Migration v7: Add custom icon support
+				-- Allows users to specify custom favicons or use icon services
+				ALTER TABLE items ADD COLUMN icon_source TEXT DEFAULT 'auto';
+				ALTER TABLE items ADD COLUMN custom_icon_url TEXT;
+			`,
+		},
 	}
 
 	// Run each migration

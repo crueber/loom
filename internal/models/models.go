@@ -37,15 +37,17 @@ type List struct {
 
 // Item represents a single item (bookmark or note)
 type Item struct {
-	ID         int       `json:"id"`
-	ListID     int       `json:"list_id"`
-	Type       string    `json:"type"` // "bookmark" or "note"
-	Title      *string   `json:"title,omitempty"`
-	URL        *string   `json:"url,omitempty"`
-	Content    *string   `json:"content,omitempty"`
-	FaviconURL *string   `json:"favicon_url,omitempty"`
-	Position   int       `json:"position"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID            int       `json:"id"`
+	ListID        int       `json:"list_id"`
+	Type          string    `json:"type"` // "bookmark" or "note"
+	Title         *string   `json:"title,omitempty"`
+	URL           *string   `json:"url,omitempty"`
+	Content       *string   `json:"content,omitempty"`
+	FaviconURL    *string   `json:"favicon_url"`
+	IconSource    string    `json:"icon_source"`              // "auto", "custom", "service"
+	CustomIconURL *string   `json:"custom_icon_url,omitempty"` // Custom icon URL or service slug
+	Position      int       `json:"position"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // Bookmark represents a single bookmark (for backward compatibility)
