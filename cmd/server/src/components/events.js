@@ -58,13 +58,6 @@ export const Events = {
      */
     BOOKMARKS_DATA_LOADED: 'bookmarksDataLoaded',
 
-    /**
-     * Dispatched to request a full data reload
-     * Typically after import or major data changes
-     * @event RELOAD_DATA_REQUESTED
-     */
-    RELOAD_DATA_REQUESTED: 'reloadDataRequested',
-
     // ============================================================
     // List Events
     // ============================================================

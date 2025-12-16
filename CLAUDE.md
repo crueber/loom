@@ -127,7 +127,7 @@ The Dockerfile uses multi-stage builds:
   - `items.js` - Bookmark CRUD and rendering (prepared for Phase 3 Items refactor)
   - `flipCard.js` - Shared card flip behavior and state management
   - `dragScroll.js` - Horizontal drag-to-scroll functionality
-  - `cache.js` - LocalStorage management for instant loads
+  - `dataBootstrap.js` - Server-side data bootstrapping for instant loads
   - `events.js` - Event name constants registry
   - `dataBootstrap.js` - Data loading and initialization
   - `boards.js` - Board management and navigation
@@ -158,7 +158,7 @@ The Dockerfile uses multi-stage builds:
 - Single flip enforcement: Only one card can be flipped at a time
 - Keyboard shortcuts: ESC to close, Enter to save
 - Color picker: Inline grid in list configuration (8 predefined colors, validated server-side)
-- **LocalStorage caching** for instant page loads with background refresh
+- **Server-side data bootstrapping** for instant page loads with no client-side caching
 
 ### Frontend Component Guidelines
 
@@ -323,7 +323,7 @@ Before committing component changes:
    - Create Gorilla session with user_id
 3. **User isolation**: All queries filter by `user_id` from session context
 4. **Ordering**: Lists and items have `position` fields, reorder endpoints update all positions atomically
-5. **Instant Loads**: `/api/data` endpoint returns boards, lists, and items in a single request for optimal performance. Data is cached locally for instant page loads with background refresh.
+5. **Server-Side Bootstrap**: Server injects user, board, boards, lists, and items data into HTML as `window.__BOOTSTRAP_DATA__` for instant page loads. Components consume this data via events - no localStorage or API calls needed on initial load.
 
 ## Important Patterns
 
@@ -351,7 +351,7 @@ Before committing component changes:
 - Cannot delete the only remaining board
 - Deleting a board redirects to another board or default board
 - Renaming updates board title in place without page reload
-- All board operations update cache immediately
+- All board operations update local state immediately and page reloads fetch fresh data
 
 ### Card Flip UI Implementation
 
@@ -545,23 +545,26 @@ document.addEventListener('eventName', (event) => {
 - `addBookmarkRequested` - Request to add a new bookmark to a list
 - `addNoteRequested` - Request to add a new note to a list
 - `listDeleted` - Notify items manager that a list was deleted
-- `listsUpdated` - Notify cache update needed after list changes
+- `listsUpdated` - Notify that lists have been updated (can be used by components)
 - `listFlipped` / `bookmarkFlipped` / `noteFlipped` - Notify that a card was flipped
 - `removeTempList` - Request to remove temporary list from state
 - `reloadDataRequested` - Trigger full data reload
 
-### Cache Management
+### Server-Side Data Bootstrapping
 
-[src/components/cache.js](cmd/server/src/components/cache.js) provides instant page loads:
-1. Load cached data from localStorage immediately (instant render)
-2. Fetch fresh data from server in background (single `/api/data` call includes boards, lists, and items)
-3. Compare cached vs fresh data using JSON.stringify
-4. Only re-render if data has changed
-5. Save fresh data to cache for next page load
+The server injects data directly into the HTML for instant page loads with zero API calls:
 
-**Cache Data Structure:**
+**How it works:**
+1. Server-side (`cmd/server/app_handler.go`): When serving HTML, fetches user, board, boards, lists, and items
+2. Injects as `window.__BOOTSTRAP_DATA__` into the HTML before sending to client
+3. Components (`dataBootstrap.js`, `auth.js`, etc.) consume this data immediately
+4. No localStorage, no background fetching, no cache comparison - just instant load
+
+**Bootstrap Data Structure:**
 ```json
 {
+  "user": { "id": 1, "username": "user", "email": "user@example.com" },
+  "board": { "id": 1, "title": "My Board", ... },
   "boards": [...],
   "lists": [...],
   "items": {
@@ -571,9 +574,16 @@ document.addEventListener('eventName', (event) => {
 }
 ```
 
+**Performance Benefits:**
+- Zero API calls on page load (data already in HTML)
+- No localStorage read/write overhead
+- No cache comparison logic
+- Instant render with fresh data every time
+
 ### Component Responsibilities
 
 **authManager** ([src/components/auth.js](cmd/server/src/components/auth.js)):
+- Reads user data from `window.__BOOTSTRAP_DATA__.user` (no API call needed)
 - OAuth2 login flow (redirects to `/auth/login`)
 - Logout functionality
 - Current user state management
@@ -582,12 +592,12 @@ document.addEventListener('eventName', (event) => {
 - Dispatches `userLoggedIn` and `userLoggedOut` events
 
 **boardsManager** ([src/components/boards.js](cmd/server/src/components/boards.js)):
+- Reads boards and current board from `window.__BOOTSTRAP_DATA__`
 - Board CRUD operations (create, rename, delete)
 - Board switching and navigation
 - Mobile menu state management
 - Board switcher dropdown with inline rename/delete UI
 - Prevents deleting the only board
-- Manages board data caching
 
 **listsManager** ([src/components/lists.js](cmd/server/src/components/lists.js)):
 - Lists CRUD operations (create, read, update, delete)
@@ -597,7 +607,7 @@ document.addEventListener('eventName', (event) => {
 - Color selection and validation
 - Collapse/expand functionality
 - Copy/move lists between boards
-- Dispatches events for bookmark rendering and cache updates
+- Dispatches events for bookmark rendering and list updates
 
 **itemsManager** ([src/components/items.js](cmd/server/src/components/items.js)):
 - Items (bookmarks & notes) CRUD operations
@@ -611,7 +621,8 @@ document.addEventListener('eventName', (event) => {
 **Standalone Utilities:**
 - [src/components/flipCard.js](cmd/server/src/components/flipCard.js) - Global flip state management
 - [src/components/dragScroll.js](cmd/server/src/components/dragScroll.js) - Horizontal scroll functionality
-- [src/components/cache.js](cmd/server/src/components/cache.js) - LocalStorage helpers
+- [src/components/dataBootstrap.js](cmd/server/src/components/dataBootstrap.js) - Server-side bootstrap data consumption
+- [src/components/events.js](cmd/server/src/components/events.js) - Centralized event name registry
 - [src/utils/api.js](cmd/server/src/utils/api.js) - All API fetch calls
 
 ### Development Patterns
@@ -619,8 +630,8 @@ document.addEventListener('eventName', (event) => {
 **When Adding New Features:**
 1. Determine which component owns the feature
 2. Add state and methods to the appropriate Alpine component
-3. Use CustomEvents for cross-component communication
-4. Update cache via `listsUpdated` or direct `saveToCache()` calls
+3. Use CustomEvents for cross-component communication (see events.js for registry)
+4. Dispatch events to notify other components of state changes
 5. Test that events propagate correctly between components
 
 **When Modifying Components:**

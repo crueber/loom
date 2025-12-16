@@ -10,7 +10,6 @@ import { Events } from './components/events.js';
 
 // Initialize Alpine stores before components load
 document.addEventListener('alpine:init', () => {
-    // Initialize flip card store
     initFlipCardStore();
 });
 
@@ -25,6 +24,12 @@ const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 if (isTouchDevice) {
     document.body.classList.add('touch-device');
 }
+
+// Bootstrap application data on Alpine initialized
+document.addEventListener('alpine:initialized', async () => {
+    await bootstrapData();
+})
+
 
 // Export/Import Handlers
 document.getElementById('export-btn').addEventListener('click', async () => {
@@ -67,24 +72,11 @@ document.getElementById('confirm-import-btn').addEventListener('click', async ()
         document.getElementById('import-modal').close();
         document.getElementById('import-form').reset();
 
-        // Reload data by dispatching event
-        dispatchEvent(Events.RELOAD_DATA_REQUESTED);
-
-        alert('Import successful!');
+        window.location.reload();
     } catch (error) {
         console.error('Import failed:', error);
         showError('import-error', error.message);
     }
-});
-
-// Listen for user login to bootstrap data
-document.addEventListener(Events.USER_LOGGED_IN, async () => {
-    await bootstrapData();
-});
-
-// Listen for reload data requests
-document.addEventListener(Events.RELOAD_DATA_REQUESTED, async () => {
-    await bootstrapData();
 });
 
 // Initialize app on page load

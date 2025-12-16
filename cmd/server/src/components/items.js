@@ -614,8 +614,7 @@ document.addEventListener('alpine:init', () => {
             });
         } catch (error) {
             console.error('Failed to reorder items:', error);
-            // Reload on failure - dispatch event to lists manager
-            dispatchEvent(Events.RELOAD_DATA_REQUESTED);
+            alert('Failed to reorder items: ' + error.message);
         }
     }
 }));

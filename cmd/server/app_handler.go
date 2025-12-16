@@ -124,6 +124,12 @@ func (h *AppHandler) getDefaultBoardID(userID int) int {
 
 // fetchBoardData retrieves all data for a board and serializes it to JSON
 func (h *AppHandler) fetchBoardData(userID, boardID int) string {
+	// Fetch user data
+	user, err := h.database.GetUserByID(userID)
+	if err != nil || user == nil {
+		return ""
+	}
+
 	// Verify board ownership
 	board, err := h.database.GetBoardByID(boardID, userID)
 	if err != nil || board == nil {
@@ -147,8 +153,16 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 		return ""
 	}
 
+	// Build user object without sensitive data
+	userPublic := map[string]any{
+		"id":       user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+	}
+
 	// Build bootstrap data structure
 	bootstrapData := map[string]any{
+		"user":   userPublic,
 		"board":  board,
 		"boards": boards,
 		"lists":  lists,

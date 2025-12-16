@@ -1,6 +1,6 @@
 // Authentication Component
 
-import { logout, getCurrentUser, dispatchEvent } from '../utils/api.js';
+import { logout, dispatchEvent } from '../utils/api.js';
 import { Events } from './events.js';
 
 document.addEventListener('alpine:init', () => {
@@ -9,32 +9,28 @@ document.addEventListener('alpine:init', () => {
         // State
         // ============================================================
         currentUser: null,
-        showLoginScreen: false,
+        showLoginScreen: true,  // Start with login screen visible
 
         // ============================================================
         // Lifecycle
         // ============================================================
-        async init() {
-            await this.checkAuth();
+        init() {
+            // Listen for user logged in event from dataBootstrap
+            document.addEventListener(Events.USER_LOGGED_IN, (event) => {
+                this.currentUser = event.detail.user;
+                this.showLoginScreen = false;
+            });
+
+            // Listen for user logged out event
+            document.addEventListener(Events.USER_LOGGED_OUT, () => {
+                this.currentUser = null;
+                this.showLoginScreen = true;
+            });
         },
 
         // ============================================================
         // Public Methods
         // ============================================================
-        async checkAuth() {
-            try {
-                const user = await getCurrentUser();
-                this.currentUser = user;
-                this.showLoginScreen = false;
-
-                // Dispatch event to trigger app initialization for existing session
-                dispatchEvent(Events.USER_LOGGED_IN, { user });
-            } catch (error) {
-                // Not logged in - show login screen
-                this.currentUser = null;
-                this.showLoginScreen = true;
-            }
-        },
 
         login() {
             window.location.href = '/auth/login';
