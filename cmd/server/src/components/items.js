@@ -221,6 +221,7 @@ document.addEventListener('alpine:init', () => {
                                    id="config-custom-icon-url-${bookmark.id}"
                                    placeholder="${iconSource === 'service' ? 'Icon slug (e.g., github)' : 'Icon URL'}"
                                    value="${escapeHtml(bookmark.custom_icon_url || '')}">
+                            ${iconSource === 'service' ? '<a href="https://selfh.st/icons/" target="_blank" rel="noopener noreferrer" class="icon-service-link">Browse icons ↗</a>' : ''}
                         </div>
 
                         <label for="config-bookmark-title-${bookmark.id}">
@@ -395,6 +396,22 @@ document.addEventListener('alpine:init', () => {
             urlInput.placeholder = selectedSource === 'service'
                 ? 'Icon slug (e.g., github, reddit)'
                 : 'Icon URL (https://...)';
+
+            // Show/hide the browse icons link
+            const existingLink = customIconInput.querySelector('.icon-service-link');
+            if (selectedSource === 'service') {
+                if (!existingLink) {
+                    const link = document.createElement('a');
+                    link.href = 'https://selfh.st/icons/';
+                    link.target = '_blank';
+                    link.rel = 'noopener noreferrer';
+                    link.className = 'icon-service-link';
+                    link.textContent = 'Browse icons ↗';
+                    customIconInput.appendChild(link);
+                }
+            } else if (existingLink) {
+                existingLink.remove();
+            }
         } else {
             customIconInput.style.display = 'none';
         }
