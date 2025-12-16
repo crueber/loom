@@ -1,6 +1,6 @@
 // Items Management Component (Bookmarks & Notes)
 
-import { createItem, updateItem, deleteItem, reorderItems, debounce, escapeHtml, dispatchEvent } from '../utils/api.js';
+import { createItem, updateItem, deleteItem, reorderItems, escapeHtml, dispatchEvent } from '../utils/api.js';
 import { flipToBookmark, flipToNote, closeFlippedCard } from './flipCard.js';
 import { Events } from './events.js';
 
@@ -32,14 +32,8 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('itemsManager', () => ({
     items: {},  // Changed from bookmarks to items
     itemSortables: {},  // Changed from bookmarkSortables
-    debouncedItemReorder: null,
 
     init() {
-        // Create debounced reorder handler (100ms delay to prevent excessive API calls)
-        this.debouncedItemReorder = debounce((evt) => {
-            this.handleItemReorder(evt);
-        }, 30);
-
         // Listen for items data loaded from lists manager (backward compat with bookmarks)
         document.addEventListener(Events.BOOKMARKS_DATA_LOADED, (event) => {
             // Convert bookmarks to items format if needed
@@ -130,8 +124,7 @@ document.addEventListener('alpine:init', () => {
                 }
             },
             onEnd: (evt) => {
-                // Use debounced handler to prevent excessive API calls during rapid dragging
-                this.debouncedItemReorder(evt);
+                this.handleItemReorder(evt)
             },
             onMove: (evt) => {
                 // Don't allow dragging if the item is flipped
@@ -569,37 +562,48 @@ document.addEventListener('alpine:init', () => {
                 positionMap.set(item.id, { position: item.position, list_id: item.list_id });
             });
 
+            // Build a map of all current items BEFORE we start modifying state
+            // This lets us find items that are moving between lists
+            const allItemsById = new Map();
+            for (const listId in this.items) {
+                this.items[listId].forEach(item => {
+                    allItemsById.set(item.id, item);
+                });
+            }
+
             // Update each affected list in local state
             affectedListIds.forEach(listId => {
                 if (!this.items[listId]) {
                     this.items[listId] = [];
                 }
 
-                // Update items that are in this list according to the server update
+                // Keep items that belong to this list, remove items that moved away
                 this.items[listId] = this.items[listId]
+                    .filter(item => {
+                        const newPos = positionMap.get(item.id);
+                        if (newPos && newPos.list_id !== listId) {
+                            return false;
+                        }
+                        return true;
+                    })
                     .map(item => {
                         const newPos = positionMap.get(item.id);
                         if (newPos && newPos.list_id === listId) {
                             return { ...item, position: newPos.position, list_id: listId };
                         }
-                        return null;  // Item moved to another list
-                    })
-                    .filter(item => item !== null);
+                        return item;
+                    });
 
                 // Add items that moved INTO this list
                 for (const [itemId, newPos] of positionMap.entries()) {
                     if (newPos.list_id === listId && !this.items[listId].find(i => i.id === itemId)) {
-                        // Find item in other lists
-                        for (const otherListId in this.items) {
-                            const movedItem = this.items[otherListId].find(i => i.id === itemId);
-                            if (movedItem) {
-                                this.items[listId].push({
-                                    ...movedItem,
-                                    position: newPos.position,
-                                    list_id: listId
-                                });
-                                break;
-                            }
+                        const movedItem = allItemsById.get(itemId);
+                        if (movedItem) {
+                            this.items[listId].push({
+                                ...movedItem,
+                                position: newPos.position,
+                                list_id: listId
+                            });
                         }
                     }
                 }
