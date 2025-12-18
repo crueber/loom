@@ -1,21 +1,26 @@
-# AGENTS
-1. Primary workflow runs inside Docker: `docker-compose up --build -d`.
-2. Rebuild/restart after code changes with `docker-compose down && docker-compose up --build -d`.
-3. Tail logs via `docker-compose logs -f`; stop with `docker-compose down`.
-4. Build binaries locally when needed: `go build -o bin/server ./cmd/server` and `go build -o bin/user ./cmd/user`.
-5. CLI user management (inside container or locally): `./bin/user <cmd>`.
-6. Run full tests from repo root: `docker-compose run --rm loom go test ./...` (preferred) or `go test ./...`.
-7. Run a single test: `go test ./internal/api -run TestName`.
-8. Formatting: run `gofmt -w` on touched Go files; no other formatters configured.
-9. Imports: stdlib, blank line, third-party, project (`github.com/crueber/loom/...`).
-10. Use explicit types and avoid `interface{}` or `any` unless required; keep shared structs in `internal/models`.
-11. Prefer short, descriptive names; exported identifiers need doc-comments.
-12. Return early on errors; wrap with context (`fmt.Errorf("...: %w", err)`) before bubbling.
-13. Never log sensitive data (session keys, passwords); rely on structured API error helpers.
-14. Keep HTTP handlers thin: validate input, call db layer, respond via helper functions.
-15. Ensure color/config constants stay in sync across frontend (`cmd/server/static`) and backend.
-16. For JS, stay vanilla + Alpine; no new frameworks; keep features modular under `components/`.
-17. Use CustomEvents for component communication and honor existing flip/drag patterns.
-18. Cache changes must update `components/cache.js` plus relevant events (e.g., `listsUpdated`).
-19. No Cursor or Copilot rules exist; follow this file plus repo docs.
-20. When unsure, mirror existing style before expanding scope and confirm with maintainers.
+# AGENTS.md
+
+This file provides guidance to agents when working with code in this repository.
+
+## Non-Obvious Project Patterns
+
+### Frontend (Alpine.js + esbuild)
+- **Source vs Static**: Edit files in `cmd/server/src/`, NOT `cmd/server/static/dist/`. The latter are build artifacts.
+- **Data Bootstrapping**: Initial data is injected via `window.__BOOTSTRAP_DATA__` in `cmd/server/app_handler.go`. Components must consume this to avoid API calls on load.
+- **Event Registry**: All cross-component communication MUST use constants from `cmd/server/src/components/events.js` via the `dispatchEvent` facade in `cmd/server/src/utils/api.js`.
+- **Card Flip UI**: 
+  - Lists use 3D transforms (`rotateY(180deg)`).
+  - Bookmarks/Notes use simple `display: none/block` toggles.
+  - Only one card can be flipped at a time, managed by `Alpine.store('flipCard')`.
+- **Temporary Items**: New items use string IDs (e.g., `temp-123`) and `data-is-temp="true"`. `closeFlippedCard()` removes these from DOM if cancelled.
+
+### Backend (Go + SQLite)
+- **Pure Go SQLite**: Uses `modernc.org/sqlite`, which requires NO CGO. Do not introduce CGO dependencies.
+- **Migrations**: Managed in `internal/db/migrations.go`. Never drop tables; use `INNER JOIN` to handle data migration safely and avoid orphaned records.
+- **User Isolation**: Every query MUST filter by `user_id` from the session context.
+- **Embedded Assets**: Static files are embedded via `//go:embed static`. Rebuild the Go binary after running `node build.js` to see frontend changes.
+
+### Critical Commands
+- **JS Build**: `cd cmd/server && node build.js` (Required after any `src/` change).
+- **Full Stack**: `docker-compose up --build` is the recommended dev environment.
+- **Go Build**: `go build -o bin/server ./cmd/server` (Requires JS bundle to exist first).
