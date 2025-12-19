@@ -1,7 +1,9 @@
 import { Show, createSignal, createEffect } from 'solid-js';
 import { ItemHeader } from './ItemHeader';
+import { useI18n } from './I18nContext';
 
 export function NoteItem(props) {
+  const { t } = useI18n();
   const [isFlipped, setIsFlipped] = createSignal(props.item.id.toString().startsWith('temp-'));
   const [content, setContent] = createSignal(props.item.content || '');
   let textareaRef;
@@ -61,8 +63,8 @@ export function NoteItem(props) {
         <Show when={!isFlipped()} fallback={
           <div class="item-card-back" onClick={(e) => e.stopPropagation()}>
             <div class="item-config-panel">
-              <ItemHeader title="Edit Note" onClose={handleCancel} />
-              <label for={`note-content-${props.item.id}`} class="sr-only">Content</label>
+              <ItemHeader title={t('item.edit_note')} onClose={handleCancel} />
+              <label for={`note-content-${props.item.id}`} class="sr-only">{t('item.note_placeholder')}</label>
               <textarea 
                 id={`note-content-${props.item.id}`}
                 ref={textareaRef}
@@ -72,15 +74,15 @@ export function NoteItem(props) {
                   adjustHeight();
                 }} 
                 onKeyDown={handleKeyDown}
-                placeholder="Note content (Markdown supported)"
+                placeholder={t('item.note_placeholder')}
                 rows="1"
               />
               <div class="item-config-actions">
                 <Show when={!props.item.id.toString().startsWith('temp-')}>
-                  <button class="item-config-delete-btn" onClick={props.onDelete}>Delete</button>
+                  <button class="item-config-delete-btn" onClick={props.onDelete}>{t('item.delete')}</button>
                 </Show>
-                <button class="item-config-cancel-btn secondary" onClick={handleCancel}>Cancel</button>
-                <button class="item-config-save-btn" onClick={handleSave}>Save</button>
+                <button class="item-config-cancel-btn secondary" onClick={handleCancel}>{t('item.cancel')}</button>
+                <button class="item-config-save-btn" onClick={handleSave}>{t('item.save')}</button>
               </div>
             </div>
           </div>

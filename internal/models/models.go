@@ -7,6 +7,7 @@ type User struct {
 	ID            int       `json:"id"`
 	Username      string    `json:"username"`
 	Email         string    `json:"email"`
+	Locale        string    `json:"locale"`
 	PasswordHash  string    `json:"-"`
 	OAuthProvider *string   `json:"oauth_provider,omitempty"`
 	OAuthSub      *string   `json:"oauth_sub,omitempty"`
@@ -44,7 +45,7 @@ type Item struct {
 	URL           *string   `json:"url,omitempty"`
 	Content       *string   `json:"content,omitempty"`
 	FaviconURL    *string   `json:"favicon_url"`
-	IconSource    string    `json:"icon_source"`              // "auto", "custom", "service"
+	IconSource    string    `json:"icon_source"`               // "auto", "custom", "service"
 	CustomIconURL *string   `json:"custom_icon_url,omitempty"` // Custom icon URL or service slug
 	Position      int       `json:"position"`
 	CreatedAt     time.Time `json:"created_at"`

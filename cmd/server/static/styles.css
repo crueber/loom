@@ -1430,6 +1430,48 @@ dialog article {
     margin-bottom: 0;
 }
 
+/* Locale Selector */
+.locale-selector {
+  position: relative;
+  display: inline-block;
+}
+
+.locale-btn {
+  padding: 0.2rem 0.4rem;
+  margin: 0;
+  height: auto;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: none;
+  background: none;
+  box-shadow: none;
+}
+
+.locale-btn:hover, .locale-btn:focus {
+  background: none;
+  box-shadow: none;
+}
+
+.locale-select-hidden {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.nav-user-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .note-actions {
     display: none;
     gap: 0.25rem;

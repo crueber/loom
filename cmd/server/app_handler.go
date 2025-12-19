@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -43,6 +44,9 @@ func (h *AppHandler) ServeApp(w http.ResponseWriter, r *http.Request) {
 	// Inject version query strings for cache busting
 	html := h.injectVersions(string(data))
 
+	// Inject i18n data
+	html = h.injectI18nData(html, r)
+
 	// Bootstrap data if user is authenticated
 	if bootstrapData := h.getBootstrapData(r); bootstrapData != "" {
 		html = h.injectBootstrapData(html, bootstrapData)
@@ -67,6 +71,45 @@ func (h *AppHandler) injectVersions(html string) string {
 func (h *AppHandler) injectBootstrapData(html, bootstrapData string) string {
 	bootstrapScript := fmt.Sprintf(`<script>window.__BOOTSTRAP_DATA__ = %s;</script>`, bootstrapData)
 	return strings.Replace(html, "<!-- Bootstrap -->", bootstrapScript, 1)
+}
+
+// injectI18nData adds the i18n data script to the HTML
+func (h *AppHandler) injectI18nData(html string, r *http.Request) string {
+	locale := h.detectLocale(r)
+	translations, err := h.staticFiles.ReadFile(filepath.Join("static/locales", locale+".json"))
+	if err != nil {
+		// Fallback to English
+		translations, _ = h.staticFiles.ReadFile("static/locales/en.json")
+	}
+
+	i18nScript := fmt.Sprintf(`<script>window.__I18N_DATA__ = %s;</script>`, string(translations))
+	return strings.Replace(html, "<!-- I18n -->", i18nScript, 1)
+}
+
+// detectLocale determines the user's locale preference
+func (h *AppHandler) detectLocale(r *http.Request) string {
+	// 1. Check if user is authenticated and has a preference
+	if userID, ok := h.sessionManager.GetUserID(r); ok {
+		if user, err := h.database.GetUserByID(userID); err == nil && user != nil && user.Locale != "" {
+			return user.Locale
+		}
+	}
+
+	// 2. Check Accept-Language header
+	acceptLang := r.Header.Get("Accept-Language")
+	if acceptLang != "" {
+		// Simple parser: take the first language tag
+		parts := strings.Split(acceptLang, ",")
+		if len(parts) > 0 {
+			lang := strings.Split(parts[0], "-")[0]
+			// Check if we support this language
+			if _, err := h.staticFiles.ReadFile(filepath.Join("static/locales", lang+".json")); err == nil {
+				return lang
+			}
+		}
+	}
+
+	return "en"
 }
 
 // getBootstrapData fetches and serializes bootstrap data for authenticated users
@@ -158,6 +201,7 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 		"id":       user.ID,
 		"username": user.Username,
 		"email":    user.Email,
+		"locale":   user.Locale,
 	}
 
 	// Build bootstrap data structure

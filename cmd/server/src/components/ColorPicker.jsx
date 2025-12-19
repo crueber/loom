@@ -1,4 +1,5 @@
 import { createSignal, For, Show } from 'solid-js';
+import { useI18n } from './I18nContext';
 
 const PRESET_COLORS = [
   '#3D6D95', // Blue (Default)
@@ -12,10 +13,11 @@ const PRESET_COLORS = [
 ];
 
 export function ColorPicker(props) {
+  const { t } = useI18n();
   const customId = () => props.listId ? `color-custom-${props.listId}` : 'color-custom';
   return (
     <div class="config-color-section">
-      <div class="config-color-label">Color</div>
+      <div class="config-color-label">{t('list.color_label')}</div>
       <div class="config-color-presets">
         <For each={PRESET_COLORS}>
           {(color) => (
@@ -29,7 +31,7 @@ export function ColorPicker(props) {
         </For>
       </div>
       <div class="config-color-custom">
-        <label for={customId()}>Custom:</label>
+        <label for={customId()}>{t('list.custom_color')}</label>
         <input
           id={customId()}
           type="color"

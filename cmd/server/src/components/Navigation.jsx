@@ -1,11 +1,18 @@
 import { createSignal, Show, For } from 'solid-js';
 import { useAuth } from './AuthContext';
 import { useBoard } from './BoardContext';
+import { useI18n } from './I18nContext';
 import { exportData, importData } from '../utils/api';
+
+const LOCALE_FLAGS = {
+  'en': '🇺🇸',
+  'es': '🇪🇸'
+};
 
 export function Navigation() {
   const { user, logout } = useAuth();
   const { boards, currentBoard, createBoard, updateBoard, deleteBoard } = useBoard();
+  const { t } = useI18n();
   
   const [boardSwitcherOpen, setBoardSwitcherOpen] = createSignal(false);
   const [mobileMenuOpen, setMobileMenuOpen] = createSignal(false);
@@ -62,7 +69,35 @@ export function Navigation() {
         </ul>
         
         <ul class="nav-desktop">
-          <li><span style={{ "margin-right": "1rem" }}>{user()?.username}</span></li>
+          <li>
+            <div class="nav-user-container">
+              <span>{user()?.username}</span>
+              <div class="locale-selector">
+                <button 
+                  class="locale-btn"
+                  title="Change Language"
+                >
+                  {LOCALE_FLAGS[user()?.locale] || '🌐'}
+                </button>
+                <select 
+                  class="locale-select-hidden"
+                  value={user()?.locale || 'en'}
+                  onChange={async (e) => {
+                    const newLocale = e.currentTarget.value;
+                    await fetch('/api/user/locale', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ locale: newLocale })
+                    });
+                    window.location.reload();
+                  }}
+                >
+                  <option value="en">English</option>
+                  <option value="es">Español</option>
+                </select>
+              </div>
+            </div>
+          </li>
           <li>
             <div class="board-switcher">
               <button 
@@ -78,26 +113,26 @@ export function Navigation() {
                   <Show when={!showRenameUI() && !showDeleteUI()} fallback={
                     <div class="board-action-panel">
                       <Show when={showRenameUI()}>
-                        <label for="rename-board-input">Rename Board</label>
+                        <label for="rename-board-input">{t('nav.rename_board')}</label>
                         <input 
                           id="rename-board-input"
                           type="text" 
                           value={renameBoardTitle()} 
                           onInput={(e) => setRenameBoardTitle(e.currentTarget.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                          placeholder="Board name" 
+                          placeholder={t('board.name_placeholder')} 
                         />
                         <div class="board-action-buttons">
-                          <button class="secondary" onClick={() => setShowRenameUI(false)}>Cancel</button>
-                          <button onClick={handleRename}>Save</button>
+                          <button class="secondary" onClick={() => setShowRenameUI(false)}>{t('item.cancel')}</button>
+                          <button onClick={handleRename}>{t('item.save')}</button>
                         </div>
                       </Show>
                       <Show when={showDeleteUI()}>
-                        <h4>Delete Board?</h4>
-                        <p>Delete '{currentBoard.title}'? This will also delete all lists and items in this board.</p>
+                        <h4>{t('nav.delete_board')}?</h4>
+                        <p>{t('nav.delete_board_confirm').replace('{{title}}', currentBoard.title)}</p>
                         <div class="board-action-buttons">
-                          <button class="secondary" onClick={() => setShowDeleteUI(false)}>Cancel</button>
-                          <button class="contrast" onClick={handleDelete}>Delete</button>
+                          <button class="secondary" onClick={() => setShowDeleteUI(false)}>{t('item.cancel')}</button>
+                          <button class="contrast" onClick={handleDelete}>{t('item.delete')}</button>
                         </div>
                       </Show>
                     </div>
@@ -110,20 +145,20 @@ export function Navigation() {
                       )}
                     </For>
                     <hr />
-                    <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>Rename Board</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>{t('nav.rename_board')}</a>
                     <Show when={!currentBoard.is_default}>
-                      <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>Delete Board</a>
+                      <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>{t('nav.delete_board')}</a>
                     </Show>
                     <hr />
-                    <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ New Board</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ {t('nav.new_board')}</a>
                   </Show>
                 </div>
               </Show>
             </div>
           </li>
-          <li><button class="secondary" onClick={exportData}>Export</button></li>
-          <li><button class="secondary" onClick={() => setShowImportModal(true)}>Import</button></li>
-          <li><button class="contrast" onClick={logout}>Logout</button></li>
+          <li><button class="secondary" onClick={exportData}>{t('nav.export')}</button></li>
+          <li><button class="secondary" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button></li>
+          <li><button class="contrast" onClick={logout}>{t('nav.logout')}</button></li>
         </ul>
 
         <ul class="nav-mobile">
@@ -141,7 +176,7 @@ export function Navigation() {
                 <span style="padding: 0 0.5rem;">x</span>
               </button>
               <div class="mobile-menu-section">
-                <h3>Boards</h3>
+                <h3>{t('nav.boards')}</h3>
                 <div class="board-switcher-mobile">
                   <button 
                     onClick={() => setBoardSwitcherOpen(!boardSwitcherOpen())} 
@@ -156,26 +191,26 @@ export function Navigation() {
                       <Show when={!showRenameUI() && !showDeleteUI()} fallback={
                         <div class="board-action-panel">
                           <Show when={showRenameUI()}>
-                            <label for="rename-board-input-mobile">Rename Board</label>
+                            <label for="rename-board-input-mobile">{t('nav.rename_board')}</label>
                             <input 
                               id="rename-board-input-mobile"
                               type="text" 
                               value={renameBoardTitle()} 
                               onInput={(e) => setRenameBoardTitle(e.currentTarget.value)}
                               onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                              placeholder="Board name" 
+                              placeholder={t('board.name_placeholder')} 
                             />
                             <div class="board-action-buttons">
-                              <button class="secondary" onClick={() => setShowRenameUI(false)}>Cancel</button>
-                              <button onClick={handleRename}>Save</button>
+                              <button class="secondary" onClick={() => setShowRenameUI(false)}>{t('item.cancel')}</button>
+                              <button onClick={handleRename}>{t('item.save')}</button>
                             </div>
                           </Show>
                           <Show when={showDeleteUI()}>
-                            <h4>Delete Board?</h4>
-                            <p>Delete '{currentBoard.title}'? This will also delete all lists and items in this board.</p>
+                            <h4>{t('nav.delete_board')}?</h4>
+                            <p>{t('nav.delete_board_confirm').replace('{{title}}', currentBoard.title)}</p>
                             <div class="board-action-buttons">
-                              <button class="secondary" onClick={() => setShowDeleteUI(false)}>Cancel</button>
-                              <button class="contrast" onClick={handleDelete}>Delete</button>
+                              <button class="secondary" onClick={() => setShowDeleteUI(false)}>{t('item.cancel')}</button>
+                              <button class="contrast" onClick={handleDelete}>{t('item.delete')}</button>
                             </div>
                           </Show>
                         </div>
@@ -188,23 +223,49 @@ export function Navigation() {
                           )}
                         </For>
                         <hr />
-                        <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>Rename Board</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>{t('nav.rename_board')}</a>
                         <Show when={!currentBoard.is_default}>
-                          <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>Delete Board</a>
+                          <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>{t('nav.delete_board')}</a>
                         </Show>
                         <hr />
-                        <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ New Board</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ {t('nav.new_board')}</a>
                       </Show>
                     </div>
                   </Show>
                 </div>
               </div>
               <div class="mobile-menu-section">
-                <h3>Account</h3>
-                <p><strong>{user()?.username}</strong></p>
-                <button class="secondary mobile-menu-btn" onClick={exportData}>Export</button>
-                <button class="secondary mobile-menu-btn" onClick={() => setShowImportModal(true)}>Import</button>
-                <button class="contrast mobile-menu-btn" onClick={logout}>Logout</button>
+                <h3>{t('nav.settings')}</h3>
+                <div class="nav-user-container" style={{ "margin-bottom": '1rem' }}>
+                  <strong>{user()?.username}</strong>
+                  <div class="locale-selector">
+                    <button 
+                      class="locale-btn"
+                      title="Change Language"
+                    >
+                      {LOCALE_FLAGS[user()?.locale] || '🌐'}
+                    </button>
+                    <select 
+                      class="locale-select-hidden"
+                      value={user()?.locale || 'en'}
+                      onChange={async (e) => {
+                        const newLocale = e.currentTarget.value;
+                        await fetch('/api/user/locale', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ locale: newLocale })
+                        });
+                        window.location.reload();
+                      }}
+                    >
+                      <option value="en">English</option>
+                      <option value="es">Español</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="secondary mobile-menu-btn" onClick={exportData}>{t('nav.export')}</button>
+                <button class="secondary mobile-menu-btn" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button>
+                <button class="contrast mobile-menu-btn" onClick={logout}>{t('nav.logout')}</button>
               </div>
             </div>
           </div>
@@ -216,11 +277,11 @@ export function Navigation() {
           <article>
             <header>
               <button aria-label="Close" rel="prev" onClick={() => setShowImportModal(false)}></button>
-              <h3>Import Data</h3>
+              <h3>{t('nav.import_modal_title')}</h3>
             </header>
             <form onSubmit={handleImport}>
               <div class="config-form-group">
-                <label for="import-file-input">Select JSON file</label>
+                <label for="import-file-input">{t('nav.import_file_label')}</label>
                 <input 
                   id="import-file-input"
                   type="file" 
@@ -230,18 +291,18 @@ export function Navigation() {
                 />
               </div>
               <div class="config-form-group">
-                <label for="import-mode-select">Import mode</label>
+                <label for="import-mode-select">{t('nav.import_mode_label')}</label>
                 <select id="import-mode-select" value={importMode()} onChange={(e) => setImportMode(e.currentTarget.value)}>
-                  <option value="merge">Merge with existing data</option>
-                  <option value="replace">Replace all data</option>
+                  <option value="merge">{t('nav.import_mode_merge')}</option>
+                  <option value="replace">{t('nav.import_mode_replace')}</option>
                 </select>
               </div>
               <Show when={importError()}>
                 <p class="error">{importError()}</p>
               </Show>
               <footer>
-                <button type="button" class="secondary" onClick={() => setShowImportModal(false)}>Cancel</button>
-                <button type="submit">Import</button>
+                <button type="button" class="secondary" onClick={() => setShowImportModal(false)}>{t('item.cancel')}</button>
+                <button type="submit">{t('nav.import')}</button>
               </footer>
             </form>
           </article>

@@ -1,11 +1,13 @@
 import { For, Show, createSignal, onMount, createEffect } from 'solid-js';
 import { Item } from './Item';
 import { useBoard } from './BoardContext';
+import { useI18n } from './I18nContext';
 import { ColorPicker } from './ColorPicker';
 import Sortable from 'sortablejs';
 
 export function List(props) {
   const { items, updateItem, addItem, saveNewItem, deleteItem, deleteList, updateList, moveItem, reorderLists, lists, boards, currentBoard, copyOrMoveList } = useBoard();
+  const { t } = useI18n();
   const [isFlipped, setIsFlipped] = createSignal(props.list.id.toString().startsWith('temp-'));
   const [isCollapsed, setIsCollapsed] = createSignal(props.list.collapsed);
   const [title, setTitle] = createSignal(props.list.title);
@@ -157,8 +159,8 @@ export function List(props) {
               </For>
             </div>
             <div class="list-add-buttons">
-              <button class="add-link-btn" onClick={handleAddLink}>+ Add Link</button>
-              <button class="add-note-btn" onClick={handleAddNote}>+ Add Note</button>
+              <button class="add-link-btn" onClick={handleAddLink}>+ {t('list.add_link')}</button>
+              <button class="add-note-btn" onClick={handleAddNote}>+ {t('list.add_note')}</button>
             </div>
           </Show>
         </div>
@@ -170,12 +172,12 @@ export function List(props) {
         >
           <div class="list-config-panel">
             <div class="list-config-header">
-              <h4>{props.list.id.toString().startsWith('temp-') ? 'New List' : 'Configure List'}</h4>
+              <h4>{props.list.id.toString().startsWith('temp-') ? t('list.new_list') : t('list.configure')}</h4>
               <button class="config-close-btn" onClick={handleCancel}>×</button>
             </div>
             
             <div class="config-form-group">
-              <label for={`list-title-${props.list.id}`}>Title</label>
+              <label for={`list-title-${props.list.id}`}>{t('list.title_label')}</label>
               <input 
                 id={`list-title-${props.list.id}`}
                 ref={titleInputRef}
@@ -184,7 +186,7 @@ export function List(props) {
                 onInput={(e) => setTitle(e.currentTarget.value)} 
                 onKeyDown={handleKeyDown}
                 class="config-list-title"
-                placeholder="List Title"
+                placeholder={t('list.title_placeholder')}
               />
             </div>
 
@@ -192,13 +194,13 @@ export function List(props) {
 
             <Show when={!props.list.id.toString().startsWith('temp-')}>
               <div class="config-form-group">
-                <label for={`list-board-target-${props.list.id}`}>Move/Copy to Board</label>
+                <label for={`list-board-target-${props.list.id}`}>{t('list.move_copy_label')}</label>
                 <div class="config-board-actions">
                   <select id={`list-board-target-${props.list.id}`} class="config-board-target" onChange={(e) => {
                     const targetId = parseInt(e.currentTarget.value);
                     setTargetBoardId(targetId);
                   }}>
-                    <option value="">Select target board...</option>
+                    <option value="">{t('list.move_copy_placeholder')}</option>
                     <For each={boards.filter(b => b.id !== currentBoard.id)}>
                       {(board) => <option value={board.id}>{board.title}</option>}
                     </For>
@@ -208,14 +210,14 @@ export function List(props) {
                     disabled={!targetBoardId()}
                     onClick={() => copyOrMoveList(props.list.id, targetBoardId(), true)}
                   >
-                    Copy
+                    {t('list.copy')}
                   </button>
                   <button 
                     class="config-move-btn" 
                     disabled={!targetBoardId()}
                     onClick={() => copyOrMoveList(props.list.id, targetBoardId(), false)}
                   >
-                    Move
+                    {t('list.move')}
                   </button>
                 </div>
               </div>
@@ -223,10 +225,10 @@ export function List(props) {
 
             <div class="config-actions">
               <Show when={!props.list.id.toString().startsWith('temp-')}>
-                <button class="config-delete-btn" onClick={() => deleteList(props.list.id)}>Delete List</button>
+                <button class="config-delete-btn" onClick={() => deleteList(props.list.id)}>{t('list.delete')}</button>
               </Show>
-              <button class="config-cancel-btn" onClick={handleCancel}>Cancel</button>
-              <button class="config-save-btn" onClick={handleSave}>Save</button>
+              <button class="config-cancel-btn" onClick={handleCancel}>{t('item.cancel')}</button>
+              <button class="config-save-btn" onClick={handleSave}>{t('item.save')}</button>
             </div>
           </div>
         </div>

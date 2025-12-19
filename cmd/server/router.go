@@ -115,6 +115,7 @@ func setupAPIRoutes(r *chi.Mux, database *db.DB, authAPI *api.AuthAPI, dataAPI *
 func setupAuthEndpoints(r chi.Router, authAPI *api.AuthAPI) {
 	r.Post("/logout", authAPI.HandleLogout)
 	r.Get("/user", authAPI.HandleGetUser)
+	r.Post("/user/locale", authAPI.HandleUpdateLocale)
 }
 
 // setupDataEndpoints configures combined data endpoints

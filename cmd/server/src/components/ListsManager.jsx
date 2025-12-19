@@ -1,11 +1,13 @@
 import { For, createSignal, onMount } from 'solid-js';
 import { List } from './List';
 import { useBoard } from './BoardContext';
+import { useI18n } from './I18nContext';
 import { useDragScroll } from '../utils/useDragScroll';
 import Sortable from 'sortablejs';
 
 export function ListsManager() {
   const { lists, addList, saveNewList, deleteList, updateList, reorderLists } = useBoard();
+  const { t } = useI18n();
   const [containerRef, setContainerRef] = createSignal();
 
   useDragScroll(containerRef);
@@ -66,7 +68,7 @@ export function ListsManager() {
         )}
       </For>
       <div id="add-list-container">
-        <button class="add-list-button" onClick={handleAddList}>+ Add List</button>
+        <button class="add-list-button" onClick={handleAddList}>+ {t('list.new_list')}</button>
       </div>
     </div>
   );

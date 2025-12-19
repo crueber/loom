@@ -175,6 +175,36 @@ func (a *AuthAPI) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// HandleUpdateLocale updates the user's locale preference
+func (a *AuthAPI) HandleUpdateLocale(w http.ResponseWriter, r *http.Request) {
+	userID, ok := a.sessionManager.GetUserID(r)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req struct {
+		Locale string `json:"locale"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if req.Locale == "" {
+		respondError(w, http.StatusBadRequest, "Locale is required")
+		return
+	}
+
+	_, err := a.db.Exec("UPDATE users SET locale = ? WHERE id = ?", req.Locale, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update locale")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
+}
+
 // HandleGetUser returns the current user's information
 func (a *AuthAPI) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	userID, ok := a.sessionManager.GetUserID(r)

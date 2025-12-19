@@ -1,7 +1,9 @@
 import { Show, createSignal, createEffect } from 'solid-js';
 import { ItemHeader } from './ItemHeader';
+import { useI18n } from './I18nContext';
 
 export function LinkItem(props) {
+  const { t } = useI18n();
   const [isFlipped, setIsFlipped] = createSignal(props.item.id.toString().startsWith('temp-'));
   const [title, setTitle] = createSignal(props.item.title || '');
   const [url, setUrl] = createSignal(props.item.url || '');
@@ -78,9 +80,9 @@ export function LinkItem(props) {
         <Show when={!isFlipped()} fallback={
           <div class="item-card-back" onClick={(e) => e.stopPropagation()}>
             <div class="item-config-panel">
-              <ItemHeader title="Edit Link" onClose={handleCancel} />
+              <ItemHeader title={t('item.edit_link')} onClose={handleCancel} />
               <div class="config-form-group">
-                <label for={`link-title-${props.item.id}`} class="sr-only">Title</label>
+                <label for={`link-title-${props.item.id}`} class="sr-only">{t('item.title_placeholder')}</label>
                 <input 
                   id={`link-title-${props.item.id}`}
                   ref={titleInputRef}
@@ -88,33 +90,33 @@ export function LinkItem(props) {
                   value={title()} 
                   onInput={(e) => setTitle(e.currentTarget.value)} 
                   onKeyDown={handleKeyDown}
-                  placeholder="Title" 
+                  placeholder={t('item.title_placeholder')} 
                 />
               </div>
               <div class="config-form-group">
-                <label for={`link-url-${props.item.id}`} class="sr-only">URL</label>
+                <label for={`link-url-${props.item.id}`} class="sr-only">{t('item.url_placeholder')}</label>
                 <input 
                   id={`link-url-${props.item.id}`}
                   type="text" 
                   value={url()} 
                   onInput={(e) => setUrl(e.currentTarget.value)} 
                   onKeyDown={handleKeyDown}
-                  placeholder="URL" 
+                  placeholder={t('item.url_placeholder')} 
                 />
               </div>
               
               <div class="favicon-config">
-                <label for={`link-icon-source-${props.item.id}`} class="sr-only">Icon Source</label>
+                <label for={`link-icon-source-${props.item.id}`} class="sr-only">{t('item.icon_source_label')}</label>
                 <select id={`link-icon-source-${props.item.id}`} value={iconSource()} onChange={(e) => setIconSource(e.currentTarget.value)}>
-                  <option value="auto">Automatic Favicon</option>
-                  <option value="custom">Custom URL</option>
-                  <option value="service">selfh.st/icons</option>
+                  <option value="auto">{t('item.icon_source_auto')}</option>
+                  <option value="custom">{t('item.icon_source_custom')}</option>
+                  <option value="service">{t('item.icon_source_service')}</option>
                 </select>
                 
                 <Show when={iconSource() !== 'auto'}>
                   <div class="favicon-input-wrapper">
                     <label for={`link-custom-icon-${props.item.id}`} class="sr-only">
-                      {iconSource() === 'custom' ? 'Custom Icon URL' : 'Service Slug'}
+                      {iconSource() === 'custom' ? t('item.icon_source_custom') : t('item.icon_source_service')}
                     </label>
                     <input 
                       id={`link-custom-icon-${props.item.id}`}
@@ -122,11 +124,11 @@ export function LinkItem(props) {
                       value={customIconUrl()} 
                       onInput={(e) => setCustomIconUrl(e.currentTarget.value)} 
                       onKeyDown={handleKeyDown}
-                      placeholder={iconSource() === 'custom' ? 'https://example.com/icon.png' : 'Service slug (e.g. plex)'}
+                      placeholder={iconSource() === 'custom' ? t('item.custom_icon_placeholder') : t('item.service_slug_placeholder')}
                     />
                     <Show when={iconSource() === 'service'}>
                       <a href="https://selfh.st/icons" target="_blank" rel="noopener noreferrer" class="icon-service-link">
-                        Browse Icons ↗
+                        {t('item.browse_icons')} ↗
                       </a>
                     </Show>
                   </div>
@@ -135,10 +137,10 @@ export function LinkItem(props) {
 
               <div class="item-config-actions">
                 <Show when={!props.item.id.toString().startsWith('temp-')}>
-                  <button class="item-config-delete-btn" onClick={props.onDelete}>Delete</button>
+                  <button class="item-config-delete-btn" onClick={props.onDelete}>{t('item.delete')}</button>
                 </Show>
-                <button class="item-config-cancel-btn secondary" onClick={handleCancel}>Cancel</button>
-                <button class="item-config-save-btn" onClick={handleSave}>Save</button>
+                <button class="item-config-cancel-btn secondary" onClick={handleCancel}>{t('item.cancel')}</button>
+                <button class="item-config-save-btn" onClick={handleSave}>{t('item.save')}</button>
               </div>
             </div>
           </div>

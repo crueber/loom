@@ -160,6 +160,13 @@ func (db *DB) migrate() error {
 				ALTER TABLE items ADD COLUMN custom_icon_url TEXT;
 			`,
 		},
+		{
+			version: 8,
+			sql: `
+				-- Migration v8: Add locale preference to users
+				ALTER TABLE users ADD COLUMN locale TEXT DEFAULT 'en';
+			`,
+		},
 	}
 
 	// Run each migration

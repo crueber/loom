@@ -14,6 +14,10 @@ This file provides guidance to agents when working with code in this repository.
   - Bookmarks/Notes use simple `display: none/block` toggles.
   - Managed via SolidJS component state.
 - **Temporary Items**: New items use string IDs (e.g., `temp-123`) and are filtered out if cancelled.
+- **Internationalization (i18n)**: 
+  - **No Hardcoded Strings**: All user-facing text must use the `t()` function from `useI18n()`.
+  - **Translation Files**: Add new keys to all translations in `cmd/server/static/locales/`.
+  - **Backend Injection**: Translations are injected via `window.__I18N_DATA__` in `cmd/server/app_handler.go`.
 
 ### Backend (Go + SQLite)
 - **Pure Go SQLite**: Uses `modernc.org/sqlite`, which requires NO CGO. Do not introduce CGO dependencies.

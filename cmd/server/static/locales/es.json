@@ -1,0 +1,69 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Tus enlaces y notas personales"
+  },
+  "auth": {
+    "login_oauth": "Iniciar sesión con OAuth2"
+  },
+  "nav": {
+    "logout": "Cerrar sesión",
+    "settings": "Ajustes",
+    "boards": "Tableros",
+    "new_board": "Nuevo Tablero",
+    "export": "Exportar",
+    "import": "Importar",
+    "rename_board": "Renombrar Tablero",
+    "delete_board": "Eliminar Tablero",
+    "delete_board_confirm": "¿Eliminar '{{title}}'? Esto también eliminará todas las listas y elementos de este tablero.",
+    "import_modal_title": "Importar Datos",
+    "import_file_label": "Seleccionar archivo JSON",
+    "import_mode_label": "Modo de importación",
+    "import_mode_merge": "Fusionar con datos existentes",
+    "import_mode_replace": "Reemplazar todos los datos",
+    "import_error_file": "Por favor, seleccione un archivo"
+  },
+  "board": {
+    "loading": "Cargando...",
+    "delete_confirm": "¿Estás seguro de que quieres eliminar este tablero?",
+    "edit_title": "Editar título del tablero",
+    "name_placeholder": "Nombre del tablero"
+  },
+  "list": {
+    "add_item": "Añadir elemento",
+    "new_list": "Nueva lista",
+    "delete_confirm": "¿Estás seguro de que quieres eliminar esta lista?",
+    "rename": "Renombrar lista",
+    "add_link": "Añadir Enlace",
+    "add_note": "Añadir Nota",
+    "configure": "Configurar Lista",
+    "title_label": "Título",
+    "title_placeholder": "Título de la lista",
+    "color_label": "Color",
+    "custom_color": "Personalizado:",
+    "move_copy_label": "Mover/Copiar al Tablero",
+    "move_copy_placeholder": "Seleccionar tablero de destino...",
+    "copy": "Copiar",
+    "move": "Mover",
+    "delete": "Eliminar Lista"
+  },
+  "item": {
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "note_placeholder": "Contenido de la nota (Markdown soportado)",
+    "link_placeholder": "https://ejemplo.com",
+    "edit_link": "Editar Enlace",
+    "edit_note": "Editar Nota",
+    "title_placeholder": "Título",
+    "url_placeholder": "URL",
+    "icon_source_label": "Fuente del Icono",
+    "icon_source_auto": "Favicon Automático",
+    "icon_source_custom": "URL Personalizada",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://ejemplo.com/icono.png",
+    "service_slug_placeholder": "Slug del servicio (ej. plex)",
+    "browse_icons": "Explorar Iconos"
+  }
+}
