@@ -18,8 +18,9 @@ export function List(props) {
   let titleInputRef;
 
   createEffect(() => {
-    if (isFlipped() && props.list.id.toString().startsWith('temp-') && titleInputRef) {
+    if (isFlipped() && titleInputRef) {
       titleInputRef.focus();
+      titleInputRef.select();
     }
   });
 
