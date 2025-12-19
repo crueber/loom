@@ -746,6 +746,121 @@ nav strong {
     background: var(--pico-primary);
 }
 
+/* Item Configuration Panel (Shared) */
+.item-config-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.item-config-panel input, 
+.item-config-panel select {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    margin: 0;
+    height: 2.2rem;
+}
+
+.favicon-config {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.favicon-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.icon-service-link {
+    font-size: 0.65rem;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+    align-self: flex-end;
+    opacity: 0.8;
+}
+
+.icon-service-link:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.item-config-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.item-config-header h5 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.item-config-close-btn {
+    background: none;
+    border: none;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0;
+    line-height: 1;
+}
+
+.item-config-close-btn:hover {
+    color: var(--pico-contrast);
+}
+
+.item-config-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+.item-config-delete-btn {
+    background: var(--pico-del-color);
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    margin-right: auto;
+}
+
+.item-config-cancel-btn,
+.item-config-save-btn {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+}
+
+.item-card-inner {
+    position: relative;
+    width: 100%;
+    min-height: 1rem;
+}
+
+.item-card-back {
+    display: none;
+    padding: 0.75rem;
+}
+
+[data-flipped="true"] .item-card-back {
+    display: block;
+}
+
+.item-action-btn {
+    background: none;
+    border: none;
+    color: var(--pico-muted-color);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.item-action-btn:hover {
+    color: var(--pico-contrast);
+}
+
 /* Bookmark Configuration Panel */
 .bookmark-config-panel {
     display: flex;
@@ -884,8 +999,12 @@ nav strong {
     display: none;
 }
 
-/* Bookmark Item */
-.bookmark-item {
+/* Link Item */
+.link-item a, .note-item a {
+    text-decoration: none !important;
+}
+
+.link-item {
     margin-bottom: 0.5rem;
     background: var(--pico-background-color);
     border-radius: var(--pico-border-radius);
@@ -897,36 +1016,16 @@ nav strong {
     position: relative;
 }
 
-.bookmark-item:hover {
+.link-item:hover {
     transform: translateX(4px);
     background: var(--pico-secondary-background);
 }
 
-.bookmark-item.sortable-ghost {
+.link-item.sortable-ghost {
     opacity: 0.4;
 }
 
-/* Bookmark Card Flip Architecture */
-.bookmark-card-inner {
-    position: relative;
-    width: 100%;
-    min-height: 1rem;
-}
-
-.bookmark-card-front,
-.bookmark-card-back {
-    width: 100%;
-    transition: opacity 0.3s, transform 0.3s;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .bookmark-card-front,
-    .bookmark-card-back {
-        transition: none;
-    }
-}
-
-.bookmark-card-front {
+.link-card-front {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -934,41 +1033,27 @@ nav strong {
     text-decoration: none;
 }
 
-.bookmark-card-front:hover {
+.link-card-front:hover {
     text-decoration: none;
 }
 
-.bookmark-card-front:hover .bookmark-title,
-.bookmark-card-front:hover .bookmark-url {
+.link-card-front:hover .link-title,
+.link-card-front:hover .link-url {
     text-decoration: none;
 }
 
-.bookmark-card-back {
-    display: none;
-    padding: 0.75rem;
-}
-
-/* When flipped, hide front and show back */
-.bookmark-item[data-flipped="true"] .bookmark-card-front {
-    display: none;
-}
-
-.bookmark-item[data-flipped="true"] .bookmark-card-back {
-    display: block;
-}
-
-.bookmark-favicon {
+.link-favicon {
     width: 24px;
     flex-shrink: 0;
 }
 
-.bookmark-favicon img {
+.link-favicon img {
     width: 24px;
     height: 24px;
     object-fit: contain;
 }
 
-.bookmark-favicon-placeholder {
+.link-favicon-placeholder {
     width: 24px;
     height: 24px;
     display: flex;
@@ -979,7 +1064,7 @@ nav strong {
     font-size: 1rem;
 }
 
-.bookmark-content {
+.link-content {
     flex: 1;
     min-width: 0;
     min-height: 1.8rem;
@@ -988,7 +1073,7 @@ nav strong {
     justify-content: center;
 }
 
-.bookmark-title {
+.link-title {
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -996,9 +1081,10 @@ nav strong {
     margin: 0;
     font-size: 0.95rem;
     line-height: 1.4;
+    text-decoration: none !important;
 }
 
-.bookmark-url {
+.link-url {
     font-size: 0.75rem;
     color: var(--pico-muted-color);
     white-space: nowrap;
@@ -1008,13 +1094,13 @@ nav strong {
     line-height: 1.2;
 }
 
-.bookmark-actions {
+.link-actions {
     display: none;
     gap: 0.25rem;
     flex-shrink: 0;
 }
 
-.bookmark-item:hover .bookmark-actions {
+.link-item:hover .link-actions {
     display: flex;
 }
 
@@ -1043,7 +1129,7 @@ nav strong {
 }
 
 /* Add Link and Add Note Buttons */
-.add-bookmark-btn,
+.add-link-btn,
 .add-note-btn {
     flex: 1;
     padding: 0.5rem;
@@ -1055,7 +1141,7 @@ nav strong {
     transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
 }
 
-.add-bookmark-btn:hover,
+.add-link-btn:hover,
 .add-note-btn:hover {
     border-color: var(--pico-primary);
     background: var(--pico-primary-background);
@@ -1209,7 +1295,7 @@ dialog article {
 }
 
 /* Hide bookmark URLs when list has more than 6 bookmarks */
-.bookmarks-container:has(.bookmark-item:nth-child(7)) .bookmark-url {
+.bookmarks-container:has(.link-item:nth-child(7)) .link-url {
     display: none;
 }
 
@@ -1309,7 +1395,7 @@ dialog article {
 
 .note-text a {
     color: var(--primary);
-    text-decoration: underline;
+    text-decoration: none !important;
 }
 
 .note-text a:hover {
@@ -1363,10 +1449,10 @@ dialog article {
 
 .note-config-panel textarea {
     width: 100%;
-    min-height: 120px;
+    min-height: 80px;
     resize: vertical;
     font-family: inherit;
-    font-size: 0.875rem;
+    font-size: 0.75rem;
     padding: 0.5rem;
     border: 1px solid var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);

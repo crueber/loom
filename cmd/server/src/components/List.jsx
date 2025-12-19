@@ -152,7 +152,7 @@ export function List(props) {
               </For>
             </div>
             <div class="list-add-buttons">
-              <button class="add-bookmark-btn" onClick={handleAddLink}>+ Add Link</button>
+              <button class="add-link-btn" onClick={handleAddLink}>+ Add Link</button>
               <button class="add-note-btn" onClick={handleAddNote}>+ Add Note</button>
             </div>
           </Show>
