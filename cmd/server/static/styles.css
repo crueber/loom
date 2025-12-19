@@ -728,8 +728,8 @@ nav strong {
     margin-top: auto;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    padding-top: 1rem;
+    gap: 0.35rem;
+    padding-top: 0.75rem;
     border-top: 1px solid var(--pico-muted-border-color);
 }
 
@@ -738,7 +738,7 @@ nav strong {
     color: white;
     flex: 1 1 100%;
     font-size: 0.8rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.3rem 0.6rem;
 }
 
 .config-delete-btn:hover {
@@ -750,7 +750,7 @@ nav strong {
 .config-save-btn {
     flex: 1;
     font-size: 0.8rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.3rem 0.6rem;
 }
 
 .config-cancel-btn {
@@ -830,22 +830,24 @@ nav strong {
 
 .item-config-actions {
     display: flex;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
 }
 
 .item-config-delete-btn {
     background: var(--pico-del-color);
     color: white;
     font-size: 0.75rem;
-    padding: 0.4rem 0.6rem;
-    margin-right: auto;
+    padding: 0.3rem 0.6rem;
+    flex: 1 1 100%;
 }
 
 .item-config-cancel-btn,
 .item-config-save-btn {
+    flex: 1;
     font-size: 0.75rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.3rem 0.6rem;
 }
 
 .item-card-inner {
@@ -1135,8 +1137,9 @@ nav strong {
 /* Add Item Buttons Container */
 .list-add-buttons {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.25rem;
     margin: 0.5rem 1rem 1rem;
+    min-width: 0;
 }
 
 .list-card.collapsed .list-add-buttons {
@@ -1147,13 +1150,17 @@ nav strong {
 .add-link-btn,
 .add-note-btn {
     flex: 1;
-    padding: 0.5rem;
-    font-size: 0.875rem;
+    min-width: 0;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.7rem;
     border: 1px dashed var(--pico-muted-border-color);
     background: transparent;
     opacity: 0.5;
     color: var(--pico-muted-color);
     transition: border-color 0.2s, background-color 0.2s, opacity 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .add-link-btn:hover,

@@ -28,9 +28,16 @@ esbuild.build({
     // External dependencies that should not be bundled (loaded separately)
     external: [],
 }).then(() => {
-    // Generate hash of the bundle for cache busting
+    // Generate hash of the bundle and styles for cache busting
     const bundleContent = fs.readFileSync(bundlePath);
-    const hash = crypto.createHash('sha256').update(bundleContent).digest('hex').substring(0, 8);
+    const stylesPath = path.join(__dirname, 'static', 'styles.css');
+    const stylesContent = fs.readFileSync(stylesPath);
+    
+    const hash = crypto.createHash('sha256')
+        .update(bundleContent)
+        .update(stylesContent)
+        .digest('hex')
+        .substring(0, 8);
 
     // Write version file
     const versionPath = path.join(distDir, 'version.txt');

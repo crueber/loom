@@ -12,6 +12,7 @@ RUN npm install
 
 # Copy source files
 COPY cmd/server/src/ src/
+COPY cmd/server/static/styles.css static/
 COPY cmd/server/build.js .
 
 # Build JavaScript bundle
