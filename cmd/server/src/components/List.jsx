@@ -43,6 +43,8 @@ export function List(props) {
         ghostClass: 'sortable-ghost',
         chosenClass: 'sortable-chosen',
         dragClass: 'sortable-drag',
+        delay: 150,
+        delayOnTouchOnly: true,
         filter: '[data-flipped="true"], input, textarea, select, button',
         preventOnFilter: false,
         onEnd: (evt) => {
@@ -71,6 +73,9 @@ export function List(props) {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancel();
     }
   };
 
@@ -170,8 +175,9 @@ export function List(props) {
             </div>
             
             <div class="config-form-group">
-              <label>Title</label>
+              <label for={`list-title-${props.list.id}`}>Title</label>
               <input 
+                id={`list-title-${props.list.id}`}
                 ref={titleInputRef}
                 type="text" 
                 value={title()} 
@@ -182,13 +188,13 @@ export function List(props) {
               />
             </div>
 
-            <ColorPicker value={color()} onChange={setColor} />
+            <ColorPicker listId={props.list.id} value={color()} onChange={setColor} />
 
             <Show when={!props.list.id.toString().startsWith('temp-')}>
               <div class="config-form-group">
-                <label>Move/Copy to Board</label>
+                <label for={`list-board-target-${props.list.id}`}>Move/Copy to Board</label>
                 <div class="config-board-actions">
-                  <select class="config-board-target" onChange={(e) => {
+                  <select id={`list-board-target-${props.list.id}`} class="config-board-target" onChange={(e) => {
                     const targetId = parseInt(e.currentTarget.value);
                     setTargetBoardId(targetId);
                   }}>

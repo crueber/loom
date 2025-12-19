@@ -27,6 +27,9 @@ export function NoteItem(props) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancel();
     }
   };
 
@@ -51,7 +54,9 @@ export function NoteItem(props) {
           <div class="item-card-back" onClick={(e) => e.stopPropagation()}>
             <div class="item-config-panel">
               <ItemHeader title="Edit Note" onClose={handleCancel} />
+              <label for={`note-content-${props.item.id}`} class="sr-only">Content</label>
               <textarea 
+                id={`note-content-${props.item.id}`}
                 ref={textareaRef}
                 value={content()} 
                 onInput={(e) => setContent(e.currentTarget.value)} 

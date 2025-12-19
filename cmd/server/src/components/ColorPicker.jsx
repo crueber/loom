@@ -12,9 +12,10 @@ const PRESET_COLORS = [
 ];
 
 export function ColorPicker(props) {
+  const customId = () => props.listId ? `color-custom-${props.listId}` : 'color-custom';
   return (
     <div class="config-color-section">
-      <label>Color</label>
+      <div class="config-color-label">Color</div>
       <div class="config-color-presets">
         <For each={PRESET_COLORS}>
           {(color) => (
@@ -28,8 +29,9 @@ export function ColorPicker(props) {
         </For>
       </div>
       <div class="config-color-custom">
-        <label>Custom:</label>
+        <label for={customId()}>Custom:</label>
         <input
+          id={customId()}
           type="color"
           class="color-picker-input"
           value={props.value}

@@ -22,6 +22,8 @@ export function ListsManager() {
         dragClass: 'sortable-drag',
         forceFallback: true,
         fallbackClass: 'sortable-fallback',
+        delay: 150,
+        delayOnTouchOnly: true,
         filter: '[data-flipped="true"], input, textarea, select, button',
         preventOnFilter: false,
         onEnd: (evt) => {

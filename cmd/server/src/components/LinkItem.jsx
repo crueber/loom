@@ -1,4 +1,4 @@
-import { Show, createSignal } from 'solid-js';
+import { Show, createSignal, createEffect } from 'solid-js';
 import { ItemHeader } from './ItemHeader';
 
 export function LinkItem(props) {
@@ -8,10 +8,24 @@ export function LinkItem(props) {
   const [iconSource, setIconSource] = createSignal(props.item.icon_source || 'auto');
   const [customIconUrl, setCustomIconUrl] = createSignal(props.item.custom_icon_url || '');
 
+  let titleInputRef;
+
+  createEffect(() => {
+    if (isFlipped() && props.item.id.toString().startsWith('temp-') && titleInputRef) {
+      titleInputRef.focus();
+      titleInputRef.select();
+    }
+  });
+
   const handleSave = () => {
+    let finalUrl = url();
+    if (finalUrl && !finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'https://' + finalUrl;
+    }
+
     const updates = { 
       title: title(), 
-      url: url(),
+      url: finalUrl,
       icon_source: iconSource(),
       custom_icon_url: customIconUrl()
     };
@@ -21,6 +35,18 @@ export function LinkItem(props) {
     } else {
       props.onUpdate(props.item.id, updates);
       setIsFlipped(false);
+      setUrl(finalUrl);
+    }
+  };
+
+  const getDisplayUrl = (url) => {
+    if (!url) return '';
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname;
+    } catch (e) {
+      // Fallback if URL is invalid
+      return url;
     }
   };
 
@@ -28,6 +54,9 @@ export function LinkItem(props) {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSave();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancel();
     }
   };
 
@@ -50,23 +79,33 @@ export function LinkItem(props) {
           <div class="item-card-back" onClick={(e) => e.stopPropagation()}>
             <div class="item-config-panel">
               <ItemHeader title="Edit Link" onClose={handleCancel} />
-              <input 
-                type="text" 
-                value={title()} 
-                onInput={(e) => setTitle(e.currentTarget.value)} 
-                onKeyDown={handleKeyDown}
-                placeholder="Title" 
-              />
-              <input 
-                type="text" 
-                value={url()} 
-                onInput={(e) => setUrl(e.currentTarget.value)} 
-                onKeyDown={handleKeyDown}
-                placeholder="URL" 
-              />
+              <div class="config-form-group">
+                <label for={`link-title-${props.item.id}`} class="sr-only">Title</label>
+                <input 
+                  id={`link-title-${props.item.id}`}
+                  ref={titleInputRef}
+                  type="text" 
+                  value={title()} 
+                  onInput={(e) => setTitle(e.currentTarget.value)} 
+                  onKeyDown={handleKeyDown}
+                  placeholder="Title" 
+                />
+              </div>
+              <div class="config-form-group">
+                <label for={`link-url-${props.item.id}`} class="sr-only">URL</label>
+                <input 
+                  id={`link-url-${props.item.id}`}
+                  type="text" 
+                  value={url()} 
+                  onInput={(e) => setUrl(e.currentTarget.value)} 
+                  onKeyDown={handleKeyDown}
+                  placeholder="URL" 
+                />
+              </div>
               
               <div class="favicon-config">
-                <select value={iconSource()} onChange={(e) => setIconSource(e.currentTarget.value)}>
+                <label for={`link-icon-source-${props.item.id}`} class="sr-only">Icon Source</label>
+                <select id={`link-icon-source-${props.item.id}`} value={iconSource()} onChange={(e) => setIconSource(e.currentTarget.value)}>
                   <option value="auto">Automatic Favicon</option>
                   <option value="custom">Custom URL</option>
                   <option value="service">selfh.st/icons</option>
@@ -74,7 +113,11 @@ export function LinkItem(props) {
                 
                 <Show when={iconSource() !== 'auto'}>
                   <div class="favicon-input-wrapper">
+                    <label for={`link-custom-icon-${props.item.id}`} class="sr-only">
+                      {iconSource() === 'custom' ? 'Custom Icon URL' : 'Service Slug'}
+                    </label>
                     <input 
+                      id={`link-custom-icon-${props.item.id}`}
                       type="text" 
                       value={customIconUrl()} 
                       onInput={(e) => setCustomIconUrl(e.currentTarget.value)} 
@@ -124,7 +167,7 @@ export function LinkItem(props) {
               >
                 {props.item.title}
               </a>
-              <p class="link-url">{props.item.url}</p>
+              <p class="link-url">{getDisplayUrl(props.item.url)}</p>
             </div>
             <div class="link-actions">
               <button 

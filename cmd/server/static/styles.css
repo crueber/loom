@@ -22,6 +22,19 @@ body {
   width: 3px;
 }
 
+/* Screen Reader Only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 /* Track */
 ::-webkit-scrollbar-track {
   box-shadow: inset 0 0 3px #bbb; 
@@ -220,6 +233,7 @@ nav strong {
     overflow-y: auto;
     padding: 1.5rem;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+    position: relative;
 }
 
 .mobile-menu-close {
@@ -624,7 +638,8 @@ nav strong {
     gap: 0.5rem;
 }
 
-.config-form-group label {
+.config-form-group label,
+.config-color-label {
     font-size: 0.875rem;
     font-weight: 600;
     margin: 0;
@@ -1440,14 +1455,7 @@ dialog article {
     opacity: 1;
 }
 
-/* Note Configuration Panel */
-.note-config-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.note-config-panel textarea {
+.item-config-panel textarea {
     width: 100%;
     min-height: 80px;
     resize: vertical;
@@ -1460,12 +1468,7 @@ dialog article {
     color: var(--pico-color);
 }
 
-.note-config-panel textarea:focus {
+.item-config-panel textarea:focus {
     outline: none;
     border-color: var(--pico-primary);
-}
-
-/* Touch device visibility for note actions */
-.touch-device .note-actions {
-    display: flex;
 }
