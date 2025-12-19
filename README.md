@@ -8,8 +8,10 @@
 
 [OAuth2 Setup](#oauth2-provider-setup) • [Troubleshooting](#troubleshooting) • [Contributing](#contributing)
 
-[MIT License](LICENSE.md) &mdash; Free as in Freedom
+[O'Sassy License](LICENSE) &mdash; Free as in Freedom*
 </div>
+
+*Free for personal use, commercial SaaS rights reserved.
 
 ---
 
