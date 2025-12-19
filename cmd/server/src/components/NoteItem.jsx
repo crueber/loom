@@ -6,10 +6,18 @@ export function NoteItem(props) {
   const [content, setContent] = createSignal(props.item.content || '');
   let textareaRef;
 
+  const adjustHeight = () => {
+    if (textareaRef) {
+      textareaRef.style.height = 'auto';
+      textareaRef.style.height = textareaRef.scrollHeight + 'px';
+    }
+  };
+
   createEffect(() => {
     if (isFlipped() && textareaRef) {
       textareaRef.focus();
       textareaRef.select();
+      adjustHeight();
     }
   });
 
@@ -59,10 +67,13 @@ export function NoteItem(props) {
                 id={`note-content-${props.item.id}`}
                 ref={textareaRef}
                 value={content()} 
-                onInput={(e) => setContent(e.currentTarget.value)} 
+                onInput={(e) => {
+                  setContent(e.currentTarget.value);
+                  adjustHeight();
+                }} 
                 onKeyDown={handleKeyDown}
                 placeholder="Note content (Markdown supported)"
-                rows="5"
+                rows="1"
               />
               <div class="item-config-actions">
                 <Show when={!props.item.id.toString().startsWith('temp-')}>

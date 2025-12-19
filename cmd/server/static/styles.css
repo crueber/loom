@@ -1457,15 +1457,16 @@ dialog article {
 
 .item-config-panel textarea {
     width: 100%;
-    min-height: 80px;
-    resize: vertical;
+    min-height: 2rem;
+    resize: none;
     font-family: inherit;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 0.5rem;
     border: 1px solid var(--pico-muted-border-color);
     border-radius: var(--pico-border-radius);
     background: var(--pico-background-color);
     color: var(--pico-color);
+    overflow-y: hidden;
 }
 
 .item-config-panel textarea:focus {
