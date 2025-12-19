@@ -26,18 +26,25 @@ export function useDragScroll(ref) {
 
     isDown = true;
     ref().style.cursor = 'grabbing';
+    ref().style.userSelect = 'none';
     startX = e.pageX - ref().offsetLeft;
     scrollLeft = ref().scrollLeft;
   };
 
   const onMouseLeave = () => {
     isDown = false;
-    if (ref()) ref().style.cursor = 'grab';
+    if (ref()) {
+      ref().style.cursor = 'grab';
+      ref().style.userSelect = '';
+    }
   };
 
   const onMouseUp = () => {
     isDown = false;
-    if (ref()) ref().style.cursor = 'grab';
+    if (ref()) {
+      ref().style.cursor = 'grab';
+      ref().style.userSelect = '';
+    }
   };
 
   const onMouseMove = (e) => {
