@@ -21,7 +21,8 @@
     "import_mode_label": "Import mode",
     "import_mode_merge": "Merge with existing data",
     "import_mode_replace": "Replace all data",
-    "import_error_file": "Please select a file"
+    "import_error_file": "Please select a file",
+    "change_language": "Change Language"
   },
   "board": {
     "loading": "Loading...",

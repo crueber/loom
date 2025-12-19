@@ -75,11 +75,13 @@ export function Navigation() {
               <div class="locale-selector">
                 <button 
                   class="locale-btn"
-                  title="Change Language"
+                  title={t('nav.change_language')}
                 >
                   {LOCALE_FLAGS[user()?.locale] || '🌐'}
                 </button>
+                <label for="locale-select-desktop" class="sr-only">{t('nav.change_language')}</label>
                 <select 
+                  id="locale-select-desktop"
                   class="locale-select-hidden"
                   value={user()?.locale || 'en'}
                   onChange={async (e) => {
@@ -241,11 +243,13 @@ export function Navigation() {
                   <div class="locale-selector">
                     <button 
                       class="locale-btn"
-                      title="Change Language"
+                      title={t('nav.change_language')}
                     >
                       {LOCALE_FLAGS[user()?.locale] || '🌐'}
                     </button>
+                    <label for="locale-select-mobile" class="sr-only">{t('nav.change_language')}</label>
                     <select 
+                      id="locale-select-mobile"
                       class="locale-select-hidden"
                       value={user()?.locale || 'en'}
                       onChange={async (e) => {
