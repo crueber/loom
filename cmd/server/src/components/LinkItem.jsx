@@ -13,7 +13,7 @@ export function LinkItem(props) {
   let titleInputRef;
 
   createEffect(() => {
-    if (isFlipped() && props.item.id.toString().startsWith('temp-') && titleInputRef) {
+    if (isFlipped() && titleInputRef) {
       titleInputRef.focus();
       titleInputRef.select();
     }
