@@ -139,6 +139,7 @@ async function deleteItem(id) {
 }
 
 async function reorderItems(itemsData) {
+    console.log('API call reorderItems:', itemsData);
     return apiCall('/items/reorder', {
         method: 'PUT',
         body: JSON.stringify({ items: itemsData })

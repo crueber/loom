@@ -4,15 +4,16 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Non-Obvious Project Patterns
 
-### Frontend (Alpine.js + esbuild)
+### Frontend (SolidJS + esbuild)
 - **Source vs Static**: Edit files in `cmd/server/src/`, NOT `cmd/server/static/dist/`. The latter are build artifacts.
-- **Data Bootstrapping**: Initial data is injected via `window.__BOOTSTRAP_DATA__` in `cmd/server/app_handler.go`. Components must consume this to avoid API calls on load.
-- **Event Registry**: All cross-component communication MUST use constants from `cmd/server/src/components/events.js` via the `dispatchEvent` facade in `cmd/server/src/utils/api.js`.
+- **JSX Components**: Templates are now in `.jsx` files within `src/components/`. `index.html` is just a mount point.
+- **Data Bootstrapping**: Initial data is injected via `window.__BOOTSTRAP_DATA__` and consumed by SolidJS stores/contexts on initialization.
+- **Reactivity**: Use SolidJS signals (`createSignal`) and stores (`createStore`) for state. Avoid direct DOM manipulation.
 - **Card Flip UI**: 
   - Lists use 3D transforms (`rotateY(180deg)`).
   - Bookmarks/Notes use simple `display: none/block` toggles.
-  - Only one card can be flipped at a time, managed by `Alpine.store('flipCard')`.
-- **Temporary Items**: New items use string IDs (e.g., `temp-123`) and `data-is-temp="true"`. `closeFlippedCard()` removes these from DOM if cancelled.
+  - Managed via SolidJS component state.
+- **Temporary Items**: New items use string IDs (e.g., `temp-123`) and are filtered out if cancelled.
 
 ### Backend (Go + SQLite)
 - **Pure Go SQLite**: Uses `modernc.org/sqlite`, which requires NO CGO. Do not introduce CGO dependencies.

@@ -31,7 +31,7 @@ A self-hosted, minimalistic browser home/dashboard for links and notes with a be
 
 ### Built for Performance
 
-- **Lightweight** - Go backend with SQLite, AlpineJS front end.
+- **Lightweight** - Go backend with SQLite, SolidJS front end.
 - **Minimal Footprint** - Docker image under 20MB
 - **Instant Load** - ~100ms full page load.
 - **Fast** - Less than 20kb with cache loaded, ~150kb including cache hydration.
@@ -443,7 +443,7 @@ Guiderails for submissions:
 
 <div align="center">
 
-Authored with ❤️ using Go and AlpineJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).<br/>...and maybe other contributors at some point?
+Authored with ❤️ using Go and SolidJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).<br/>...and maybe other contributors at some point?
 
 **[⬆ Back to Top](#loom)**
 

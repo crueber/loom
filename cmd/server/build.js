@@ -1,5 +1,6 @@
 // Simple Node.js script to bundle JavaScript with esbuild
 const esbuild = require('esbuild');
+const { solidPlugin } = require('esbuild-plugin-solid');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -13,7 +14,7 @@ if (!fs.existsSync(distDir)) {
 const bundlePath = path.join(distDir, 'app.bundle.js');
 
 esbuild.build({
-    entryPoints: [path.join(__dirname, 'src', 'app.js')],
+    entryPoints: [path.join(__dirname, 'src', 'index.jsx')],
     bundle: true,
     format: 'iife', // Immediately Invoked Function Expression for browser
     outfile: bundlePath,
@@ -23,6 +24,7 @@ esbuild.build({
     minify: false, // No minification as requested
     treeShaking: true, // Remove unused code
     legalComments: 'none', // Strip all comments including legal ones
+    plugins: [solidPlugin()],
     // External dependencies that should not be bundled (loaded separately)
     external: [],
 }).then(() => {
