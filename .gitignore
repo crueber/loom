@@ -34,3 +34,4 @@ temp/
 # Logs
 *.log
 logs/
+push.sh
