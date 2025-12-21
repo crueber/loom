@@ -44,23 +44,45 @@ func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 	// Build export data
 	exportLists := []models.ExportList{}
 	for _, list := range lists {
-		// Get bookmarks for each list
-		bookmarks, err := e.db.GetBookmarks(list.ID)
+		// Get items for each list
+		items, err := e.db.GetItems(list.ID)
 		if err != nil {
-			respondError(w, http.StatusInternalServerError, "Failed to get bookmarks")
+			respondError(w, http.StatusInternalServerError, "Failed to get items")
 			return
 		}
 
-		// Convert bookmarks to export format
-		exportBookmarks := []models.ExportBookmark{}
-		for _, bookmark := range bookmarks {
-			exportBookmarks = append(exportBookmarks, models.ExportBookmark{
-				ID:         bookmark.ID,
-				Title:      bookmark.Title,
-				URL:        bookmark.URL,
-				FaviconURL: bookmark.FaviconURL,
-				Position:   bookmark.Position,
+		// Convert items to export format
+		exportItems := []models.ExportItem{}
+		exportBookmarks := []models.ExportBookmark{} // For backward compatibility
+		for _, item := range items {
+			exportItems = append(exportItems, models.ExportItem{
+				ID:         item.ID,
+				Type:       item.Type,
+				Title:      item.Title,
+				URL:        item.URL,
+				Content:    item.Content,
+				FaviconURL: item.FaviconURL,
+				Position:   item.Position,
 			})
+
+			// Also populate legacy bookmarks field if it's a bookmark
+			if item.Type == "bookmark" {
+				title := ""
+				if item.Title != nil {
+					title = *item.Title
+				}
+				url := ""
+				if item.URL != nil {
+					url = *item.URL
+				}
+				exportBookmarks = append(exportBookmarks, models.ExportBookmark{
+					ID:         item.ID,
+					Title:      title,
+					URL:        url,
+					FaviconURL: item.FaviconURL,
+					Position:   item.Position,
+				})
+			}
 		}
 
 		exportLists = append(exportLists, models.ExportList{
@@ -69,6 +91,7 @@ func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 			Color:     list.Color,
 			Position:  list.Position,
 			Collapsed: list.Collapsed,
+			Items:     exportItems,
 			Bookmarks: exportBookmarks,
 		})
 	}
