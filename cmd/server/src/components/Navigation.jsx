@@ -1,4 +1,4 @@
-import { createSignal, Show, For } from 'solid-js';
+import { createSignal, Show, For, onMount, onCleanup } from 'solid-js';
 import { useAuth } from './AuthContext';
 import { useBoard } from './BoardContext';
 import { useI18n } from './I18nContext';
@@ -24,14 +24,60 @@ export function Navigation() {
   const [importMode, setImportMode] = createSignal('merge');
   const [importError, setImportError] = createSignal('');
 
-  const handleRename = () => {
+  let renameInput;
+  let renameInputMobile;
+  let boardSwitcherRef;
+
+  const handleClickOutside = (e) => {
+    if (boardSwitcherOpen() && boardSwitcherRef && !boardSwitcherRef.contains(e.target)) {
+      setBoardSwitcherOpen(false);
+      setShowRenameUI(false);
+      setShowDeleteUI(false);
+    }
+  };
+
+  onMount(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+  });
+
+  onCleanup(() => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  });
+
+  const handleRename = (e) => {
+    if (e) e.stopPropagation();
     updateBoard(currentBoard.id, renameBoardTitle());
     setShowRenameUI(false);
   };
 
-  const handleDelete = () => {
+  const handleShowRename = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenameBoardTitle(currentBoard.title);
+    setShowRenameUI(true);
+    // Use setTimeout to ensure the element is rendered before focusing
+    setTimeout(() => {
+      if (renameInput) {
+        renameInput.focus();
+        renameInput.select();
+      }
+      if (renameInputMobile) {
+        renameInputMobile.focus();
+        renameInputMobile.select();
+      }
+    }, 0);
+  };
+
+  const handleDelete = (e) => {
+    if (e) e.stopPropagation();
     deleteBoard(currentBoard.id);
     setShowDeleteUI(false);
+  };
+
+  const handleDeleteUI = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowDeleteUI(true);
   };
 
   const handleImport = async (e) => {
@@ -101,7 +147,7 @@ export function Navigation() {
             </div>
           </li>
           <li>
-            <div class="board-switcher">
+            <div class="board-switcher" ref={boardSwitcherRef}>
               <button 
                 onClick={() => setBoardSwitcherOpen(!boardSwitcherOpen())} 
                 class="board-switcher-btn secondary"
@@ -117,6 +163,7 @@ export function Navigation() {
                       <Show when={showRenameUI()}>
                         <label for="rename-board-input">{t('nav.rename_board')}</label>
                         <input 
+                          ref={renameInput}
                           id="rename-board-input"
                           type="text" 
                           value={renameBoardTitle()} 
@@ -147,9 +194,9 @@ export function Navigation() {
                       )}
                     </For>
                     <hr />
-                    <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>{t('nav.rename_board')}</a>
+                    <a href="#" onClick={handleShowRename}>{t('nav.rename_board')}</a>
                     <Show when={!currentBoard.is_default}>
-                      <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>{t('nav.delete_board')}</a>
+                      <a href="#" onClick={handleDeleteUI}>{t('nav.delete_board')}</a>
                     </Show>
                     <hr />
                     <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ {t('nav.new_board')}</a>
@@ -179,7 +226,7 @@ export function Navigation() {
               </button>
               <div class="mobile-menu-section">
                 <h3>{t('nav.boards')}</h3>
-                <div class="board-switcher-mobile">
+                <div class="board-switcher-mobile" ref={boardSwitcherRef}>
                   <button 
                     onClick={() => setBoardSwitcherOpen(!boardSwitcherOpen())} 
                     class="board-switcher-btn-mobile secondary"
@@ -195,6 +242,7 @@ export function Navigation() {
                           <Show when={showRenameUI()}>
                             <label for="rename-board-input-mobile">{t('nav.rename_board')}</label>
                             <input 
+                              ref={renameInputMobile}
                               id="rename-board-input-mobile"
                               type="text" 
                               value={renameBoardTitle()} 
@@ -225,9 +273,9 @@ export function Navigation() {
                           )}
                         </For>
                         <hr />
-                        <a href="#" onClick={(e) => { e.preventDefault(); setRenameBoardTitle(currentBoard.title); setShowRenameUI(true); }}>{t('nav.rename_board')}</a>
+                        <a href="#" onClick={handleShowRename}>{t('nav.rename_board')}</a>
                         <Show when={!currentBoard.is_default}>
-                          <a href="#" onClick={(e) => { e.preventDefault(); setShowDeleteUI(true); }}>{t('nav.delete_board')}</a>
+                          <a href="#" onClick={handleDeleteUI}>{t('nav.delete_board')}</a>
                         </Show>
                         <hr />
                         <a href="#" onClick={(e) => { e.preventDefault(); createBoard(); }}>+ {t('nav.new_board')}</a>

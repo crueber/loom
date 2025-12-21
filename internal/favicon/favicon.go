@@ -126,6 +126,9 @@ func (f *Fetcher) FetchFromService(customURL string) (*string, error) {
 // FetchIcon determines which fetch method to use based on icon source
 func (f *Fetcher) FetchIcon(iconSource string, customURL *string, domain string) (*string, error) {
 	switch iconSource {
+	case "loom":
+		iconURL := "/static/favicon-32x32.png"
+		return &iconURL, nil
 	case "custom":
 		if customURL == nil || *customURL == "" {
 			return nil, fmt.Errorf("custom icon URL required")

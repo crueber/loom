@@ -10,6 +10,17 @@ export function LinkItem(props) {
   const [iconSource, setIconSource] = createSignal(props.item.icon_source || 'auto');
   const [customIconUrl, setCustomIconUrl] = createSignal(props.item.custom_icon_url || '');
 
+  const isSelfReferencing = () => {
+    const currentUrl = url();
+    if (!currentUrl) return false;
+    try {
+      const urlObj = new URL(currentUrl.startsWith('http') ? currentUrl : 'https://' + currentUrl);
+      return urlObj.origin === window.location.origin;
+    } catch (e) {
+      return false;
+    }
+  };
+
   let titleInputRef;
 
   createEffect(() => {
@@ -28,8 +39,8 @@ export function LinkItem(props) {
     const updates = { 
       title: title(), 
       url: finalUrl,
-      icon_source: iconSource(),
-      custom_icon_url: customIconUrl()
+      icon_source: isSelfReferencing() ? 'loom' : iconSource(),
+      custom_icon_url: isSelfReferencing() ? '/static/favicon-32x32.png' : customIconUrl()
     };
     
     if (props.item.id.toString().startsWith('temp-')) {
@@ -105,35 +116,37 @@ export function LinkItem(props) {
                 />
               </div>
               
-              <div class="favicon-config">
-                <label for={`link-icon-source-${props.item.id}`} class="sr-only">{t('item.icon_source_label')}</label>
-                <select id={`link-icon-source-${props.item.id}`} value={iconSource()} onChange={(e) => setIconSource(e.currentTarget.value)}>
-                  <option value="auto">{t('item.icon_source_auto')}</option>
-                  <option value="custom">{t('item.icon_source_custom')}</option>
-                  <option value="service">{t('item.icon_source_service')}</option>
-                </select>
-                
-                <Show when={iconSource() !== 'auto'}>
-                  <div class="favicon-input-wrapper">
-                    <label for={`link-custom-icon-${props.item.id}`} class="sr-only">
-                      {iconSource() === 'custom' ? t('item.icon_source_custom') : t('item.icon_source_service')}
-                    </label>
-                    <input 
-                      id={`link-custom-icon-${props.item.id}`}
-                      type="text" 
-                      value={customIconUrl()} 
-                      onInput={(e) => setCustomIconUrl(e.currentTarget.value)} 
-                      onKeyDown={handleKeyDown}
-                      placeholder={iconSource() === 'custom' ? t('item.custom_icon_placeholder') : t('item.service_slug_placeholder')}
-                    />
-                    <Show when={iconSource() === 'service'}>
-                      <a href="https://selfh.st/icons" target="_blank" rel="noopener noreferrer" class="icon-service-link">
-                        {t('item.browse_icons')} ↗
-                      </a>
-                    </Show>
-                  </div>
-                </Show>
-              </div>
+              <Show when={!isSelfReferencing()}>
+                <div class="favicon-config">
+                  <label for={`link-icon-source-${props.item.id}`} class="sr-only">{t('item.icon_source_label')}</label>
+                  <select id={`link-icon-source-${props.item.id}`} value={iconSource()} onChange={(e) => setIconSource(e.currentTarget.value)}>
+                    <option value="auto">{t('item.icon_source_auto')}</option>
+                    <option value="custom">{t('item.icon_source_custom')}</option>
+                    <option value="service">{t('item.icon_source_service')}</option>
+                  </select>
+                  
+                  <Show when={iconSource() !== 'auto'}>
+                    <div class="favicon-input-wrapper">
+                      <label for={`link-custom-icon-${props.item.id}`} class="sr-only">
+                        {iconSource() === 'custom' ? t('item.icon_source_custom') : t('item.icon_source_service')}
+                      </label>
+                      <input 
+                        id={`link-custom-icon-${props.item.id}`}
+                        type="text" 
+                        value={customIconUrl()} 
+                        onInput={(e) => setCustomIconUrl(e.currentTarget.value)} 
+                        onKeyDown={handleKeyDown}
+                        placeholder={iconSource() === 'custom' ? t('item.custom_icon_placeholder') : t('item.service_slug_placeholder')}
+                      />
+                      <Show when={iconSource() === 'service'}>
+                        <a href="https://selfh.st/icons" target="_blank" rel="noopener noreferrer" class="icon-service-link">
+                          {t('item.browse_icons')} ↗
+                        </a>
+                      </Show>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
 
               <div class="item-config-actions">
                 <Show when={!props.item.id.toString().startsWith('temp-')}>
