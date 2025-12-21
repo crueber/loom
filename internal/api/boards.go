@@ -86,7 +86,7 @@ func CreateBoard(database *db.DB) http.HandlerFunc {
 			return
 		}
 
-		board, err := database.CreateBoard(userID, req.Title)
+		board, err := database.CreateBoard(userID, req.Title, false)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

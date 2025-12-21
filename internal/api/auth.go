@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -367,7 +366,7 @@ func (a *AuthAPI) HandleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get or create user (auto-provisioning)
-	user, err := a.provisionUser(ctx, userInfo)
+	user, err := a.provisionUser(userInfo)
 	if err != nil {
 		log.Printf("Failed to provision user: %v", err)
 		http.Error(w, "Failed to provision user", http.StatusInternalServerError)
@@ -388,7 +387,7 @@ func (a *AuthAPI) HandleOAuthCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 // provisionUser gets existing user or creates new one with default board
-func (a *AuthAPI) provisionUser(ctx context.Context, userInfo *oauth.UserInfo) (*models.User, error) {
+func (a *AuthAPI) provisionUser(userInfo *oauth.UserInfo) (*models.User, error) {
 	// Try to get existing user by email
 	user, err := a.db.GetUserByEmail(userInfo.Email)
 	if err == nil {
@@ -406,18 +405,11 @@ func (a *AuthAPI) provisionUser(ctx context.Context, userInfo *oauth.UserInfo) (
 	log.Printf("Created new user via OAuth2: %s (ID: %d)", userInfo.Email, user.ID)
 
 	// Create default board for new user
-	if err := a.createDefaultBoard(user.ID); err != nil {
-		// Log error but don't fail - user was created successfully
+	if _, err := a.db.CreateBoard(user.ID, "My Bookmarks", true); err != nil {
 		log.Printf("Warning: failed to create default board for user %d: %v", user.ID, err)
 	}
 
 	return user, nil
-}
-
-// createDefaultBoard creates the default board for a new user
-func (a *AuthAPI) createDefaultBoard(userID int) error {
-	_, err := a.db.CreateBoard(userID, "My Bookmarks")
-	return err
 }
 
 // generateRandomState generates a random state string for OAuth2 CSRF protection

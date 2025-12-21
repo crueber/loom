@@ -1178,11 +1178,15 @@ func (db *DB) GetDefaultBoard(userID int) (*models.Board, error) {
 }
 
 // CreateBoard creates a new board
-func (db *DB) CreateBoard(userID int, title string) (*models.Board, error) {
+func (db *DB) CreateBoard(userID int, title string, isDefault bool) (*models.Board, error) {
+	isDefaultInt := 0
+	if isDefault {
+		isDefaultInt = 1
+	}
 	result, err := db.Exec(`
 		INSERT INTO boards (user_id, title, is_default, updated_at, created_at)
-		VALUES (?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	`, userID, title)
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, userID, title, isDefaultInt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create board: %w", err)
 	}
