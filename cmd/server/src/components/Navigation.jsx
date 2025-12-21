@@ -25,6 +25,7 @@ export function Navigation() {
   const { t } = useI18n();
   
   const [boardSwitcherOpen, setBoardSwitcherOpen] = createSignal(false);
+  const [localeSwitcherOpen, setLocaleSwitcherOpen] = createSignal(false);
   const [mobileMenuOpen, setMobileMenuOpen] = createSignal(false);
   const [showRenameUI, setShowRenameUI] = createSignal(false);
   const [showDeleteUI, setShowDeleteUI] = createSignal(false);
@@ -37,12 +38,16 @@ export function Navigation() {
   let renameInput;
   let renameInputMobile;
   let boardSwitcherRef;
+  let localeSwitcherRef;
 
   const handleClickOutside = (e) => {
     if (boardSwitcherOpen() && boardSwitcherRef && !boardSwitcherRef.contains(e.target)) {
       setBoardSwitcherOpen(false);
       setShowRenameUI(false);
       setShowDeleteUI(false);
+    }
+    if (localeSwitcherOpen() && localeSwitcherRef && !localeSwitcherRef.contains(e.target)) {
+      setLocaleSwitcherOpen(false);
     }
   };
 
@@ -128,41 +133,51 @@ export function Navigation() {
           <li>
             <div class="nav-user-container">
               <span>{user()?.username}</span>
-              <div class="locale-selector">
+              <div class="locale-selector" ref={localeSwitcherRef}>
                 <button 
                   class="locale-btn"
                   title={t('nav.change_language')}
+                  onClick={() => setLocaleSwitcherOpen(!localeSwitcherOpen())}
                 >
                   {LOCALE_FLAGS[user()?.locale] || '🌐'}
                 </button>
-                <label for="locale-select-desktop" class="sr-only">{t('nav.change_language')}</label>
-                <select 
-                  id="locale-select-desktop"
-                  class="locale-select-hidden"
-                  value={user()?.locale || 'en'}
-                  onChange={async (e) => {
-                    const newLocale = e.currentTarget.value;
-                    await fetch('/api/user/locale', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ locale: newLocale })
-                    });
-                    window.location.reload();
-                  }}
-                >
-                  <option value="en">English</option>
-                  <option value="es">Español</option>
-                  <option value="fr">Français</option>
-                  <option value="de">Deutsch</option>
-                  <option value="pt">Português</option>
-                  <option value="ru">Русский</option>
-                  <option value="ar">العربية</option>
-                  <option value="zh">中文</option>
-                  <option value="ja">日本語</option>
-                  <option value="el">Ελληνικά</option>
-                  <option value="ga">Gaeilge</option>
-                  <option value="la">Latin</option>
-                </select>
+                <Show when={localeSwitcherOpen()}>
+                  <div class="locale-dropdown">
+                    <For each={Object.entries(LOCALE_FLAGS)}>
+                      {([code, flag]) => (
+                        <a 
+                          href="#" 
+                          class={user()?.locale === code ? 'active' : ''}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            await fetch('/api/user/locale', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ locale: code })
+                            });
+                            window.location.reload();
+                          }}
+                        >
+                          <span class="locale-flag">{flag}</span>
+                          <span class="locale-name">
+                            {code === 'en' ? 'English' : 
+                             code === 'es' ? 'Español' : 
+                             code === 'fr' ? 'Français' : 
+                             code === 'de' ? 'Deutsch' : 
+                             code === 'pt' ? 'Português' : 
+                             code === 'ru' ? 'Русский' : 
+                             code === 'ar' ? 'العربية' : 
+                             code === 'zh' ? '中文' : 
+                             code === 'ja' ? '日本語' : 
+                             code === 'el' ? 'Ελληνικά' : 
+                             code === 'ga' ? 'Gaeilge' : 
+                             code === 'la' ? 'Latin' : code}
+                          </span>
+                        </a>
+                      )}
+                    </For>
+                  </div>
+                </Show>
               </div>
               <button 
                 class="theme-toggle-btn" 
@@ -315,41 +330,51 @@ export function Navigation() {
                 <h3>{t('nav.settings')}</h3>
                 <div class="nav-user-container" style={{ "margin-bottom": '1rem' }}>
                   <strong>{user()?.username}</strong>
-                  <div class="locale-selector">
+                  <div class="locale-selector" ref={localeSwitcherRef}>
                     <button 
                       class="locale-btn"
                       title={t('nav.change_language')}
+                      onClick={() => setLocaleSwitcherOpen(!localeSwitcherOpen())}
                     >
                       {LOCALE_FLAGS[user()?.locale] || '🌐'}
                     </button>
-                    <label for="locale-select-mobile" class="sr-only">{t('nav.change_language')}</label>
-                    <select 
-                      id="locale-select-mobile"
-                      class="locale-select-hidden"
-                      value={user()?.locale || 'en'}
-                      onChange={async (e) => {
-                        const newLocale = e.currentTarget.value;
-                        await fetch('/api/user/locale', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ locale: newLocale })
-                        });
-                        window.location.reload();
-                      }}
-                    >
-                      <option value="en">English</option>
-                      <option value="es">Español</option>
-                      <option value="fr">Français</option>
-                      <option value="de">Deutsch</option>
-                      <option value="pt">Português</option>
-                      <option value="ru">Русский</option>
-                      <option value="ar">العربية</option>
-                      <option value="zh">中文</option>
-                      <option value="ja">日本語</option>
-                      <option value="el">Ελληνικά</option>
-                      <option value="ga">Gaeilge</option>
-                      <option value="la">Latin</option>
-                    </select>
+                    <Show when={localeSwitcherOpen()}>
+                      <div class="locale-dropdown-mobile">
+                        <For each={Object.entries(LOCALE_FLAGS)}>
+                          {([code, flag]) => (
+                            <a 
+                              href="#" 
+                              class={user()?.locale === code ? 'active' : ''}
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                await fetch('/api/user/locale', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ locale: code })
+                                });
+                                window.location.reload();
+                              }}
+                            >
+                              <span class="locale-flag">{flag}</span>
+                              <span class="locale-name">
+                                {code === 'en' ? 'English' : 
+                                 code === 'es' ? 'Español' : 
+                                 code === 'fr' ? 'Français' : 
+                                 code === 'de' ? 'Deutsch' : 
+                                 code === 'pt' ? 'Português' : 
+                                 code === 'ru' ? 'Русский' : 
+                                 code === 'ar' ? 'العربية' : 
+                                 code === 'zh' ? '中文' : 
+                                 code === 'ja' ? '日本語' : 
+                                 code === 'el' ? 'Ελληνικά' : 
+                                 code === 'ga' ? 'Gaeilge' : 
+                                 code === 'la' ? 'Latin' : code}
+                              </span>
+                            </a>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
                   </div>
                   <button 
                     class="theme-toggle-btn" 
