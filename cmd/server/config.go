@@ -28,6 +28,9 @@ type Config struct {
 	OAuth2ClientID     string
 	OAuth2ClientSecret string
 	OAuth2RedirectURL  string
+
+	// Standalone mode
+	IsStandalone bool
 }
 
 // LoadConfig loads and validates configuration from environment variables
@@ -46,15 +49,20 @@ func LoadConfig(buildVersion string) (*Config, error) {
 	}
 	cfg.SessionMaxAge = sessionMaxAge
 
-	// Load OAuth2 configuration (mandatory)
+	// Load OAuth2 configuration
 	cfg.OAuth2IssuerURL = os.Getenv("OAUTH2_ISSUER_URL")
 	cfg.OAuth2ClientID = os.Getenv("OAUTH2_CLIENT_ID")
 	cfg.OAuth2ClientSecret = os.Getenv("OAUTH2_CLIENT_SECRET")
 	cfg.OAuth2RedirectURL = os.Getenv("OAUTH2_REDIRECT_URL")
 
-	if cfg.OAuth2IssuerURL == "" || cfg.OAuth2ClientID == "" ||
-		cfg.OAuth2ClientSecret == "" || cfg.OAuth2RedirectURL == "" {
-		return nil, fmt.Errorf("OAUTH2_ISSUER_URL, OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, and OAUTH2_REDIRECT_URL must be set")
+	// Check for standalone mode
+	if cfg.OAuth2IssuerURL == "" {
+		cfg.IsStandalone = true
+		log.Println("OAUTH2_ISSUER_URL not set - running in STANDALONE mode")
+	} else {
+		if cfg.OAuth2ClientID == "" || cfg.OAuth2ClientSecret == "" || cfg.OAuth2RedirectURL == "" {
+			return nil, fmt.Errorf("OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET, and OAUTH2_REDIRECT_URL must be set when OAUTH2_ISSUER_URL is provided")
+		}
 	}
 
 	// Load and validate session keys (mandatory)

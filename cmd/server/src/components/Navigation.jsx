@@ -249,7 +249,9 @@ export function Navigation() {
           </li>
           <li><button class="secondary" onClick={() => exportData(currentBoard.id, currentBoard.title)}>{t('nav.export')}</button></li>
           <li><button class="secondary" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button></li>
-          <li><button class="contrast" onClick={logout}>{t('nav.logout')}</button></li>
+          <Show when={!window.__BOOTSTRAP_DATA__?.isStandalone}>
+            <li><button class="contrast" onClick={logout}>{t('nav.logout')}</button></li>
+          </Show>
         </ul>
 
         <ul class="nav-mobile">
@@ -386,7 +388,9 @@ export function Navigation() {
                 </div>
                 <button class="secondary mobile-menu-btn" onClick={() => exportData(currentBoard.id, currentBoard.title)}>{t('nav.export')}</button>
                 <button class="secondary mobile-menu-btn" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button>
-                <button class="contrast mobile-menu-btn" onClick={logout}>{t('nav.logout')}</button>
+                <Show when={!window.__BOOTSTRAP_DATA__?.isStandalone}>
+                  <button class="contrast mobile-menu-btn" onClick={logout}>{t('nav.logout')}</button>
+                </Show>
               </div>
             </div>
           </div>

@@ -36,11 +36,18 @@ func main() {
 	database, sessionManager, oauthClient := initializeServices(cfg)
 	defer database.Close()
 
+	// Ensure standalone user exists if in standalone mode
+	if cfg.IsStandalone {
+		if err := database.EnsureStandaloneUser(); err != nil {
+			log.Fatalf("Failed to ensure standalone user: %v", err)
+		}
+	}
+
 	// Setup application handler
-	appHandler := NewAppHandler(staticFiles, database, sessionManager, cfg.BuildVersion)
+	appHandler := NewAppHandler(staticFiles, database, sessionManager, cfg.BuildVersion, cfg.IsStandalone)
 
 	// Setup API handlers
-	authAPI := api.NewAuthAPI(database, sessionManager, oauthClient)
+	authAPI := api.NewAuthAPI(database, sessionManager, oauthClient, cfg.IsStandalone)
 	dataAPI := api.NewDataAPI(database)
 
 	// Configure router
@@ -75,17 +82,20 @@ func initializeServices(cfg *Config) (*db.DB, *auth.SessionManager, *oauth.Clien
 		cfg.SecureCookie,
 	)
 
-	// Initialize OAuth2 client
-	oauthClient, err := oauth.NewClient(
-		cfg.OAuth2IssuerURL,
-		cfg.OAuth2ClientID,
-		cfg.OAuth2ClientSecret,
-		cfg.OAuth2RedirectURL,
-	)
-	if err != nil {
-		log.Fatalf("Failed to initialize OAuth2 client: %v", err)
+	// Initialize OAuth2 client (only if not in standalone mode)
+	var oauthClient *oauth.Client
+	if !cfg.IsStandalone {
+		oauthClient, err = oauth.NewClient(
+			cfg.OAuth2IssuerURL,
+			cfg.OAuth2ClientID,
+			cfg.OAuth2ClientSecret,
+			cfg.OAuth2RedirectURL,
+		)
+		if err != nil {
+			log.Fatalf("Failed to initialize OAuth2 client: %v", err)
+		}
+		log.Printf("OAuth2 client initialized with issuer: %s", cfg.OAuth2IssuerURL)
 	}
-	log.Printf("OAuth2 client initialized with issuer: %s", cfg.OAuth2IssuerURL)
 
 	return database, sessionManager, oauthClient
 }

@@ -19,14 +19,16 @@ type AuthAPI struct {
 	db             *db.DB
 	sessionManager *auth.SessionManager
 	oauthClient    *oauth.Client
+	isStandalone   bool
 }
 
 // NewAuthAPI creates a new authentication API handler
-func NewAuthAPI(database *db.DB, sessionManager *auth.SessionManager, oauthClient *oauth.Client) *AuthAPI {
+func NewAuthAPI(database *db.DB, sessionManager *auth.SessionManager, oauthClient *oauth.Client, isStandalone bool) *AuthAPI {
 	return &AuthAPI{
 		db:             database,
 		sessionManager: sessionManager,
 		oauthClient:    oauthClient,
+		isStandalone:   isStandalone,
 	}
 }
 
@@ -270,8 +272,19 @@ func (a *AuthAPI) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID, ok := a.sessionManager.GetUserID(r)
 		if !ok {
-			respondError(w, http.StatusUnauthorized, "Authentication required")
-			return
+			// If in standalone mode, automatically authenticate as the standalone user
+			if a.isStandalone {
+				user, err := a.db.GetUserByEmail("user@standalone")
+				if err == nil && user != nil {
+					userID = user.ID
+					ok = true
+				}
+			}
+
+			if !ok {
+				respondError(w, http.StatusUnauthorized, "Authentication required")
+				return
+			}
 		}
 
 		// Add user ID to context

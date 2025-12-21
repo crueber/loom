@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/crueber/loom/internal/models"
@@ -64,6 +65,48 @@ func (db *DB) GetUserByID(id int) (*models.User, error) {
 	}
 
 	return &user, nil
+}
+
+// EnsureStandaloneUser ensures that the default standalone user exists
+func (db *DB) EnsureStandaloneUser() error {
+	email := "user@standalone"
+	username := "standalone"
+
+	// Check if user already exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)", email).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("failed to check for standalone user: %w", err)
+	}
+
+	if exists {
+		return nil
+	}
+
+	// Create the user
+	_, err = db.Exec(
+		"INSERT INTO users (username, email, oauth_provider, oauth_sub, password_hash) VALUES (?, ?, ?, ?, '')",
+		username, email, "standalone", "standalone",
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create standalone user: %w", err)
+	}
+
+	// Get the new user's ID
+	var userID int
+	err = db.QueryRow("SELECT id FROM users WHERE email = ?", email).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("failed to get standalone user ID: %w", err)
+	}
+
+	// Create default board for the user
+	_, err = db.CreateBoard(userID, "My Bookmarks", true)
+	if err != nil {
+		return fmt.Errorf("failed to create default board for standalone user: %w", err)
+	}
+
+	log.Printf("Created default standalone user: %s", email)
+	return nil
 }
 
 // GetUserByUsername retrieves a user by username

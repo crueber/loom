@@ -42,13 +42,31 @@ A self-hosted, minimalistic browser home/dashboard for links and notes with a be
 
 ## Prerequisites
 
-**⚠️ OAuth2 authentication is required.** 
+**⚠️ OAuth2 authentication is recommended for production.** 
 
-Loom uses OAuth2/OIDC for authentication and does not support local password authentication. You must have an OAuth2 provider (such as Authentik, Keycloak, or any OIDC-compliant provider) configured before running Loom.
+Loom uses OAuth2/OIDC for authentication by default. However, it also supports a **Standalone Mode** for local usage where no external provider is required.
 
 ---
 
-## Quick Start
+## Quick Start (Standalone Mode)
+
+Loom can be run in a "standalone" mode for local usage without needing an external OAuth2 provider.
+
+1. **Download or build the binary.**
+2. **Run with minimal configuration:**
+   ```bash
+   # Generate random keys for session encryption
+   export SESSION_KEY=$(openssl rand -hex 32)
+   export ENCRYPTION_KEY=$(openssl rand -hex 32)
+   
+   # Run the server (OAUTH2_ISSUER_URL is omitted)
+   ./bin/server
+   ```
+3. **Access the app** at `http://localhost:8080`. You will be automatically logged in as `user@standalone`.
+
+---
+
+## Quick Start (OAuth2 Mode)
 
 <details>
 <summary><strong>🚀 Docker Compose (Recommended)</strong></summary>

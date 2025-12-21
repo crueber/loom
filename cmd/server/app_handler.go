@@ -20,15 +20,17 @@ type AppHandler struct {
 	database       *db.DB
 	sessionManager *auth.SessionManager
 	buildVersion   string
+	isStandalone   bool
 }
 
 // NewAppHandler creates a new app handler
-func NewAppHandler(staticFiles embed.FS, database *db.DB, sessionManager *auth.SessionManager, buildVersion string) *AppHandler {
+func NewAppHandler(staticFiles embed.FS, database *db.DB, sessionManager *auth.SessionManager, buildVersion string, isStandalone bool) *AppHandler {
 	return &AppHandler{
 		staticFiles:    staticFiles,
 		database:       database,
 		sessionManager: sessionManager,
 		buildVersion:   buildVersion,
+		isStandalone:   isStandalone,
 	}
 }
 
@@ -132,7 +134,18 @@ func (h *AppHandler) getBootstrapData(r *http.Request) string {
 	// Check if user is authenticated
 	userID, ok := h.sessionManager.GetUserID(r)
 	if !ok {
-		return ""
+		// If in standalone mode, automatically authenticate as the standalone user
+		if h.isStandalone {
+			user, err := h.database.GetUserByEmail("user@standalone")
+			if err == nil && user != nil {
+				userID = user.ID
+				ok = true
+			}
+		}
+
+		if !ok {
+			return ""
+		}
 	}
 
 	// Determine which board to load from the URL
@@ -222,11 +235,12 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 
 	// Build bootstrap data structure
 	bootstrapData := map[string]any{
-		"user":   userPublic,
-		"board":  board,
-		"boards": boards,
-		"lists":  lists,
-		"items":  h.groupItemsByList(items),
+		"user":         userPublic,
+		"board":        board,
+		"boards":       boards,
+		"lists":        lists,
+		"items":        h.groupItemsByList(items),
+		"isStandalone": h.isStandalone,
 	}
 
 	// Serialize to JSON
