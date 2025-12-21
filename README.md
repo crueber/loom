@@ -445,7 +445,7 @@ Guiderails for submissions:
 
 <div align="center">
 
-Authored with ❤️ using Go and SolidJS by 👨[crueber](https://x.com/crueber) and 🤖[Claude](https://claude.ai).<br/>...and maybe other contributors at some point?
+Authored with ❤️ using Go and SolidJS by 👨[crueber](https://x.com/crueber) and 🤖AI.<br/>...and maybe other contributors at some point?
 
 **[⬆ Back to Top](#loom)**
 
