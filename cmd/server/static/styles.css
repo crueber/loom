@@ -701,9 +701,10 @@ nav strong {
 }
 
 .config-board-target {
+    width: 100%;
     padding: 0.5rem;
     font-size: 0.875rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0;
 }
 
 .config-board-actions {
@@ -1516,6 +1517,7 @@ dialog article {
     background: var(--pico-background-color);
     color: var(--pico-color);
     overflow-y: hidden;
+    margin-bottom: 0;
 }
 
 .item-config-panel textarea:focus {

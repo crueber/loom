@@ -196,16 +196,16 @@ export function List(props) {
             <Show when={!props.list.id.toString().startsWith('temp-')}>
               <div class="config-form-group">
                 <label for={`list-board-target-${props.list.id}`}>{t('list.move_copy_label')}</label>
+                <select id={`list-board-target-${props.list.id}`} class="config-board-target" onChange={(e) => {
+                  const targetId = parseInt(e.currentTarget.value);
+                  setTargetBoardId(targetId);
+                }}>
+                  <option value="">{t('list.move_copy_placeholder')}</option>
+                  <For each={boards.filter(b => b.id !== currentBoard.id)}>
+                    {(board) => <option value={board.id}>{board.title}</option>}
+                  </For>
+                </select>
                 <div class="config-board-actions">
-                  <select id={`list-board-target-${props.list.id}`} class="config-board-target" onChange={(e) => {
-                    const targetId = parseInt(e.currentTarget.value);
-                    setTargetBoardId(targetId);
-                  }}>
-                    <option value="">{t('list.move_copy_placeholder')}</option>
-                    <For each={boards.filter(b => b.id !== currentBoard.id)}>
-                      {(board) => <option value={board.id}>{board.title}</option>}
-                    </For>
-                  </select>
                   <button 
                     class="config-copy-btn" 
                     disabled={!targetBoardId()}

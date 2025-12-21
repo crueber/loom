@@ -63,7 +63,6 @@ export function NoteItem(props) {
         <Show when={!isFlipped()} fallback={
           <div class="item-card-back" onClick={(e) => e.stopPropagation()}>
             <div class="item-config-panel">
-              <ItemHeader title={t('item.edit_note')} onClose={handleCancel} />
               <label for={`note-content-${props.item.id}`} class="sr-only">{t('item.note_placeholder')}</label>
               <textarea 
                 id={`note-content-${props.item.id}`}
