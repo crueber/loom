@@ -52,17 +52,19 @@ Loom uses OAuth2/OIDC for authentication by default. However, it also supports a
 
 Loom can be run in a "standalone" mode for local usage without needing an external OAuth2 provider.
 
-1. **Download or build the binary.**
-2. **Run with minimal configuration:**
+1. **Run with Docker:**
    ```bash
-   # Generate random keys for session encryption
-   export SESSION_KEY=$(openssl rand -hex 32)
-   export ENCRYPTION_KEY=$(openssl rand -hex 32)
-   
-   # Run the server (OAUTH2_ISSUER_URL is omitted)
-   ./bin/server
+   docker run -d \
+     --name loom \
+     -p 8080:8080 \
+     -v loom-data:/data \
+     -e SESSION_KEY=$(openssl rand -hex 32) \
+     -e ENCRYPTION_KEY=$(openssl rand -hex 32) \
+     ghcr.io/crueber/loom:latest
    ```
-3. **Access the app** at `http://localhost:8080`. You will be automatically logged in as `user@standalone`.
+   *Note: By omitting `OAUTH2_ISSUER_URL`, Loom automatically enters standalone mode.*
+
+2. **Access the app** at `http://localhost:8080`. You will be automatically logged in as `user@standalone`.
 
 ---
 
