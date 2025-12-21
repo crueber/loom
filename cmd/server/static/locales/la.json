@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Vincula et notae tuae personales"
+  },
+  "auth": {
+    "login_oauth": "Inire per OAuth2"
+  },
+  "nav": {
+    "logout": "Exire",
+    "settings": "Configurationes",
+    "boards": "Tabulae",
+    "new_board": "Nova Tabula",
+    "export": "Exportare",
+    "import": "Importare",
+    "rename_board": "Mutare Nomen Tabulae",
+    "delete_board": "Delere Tabulam",
+    "delete_board_confirm": "Delere '{{title}}'? Hoc etiam omnes indices et res in hac tabula delebit.",
+    "import_modal_title": "Importare Data",
+    "import_file_label": "Selige fasciculum JSON",
+    "import_mode_label": "Modus importandi",
+    "import_mode_merge": "Misce cum datis exstantibus",
+    "import_mode_replace": "Substitue omnia data",
+    "import_error_file": "Selige fasciculum, quaeso",
+    "change_language": "Mutare Linguam"
+  },
+  "board": {
+    "loading": "Onerat...",
+    "delete_confirm": "Certusne es te velle hanc tabulam delere?",
+    "edit_title": "Mutare Titulum Tabulae",
+    "name_placeholder": "Nomen tabulae"
+  },
+  "list": {
+    "add_item": "Addere Rem",
+    "new_list": "Novus Index",
+    "delete_confirm": "Certusne es te velle hunc indicem delere?",
+    "rename": "Mutare Nomen Indicis",
+    "add_link": "Addere Vinculum",
+    "add_note": "Addere Notam",
+    "configure": "Configurare Indicem",
+    "title_label": "Titulus",
+    "title_placeholder": "Titulus Indicis",
+    "color_label": "Color",
+    "custom_color": "Proprius:",
+    "move_copy_label": "Movere/Copiare ad Tabulam",
+    "move_copy_placeholder": "Selige tabulam destinatam...",
+    "copy": "Copiare",
+    "move": "Movere",
+    "delete": "Delere Indicem"
+  },
+  "item": {
+    "edit": "Mutare",
+    "delete": "Delere",
+    "save": "Servare",
+    "cancel": "Abrogare",
+    "note_placeholder": "Contentum notae (Markdown sustinetur)",
+    "link_placeholder": "https://exemplum.com",
+    "edit_link": "Mutare Vinculum",
+    "edit_note": "Mutare Notam",
+    "title_placeholder": "Titulus",
+    "url_placeholder": "URL",
+    "icon_source_label": "Fons Iconis",
+    "icon_source_auto": "Favicon Automatum",
+    "icon_source_custom": "URL Proprium",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://exemplum.com/icon.png",
+    "service_slug_placeholder": "Slug servitii (e.g. plex)",
+    "browse_icons": "Icones Inspicere"
+  }
+}

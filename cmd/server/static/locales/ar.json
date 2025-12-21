@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "روابطك وملاحظاتك الشخصية"
+  },
+  "auth": {
+    "login_oauth": "تسجيل الدخول باستخدام OAuth2"
+  },
+  "nav": {
+    "logout": "تسجيل الخروج",
+    "settings": "الإعدادات",
+    "boards": "اللوحات",
+    "new_board": "لوحة جديدة",
+    "export": "تصدير",
+    "import": "استيراد",
+    "rename_board": "إعادة تسمية اللوحة",
+    "delete_board": "حذف اللوحة",
+    "delete_board_confirm": "هل تريد حذف '{{title}}'؟ سيؤدي هذا أيضًا إلى حذف جميع القوائم والعناصر الموجودة في هذه اللوحة.",
+    "import_modal_title": "استيراد البيانات",
+    "import_file_label": "اختر ملف JSON",
+    "import_mode_label": "وضع الاستيراد",
+    "import_mode_merge": "دمج مع البيانات الموجودة",
+    "import_mode_replace": "استبدال جميع البيانات",
+    "import_error_file": "يرجى اختيار ملف",
+    "change_language": "تغيير اللغة"
+  },
+  "board": {
+    "loading": "جاري التحميل...",
+    "delete_confirm": "هل أنت متأكد أنك تريد حذف هذه اللوحة؟",
+    "edit_title": "تعديل عنوان اللوحة",
+    "name_placeholder": "اسم اللوحة"
+  },
+  "list": {
+    "add_item": "إضافة عنصر",
+    "new_list": "قائمة جديدة",
+    "delete_confirm": "هل أنت متأكد أنك تريد حذف هذه القائمة؟",
+    "rename": "إعادة تسمية القائمة",
+    "add_link": "إضافة رابط",
+    "add_note": "إضافة ملاحظة",
+    "configure": "تهيئة القائمة",
+    "title_label": "العنوان",
+    "title_placeholder": "عنوان القائمة",
+    "color_label": "اللون",
+    "custom_color": "مخصص:",
+    "move_copy_label": "نقل/نسخ إلى لوحة",
+    "move_copy_placeholder": "اختر اللوحة المستهدفة...",
+    "copy": "نسخ",
+    "move": "نقل",
+    "delete": "حذف القائمة"
+  },
+  "item": {
+    "edit": "تعديل",
+    "delete": "حذف",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "note_placeholder": "محتوى الملاحظة (يدعم Markdown)",
+    "link_placeholder": "https://example.com",
+    "edit_link": "تعديل الرابط",
+    "edit_note": "تعديل الملاحظة",
+    "title_placeholder": "العنوان",
+    "url_placeholder": "URL",
+    "icon_source_label": "مصدر الأيقونة",
+    "icon_source_auto": "أيقونة تلقائية",
+    "icon_source_custom": "رابط مخصص",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://example.com/icon.png",
+    "service_slug_placeholder": "معرف الخدمة (مثلاً plex)",
+    "browse_icons": "تصفح الأيقونات"
+  }
+}

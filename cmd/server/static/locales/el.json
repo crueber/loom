@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Οι προσωπικοί σας σύνδεσμοι και σημειώσεις"
+  },
+  "auth": {
+    "login_oauth": "Σύνδεση μέσω OAuth2"
+  },
+  "nav": {
+    "logout": "Αποσύνδεση",
+    "settings": "Ρυθμίσεις",
+    "boards": "Πίνακες",
+    "new_board": "Νέος Πίνακας",
+    "export": "Εξαγωγή",
+    "import": "Εισαγωγή",
+    "rename_board": "Μετονομασία Πίνακα",
+    "delete_board": "Διαγραφή Πίνακα",
+    "delete_board_confirm": "Διαγραφή '{{title}}'; Αυτό θα διαγράψει επίσης όλες τις λίστες και τα στοιχεία σε αυτόν τον πίνακα.",
+    "import_modal_title": "Εισαγωγή Δεδομένων",
+    "import_file_label": "Επιλέξτε αρχείο JSON",
+    "import_mode_label": "Λειτουργία εισαγωγής",
+    "import_mode_merge": "Συγχώνευση με υπάρχοντα δεδομένα",
+    "import_mode_replace": "Αντικατάσταση όλων των δεδομένων",
+    "import_error_file": "Παρακαλώ επιλέξτε ένα αρχείο",
+    "change_language": "Αλλαγή Γλώσσας"
+  },
+  "board": {
+    "loading": "Φόρτωση...",
+    "delete_confirm": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον πίνακα;",
+    "edit_title": "Επεξεργασία Τίτλου Πίνακα",
+    "name_placeholder": "Όνομα πίνακα"
+  },
+  "list": {
+    "add_item": "Προσθήκη Στοιχείου",
+    "new_list": "Νέα Λίστα",
+    "delete_confirm": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή τη λίστα;",
+    "rename": "Μετονομασία Λίστας",
+    "add_link": "Προσθήκη Συνδέσμου",
+    "add_note": "Προσθήκη Σημείωσης",
+    "configure": "Διαμόρφωση Λίστας",
+    "title_label": "Τίτλος",
+    "title_placeholder": "Τίτλος Λίστας",
+    "color_label": "Χρώμα",
+    "custom_color": "Προσαρμοσμένο:",
+    "move_copy_label": "Μετακίνηση/Αντιγραφή σε Πίνακα",
+    "move_copy_placeholder": "Επιλέξτε πίνακα προορισμού...",
+    "copy": "Αντιγραφή",
+    "move": "Μετακίνηση",
+    "delete": "Διαγραφή Λίστας"
+  },
+  "item": {
+    "edit": "Επεξεργασία",
+    "delete": "Διαγραφή",
+    "save": "Αποθήκευση",
+    "cancel": "Ακύρωση",
+    "note_placeholder": "Περιεχόμενο σημείωσης (υποστηρίζεται Markdown)",
+    "link_placeholder": "https://example.com",
+    "edit_link": "Επεξεργασία Συνδέσμου",
+    "edit_note": "Επεξεργασία Σημείωσης",
+    "title_placeholder": "Τίτλος",
+    "url_placeholder": "URL",
+    "icon_source_label": "Πηγή Εικονιδίου",
+    "icon_source_auto": "Αυτόματο Favicon",
+    "icon_source_custom": "Προσαρμοσμένο URL",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://example.com/icon.png",
+    "service_slug_placeholder": "Service slug (π.χ. plex)",
+    "browse_icons": "Περιήγηση Εικονιδίων"
+  }
+}

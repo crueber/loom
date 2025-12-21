@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Ihre persönlichen Links und Notizen"
+  },
+  "auth": {
+    "login_oauth": "Anmelden mit OAuth2"
+  },
+  "nav": {
+    "logout": "Abmelden",
+    "settings": "Einstellungen",
+    "boards": "Boards",
+    "new_board": "Neues Board",
+    "export": "Exportieren",
+    "import": "Importieren",
+    "rename_board": "Board umbenennen",
+    "delete_board": "Board löschen",
+    "delete_board_confirm": "Soll '{{title}}' gelöscht werden? Dies löscht auch alle Listen und Elemente in diesem Board.",
+    "import_modal_title": "Daten importieren",
+    "import_file_label": "JSON-Datei auswählen",
+    "import_mode_label": "Importmodus",
+    "import_mode_merge": "Mit vorhandenen Daten zusammenführen",
+    "import_mode_replace": "Alle Daten ersetzen",
+    "import_error_file": "Bitte wählen Sie eine Datei aus",
+    "change_language": "Sprache ändern"
+  },
+  "board": {
+    "loading": "Laden...",
+    "delete_confirm": "Sind Sie sicher, dass Sie dieses Board löschen möchten?",
+    "edit_title": "Board-Titel bearbeiten",
+    "name_placeholder": "Board-Name"
+  },
+  "list": {
+    "add_item": "Element hinzufügen",
+    "new_list": "Neue Liste",
+    "delete_confirm": "Sind Sie sicher, dass Sie diese Liste löschen möchten?",
+    "rename": "Liste umbenennen",
+    "add_link": "Link hinzufügen",
+    "add_note": "Notiz hinzufügen",
+    "configure": "Liste konfigurieren",
+    "title_label": "Titel",
+    "title_placeholder": "Listen-Titel",
+    "color_label": "Farbe",
+    "custom_color": "Benutzerdefiniert:",
+    "move_copy_label": "In Board verschieben/kopieren",
+    "move_copy_placeholder": "Ziel-Board auswählen...",
+    "copy": "Kopieren",
+    "move": "Verschieben",
+    "delete": "Liste löschen"
+  },
+  "item": {
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "note_placeholder": "Notizinhalt (Markdown unterstützt)",
+    "link_placeholder": "https://beispiel.de",
+    "edit_link": "Link bearbeiten",
+    "edit_note": "Notiz bearbeiten",
+    "title_placeholder": "Titel",
+    "url_placeholder": "URL",
+    "icon_source_label": "Icon-Quelle",
+    "icon_source_auto": "Automatisches Favicon",
+    "icon_source_custom": "Benutzerdefinierte URL",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://beispiel.de/icon.png",
+    "service_slug_placeholder": "Service-Slug (z.B. plex)",
+    "browse_icons": "Icons durchsuchen"
+  }
+}

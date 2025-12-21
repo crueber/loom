@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "あなたのための個人用リンクとメモ"
+  },
+  "auth": {
+    "login_oauth": "OAuth2でログイン"
+  },
+  "nav": {
+    "logout": "ログアウト",
+    "settings": "設定",
+    "boards": "ボード",
+    "new_board": "新規ボード",
+    "export": "エクスポート",
+    "import": "インポート",
+    "rename_board": "ボード名を変更",
+    "delete_board": "ボードを削除",
+    "delete_board_confirm": "'{{title}}' を削除しますか？このボード内のすべてのリストとアイテムも削除されます。",
+    "import_modal_title": "データをインポート",
+    "import_file_label": "JSONファイルを選択",
+    "import_mode_label": "インポートモード",
+    "import_mode_merge": "既存のデータと統合",
+    "import_mode_replace": "すべてのデータを置き換え",
+    "import_error_file": "ファイルを選択してください",
+    "change_language": "言語を変更"
+  },
+  "board": {
+    "loading": "読み込み中...",
+    "delete_confirm": "このボードを削除してもよろしいですか？",
+    "edit_title": "ボードのタイトルを編集",
+    "name_placeholder": "ボード名"
+  },
+  "list": {
+    "add_item": "アイテムを追加",
+    "new_list": "新規リスト",
+    "delete_confirm": "このリストを削除してもよろしいですか？",
+    "rename": "リスト名を変更",
+    "add_link": "リンクを追加",
+    "add_note": "メモを追加",
+    "configure": "リストを設定",
+    "title_label": "タイトル",
+    "title_placeholder": "リストのタイトル",
+    "color_label": "色",
+    "custom_color": "カスタム:",
+    "move_copy_label": "ボードへ移動/コピー",
+    "move_copy_placeholder": "移動先ボードを選択...",
+    "copy": "コピー",
+    "move": "移動",
+    "delete": "リストを削除"
+  },
+  "item": {
+    "edit": "編集",
+    "delete": "削除",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "note_placeholder": "メモの内容 (Markdown対応)",
+    "link_placeholder": "https://example.com",
+    "edit_link": "リンクを編集",
+    "edit_note": "メモを編集",
+    "title_placeholder": "タイトル",
+    "url_placeholder": "URL",
+    "icon_source_label": "アイコンのソース",
+    "icon_source_auto": "自動ファビコン",
+    "icon_source_custom": "カスタムURL",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://example.com/icon.png",
+    "service_slug_placeholder": "サービススラッグ (例: plex)",
+    "browse_icons": "アイコンを閲覧"
+  }
+}

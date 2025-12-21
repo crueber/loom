@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Do naisc agus do nótaí pearsanta"
+  },
+  "auth": {
+    "login_oauth": "Logáil isteach le OAuth2"
+  },
+  "nav": {
+    "logout": "Logáil Amach",
+    "settings": "Socruithe",
+    "boards": "Cláir",
+    "new_board": "Clár Nua",
+    "export": "Easpórtáil",
+    "import": "Iompórtáil",
+    "rename_board": "Athainmnigh an Clár",
+    "delete_board": "Scrios an Clár",
+    "delete_board_confirm": "Scrios '{{title}}'? Scriosfaidh sé seo gach liosta agus mír ar an gclár seo freisin.",
+    "import_modal_title": "Iompórtáil Sonraí",
+    "import_file_label": "Roghnaigh comhad JSON",
+    "import_mode_label": "Mód iompórtála",
+    "import_mode_merge": "Cumasc le sonraí reatha",
+    "import_mode_replace": "Ionadaigh gach sonraí",
+    "import_error_file": "Roghnaigh comhad le do thoil",
+    "change_language": "Athraigh Teanga"
+  },
+  "board": {
+    "loading": "Ag lódáil...",
+    "delete_confirm": "An bhfuil tú cinnte gur mhaith leat an clár seo a scriosadh?",
+    "edit_title": "Cuir Teideal an Chláir in Eagar",
+    "name_placeholder": "Ainm an chláir"
+  },
+  "list": {
+    "add_item": "Cuir Mír Leis",
+    "new_list": "Liosta Nua",
+    "delete_confirm": "An bhfuil tú cinnte gur mhaith leat an liosta seo a scriosadh?",
+    "rename": "Athainmnigh an Liosta",
+    "add_link": "Cuir Nasc Leis",
+    "add_note": "Cuir Nóta Leis",
+    "configure": "Cumraigh an Liosta",
+    "title_label": "Teideal",
+    "title_placeholder": "Teideal an Liosta",
+    "color_label": "Dath",
+    "custom_color": "Saincheaptha:",
+    "move_copy_label": "Bog/Cóipeáil go Clár",
+    "move_copy_placeholder": "Roghnaigh sprioc-chlár...",
+    "copy": "Cóipeáil",
+    "move": "Bog",
+    "delete": "Scrios an Liosta"
+  },
+  "item": {
+    "edit": "Cuir in Eagar",
+    "delete": "Scrios",
+    "save": "Sábháil",
+    "cancel": "Cealaigh",
+    "note_placeholder": "Ábhar an nóta (tacaítear le Markdown)",
+    "link_placeholder": "https://sampla.ie",
+    "edit_link": "Cuir Nasc in Eagar",
+    "edit_note": "Cuir Nóta in Eagar",
+    "title_placeholder": "Teideal",
+    "url_placeholder": "URL",
+    "icon_source_label": "Foinse an Deilbhín",
+    "icon_source_auto": "Favicon Uathoibríoch",
+    "icon_source_custom": "URL Saincheaptha",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://sampla.ie/deilbhin.png",
+    "service_slug_placeholder": "Slug seirbhíse (m.sh. plex)",
+    "browse_icons": "Brabhsáil Deilbhíní"
+  }
+}

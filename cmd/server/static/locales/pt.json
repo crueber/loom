@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Seus links e notas pessoais"
+  },
+  "auth": {
+    "login_oauth": "Entrar com OAuth2"
+  },
+  "nav": {
+    "logout": "Sair",
+    "settings": "Configurações",
+    "boards": "Quadros",
+    "new_board": "Novo Quadro",
+    "export": "Exportar",
+    "import": "Importar",
+    "rename_board": "Renomear Quadro",
+    "delete_board": "Excluir Quadro",
+    "delete_board_confirm": "Excluir '{{title}}'? Isso também excluirá todas as listas e itens neste quadro.",
+    "import_modal_title": "Importar Dados",
+    "import_file_label": "Selecionar arquivo JSON",
+    "import_mode_label": "Modo de importação",
+    "import_mode_merge": "Mesclar com dados existentes",
+    "import_mode_replace": "Substituir todos os dados",
+    "import_error_file": "Por favor, selecione um arquivo",
+    "change_language": "Alterar Idioma"
+  },
+  "board": {
+    "loading": "Carregando...",
+    "delete_confirm": "Tem certeza de que deseja excluir este quadro?",
+    "edit_title": "Editar Título do Quadro",
+    "name_placeholder": "Nome do quadro"
+  },
+  "list": {
+    "add_item": "Adicionar Item",
+    "new_list": "Nova Lista",
+    "delete_confirm": "Tem certeza de que deseja excluir esta lista?",
+    "rename": "Renomear Lista",
+    "add_link": "Adicionar Link",
+    "add_note": "Adicionar Nota",
+    "configure": "Configurar Lista",
+    "title_label": "Título",
+    "title_placeholder": "Título da Lista",
+    "color_label": "Cor",
+    "custom_color": "Personalizada:",
+    "move_copy_label": "Mover/Copiar para Quadro",
+    "move_copy_placeholder": "Selecionar quadro de destino...",
+    "copy": "Copiar",
+    "move": "Mover",
+    "delete": "Excluir Lista"
+  },
+  "item": {
+    "edit": "Editar",
+    "delete": "Excluir",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "note_placeholder": "Conteúdo da nota (Markdown suportado)",
+    "link_placeholder": "https://exemplo.com",
+    "edit_link": "Editar Link",
+    "edit_note": "Editar Nota",
+    "title_placeholder": "Título",
+    "url_placeholder": "URL",
+    "icon_source_label": "Fonte do Ícone",
+    "icon_source_auto": "Favicon Automático",
+    "icon_source_custom": "URL Personalizada",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://exemplo.com/icone.png",
+    "service_slug_placeholder": "Slug do serviço (ex: plex)",
+    "browse_icons": "Navegar pelos Ícones"
+  }
+}

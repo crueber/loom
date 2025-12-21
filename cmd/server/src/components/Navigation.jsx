@@ -6,7 +6,17 @@ import { exportData, importData } from '../utils/api';
 
 const LOCALE_FLAGS = {
   'en': '🇺🇸',
-  'es': '🇪🇸'
+  'es': '🇪🇸',
+  'fr': '🇫🇷',
+  'de': '🇩🇪',
+  'pt': '🇵🇹',
+  'ru': '🇷🇺',
+  'ar': '🇸🇦',
+  'zh': '🇨🇳',
+  'ja': '🇯🇵',
+  'el': '🇬🇷',
+  'ga': '🇮🇪',
+  'la': '🏛️'
 };
 
 export function Navigation() {
@@ -142,6 +152,16 @@ export function Navigation() {
                 >
                   <option value="en">English</option>
                   <option value="es">Español</option>
+                  <option value="fr">Français</option>
+                  <option value="de">Deutsch</option>
+                  <option value="pt">Português</option>
+                  <option value="ru">Русский</option>
+                  <option value="ar">العربية</option>
+                  <option value="zh">中文</option>
+                  <option value="ja">日本語</option>
+                  <option value="el">Ελληνικά</option>
+                  <option value="ga">Gaeilge</option>
+                  <option value="la">Latin</option>
                 </select>
               </div>
             </div>
@@ -312,6 +332,16 @@ export function Navigation() {
                     >
                       <option value="en">English</option>
                       <option value="es">Español</option>
+                      <option value="fr">Français</option>
+                      <option value="de">Deutsch</option>
+                      <option value="pt">Português</option>
+                      <option value="ru">Русский</option>
+                      <option value="ar">العربية</option>
+                      <option value="zh">中文</option>
+                      <option value="ja">日本語</option>
+                      <option value="el">Ελληνικά</option>
+                      <option value="ga">Gaeilge</option>
+                      <option value="la">Latin</option>
                     </select>
                   </div>
                 </div>

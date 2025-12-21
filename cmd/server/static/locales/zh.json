@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "您的个人链接和笔记"
+  },
+  "auth": {
+    "login_oauth": "使用 OAuth2 登录"
+  },
+  "nav": {
+    "logout": "退出登录",
+    "settings": "设置",
+    "boards": "看板",
+    "new_board": "新建看板",
+    "export": "导出",
+    "import": "导入",
+    "rename_board": "重命名看板",
+    "delete_board": "删除看板",
+    "delete_board_confirm": "确定要删除 '{{title}}' 吗？这将同时删除该看板中的所有列表和项目。",
+    "import_modal_title": "导入数据",
+    "import_file_label": "选择 JSON 文件",
+    "import_mode_label": "导入模式",
+    "import_mode_merge": "与现有数据合并",
+    "import_mode_replace": "替换所有数据",
+    "import_error_file": "请选择一个文件",
+    "change_language": "更改语言"
+  },
+  "board": {
+    "loading": "加载中...",
+    "delete_confirm": "您确定要删除这个看板吗？",
+    "edit_title": "编辑看板标题",
+    "name_placeholder": "看板名称"
+  },
+  "list": {
+    "add_item": "添加项目",
+    "new_list": "新建列表",
+    "delete_confirm": "您确定要删除这个列表吗？",
+    "rename": "重命名列表",
+    "add_link": "添加链接",
+    "add_note": "添加笔记",
+    "configure": "配置列表",
+    "title_label": "标题",
+    "title_placeholder": "列表标题",
+    "color_label": "颜色",
+    "custom_color": "自定义：",
+    "move_copy_label": "移动/复制到看板",
+    "move_copy_placeholder": "选择目标看板...",
+    "copy": "复制",
+    "move": "移动",
+    "delete": "删除列表"
+  },
+  "item": {
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "note_placeholder": "笔记内容（支持 Markdown）",
+    "link_placeholder": "https://example.com",
+    "edit_link": "编辑链接",
+    "edit_note": "编辑笔记",
+    "title_placeholder": "标题",
+    "url_placeholder": "URL",
+    "icon_source_label": "图标来源",
+    "icon_source_auto": "自动获取 Favicon",
+    "icon_source_custom": "自定义 URL",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://example.com/icon.png",
+    "service_slug_placeholder": "服务标识（例如 plex）",
+    "browse_icons": "浏览图标"
+  }
+}

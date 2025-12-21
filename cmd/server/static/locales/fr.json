@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Vos liens et notes personnels"
+  },
+  "auth": {
+    "login_oauth": "Se connecter avec OAuth2"
+  },
+  "nav": {
+    "logout": "Déconnexion",
+    "settings": "Paramètres",
+    "boards": "Tableaux",
+    "new_board": "Nouveau tableau",
+    "export": "Exporter",
+    "import": "Importer",
+    "rename_board": "Renommer le tableau",
+    "delete_board": "Supprimer le tableau",
+    "delete_board_confirm": "Supprimer '{{title}}' ? Cela supprimera également toutes les listes et tous les éléments de ce tableau.",
+    "import_modal_title": "Importer des données",
+    "import_file_label": "Sélectionner un fichier JSON",
+    "import_mode_label": "Mode d'importation",
+    "import_mode_merge": "Fusionner avec les données existantes",
+    "import_mode_replace": "Remplacer toutes les données",
+    "import_error_file": "Veuillez sélectionner un fichier",
+    "change_language": "Changer de langue"
+  },
+  "board": {
+    "loading": "Chargement...",
+    "delete_confirm": "Êtes-vous sûr de vouloir supprimer ce tableau ?",
+    "edit_title": "Modifier le titre du tableau",
+    "name_placeholder": "Nom du tableau"
+  },
+  "list": {
+    "add_item": "Ajouter un élément",
+    "new_list": "Nouvelle liste",
+    "delete_confirm": "Êtes-vous sûr de vouloir supprimer cette liste ?",
+    "rename": "Renommer la liste",
+    "add_link": "Ajouter un lien",
+    "add_note": "Ajouter une note",
+    "configure": "Configurer la liste",
+    "title_label": "Titre",
+    "title_placeholder": "Titre de la liste",
+    "color_label": "Couleur",
+    "custom_color": "Personnalisée :",
+    "move_copy_label": "Déplacer/Copier vers le tableau",
+    "move_copy_placeholder": "Sélectionner le tableau cible...",
+    "copy": "Copier",
+    "move": "Déplacer",
+    "delete": "Supprimer la liste"
+  },
+  "item": {
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "note_placeholder": "Contenu de la note (Markdown supporté)",
+    "link_placeholder": "https://exemple.com",
+    "edit_link": "Modifier le lien",
+    "edit_note": "Modifier la note",
+    "title_placeholder": "Titre",
+    "url_placeholder": "URL",
+    "icon_source_label": "Source de l'icône",
+    "icon_source_auto": "Favicon automatique",
+    "icon_source_custom": "URL personnalisée",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://exemple.com/icone.png",
+    "service_slug_placeholder": "Slug du service (ex: plex)",
+    "browse_icons": "Parcourir les icônes"
+  }
+}

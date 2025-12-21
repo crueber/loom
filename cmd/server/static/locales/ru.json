@@ -1,0 +1,70 @@
+{
+  "app": {
+    "name": "Loom",
+    "tagline": "Ваши личные ссылки и заметки"
+  },
+  "auth": {
+    "login_oauth": "Войти через OAuth2"
+  },
+  "nav": {
+    "logout": "Выйти",
+    "settings": "Настройки",
+    "boards": "Доски",
+    "new_board": "Новая доска",
+    "export": "Экспорт",
+    "import": "Импорт",
+    "rename_board": "Переименовать доску",
+    "delete_board": "Удалить доску",
+    "delete_board_confirm": "Удалить '{{title}}'? Это также удалит все списки и элементы на этой доске.",
+    "import_modal_title": "Импорт данных",
+    "import_file_label": "Выберите JSON файл",
+    "import_mode_label": "Режим импорта",
+    "import_mode_merge": "Объединить с существующими данными",
+    "import_mode_replace": "Заменить все данные",
+    "import_error_file": "Пожалуйста, выберите файл",
+    "change_language": "Сменить язык"
+  },
+  "board": {
+    "loading": "Загрузка...",
+    "delete_confirm": "Вы уверены, что хотите удалить эту доску?",
+    "edit_title": "Изменить название доски",
+    "name_placeholder": "Название доски"
+  },
+  "list": {
+    "add_item": "Добавить элемент",
+    "new_list": "Новый список",
+    "delete_confirm": "Вы уверены, что хотите удалить этот список?",
+    "rename": "Переименовать список",
+    "add_link": "Добавить ссылку",
+    "add_note": "Добавить заметку",
+    "configure": "Настроить список",
+    "title_label": "Заголовок",
+    "title_placeholder": "Заголовок списка",
+    "color_label": "Цвет",
+    "custom_color": "Свой цвет:",
+    "move_copy_label": "Переместить/Копировать на доску",
+    "move_copy_placeholder": "Выберите целевую доску...",
+    "copy": "Копировать",
+    "move": "Переместить",
+    "delete": "Удалить список"
+  },
+  "item": {
+    "edit": "Изменить",
+    "delete": "Удалить",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "note_placeholder": "Содержание заметки (поддерживается Markdown)",
+    "link_placeholder": "https://example.com",
+    "edit_link": "Изменить ссылку",
+    "edit_note": "Изменить заметку",
+    "title_placeholder": "Заголовок",
+    "url_placeholder": "URL",
+    "icon_source_label": "Источник иконки",
+    "icon_source_auto": "Автоматический Favicon",
+    "icon_source_custom": "Свой URL",
+    "icon_source_service": "selfh.st/icons",
+    "custom_icon_placeholder": "https://example.com/icon.png",
+    "service_slug_placeholder": "Слаг сервиса (например, plex)",
+    "browse_icons": "Просмотр иконок"
+  }
+}
