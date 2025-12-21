@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/crueber/loom/internal/db"
@@ -26,7 +27,7 @@ type ImportRequest struct {
 	Mode string            `json:"mode"` // "merge" or "replace"
 }
 
-// HandleExport exports all user data as JSON
+// HandleExport exports user data as JSON
 func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getUserID(r.Context())
 	if !ok {
@@ -34,11 +35,43 @@ func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all lists for the user
-	lists, err := e.db.GetLists(userID)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to get lists")
-		return
+	boardIDStr := r.URL.Query().Get("board_id")
+	var lists []*models.List
+	var err error
+	var filename string
+
+	if boardIDStr != "" {
+		boardID, err := strconv.Atoi(boardIDStr)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid board ID")
+			return
+		}
+
+		// Verify board ownership and get board title
+		board, err := e.db.GetBoardByID(boardID, userID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to get board")
+			return
+		}
+		if board == nil {
+			respondError(w, http.StatusNotFound, "Board not found")
+			return
+		}
+
+		lists, err = e.db.GetListsByBoard(userID, boardID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to get lists")
+			return
+		}
+		filename = fmt.Sprintf("loom-export-%s-%s.json", board.Title, time.Now().Format("2006-01-02"))
+	} else {
+		// Get all lists for the user (legacy behavior)
+		lists, err = e.db.GetLists(userID)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to get lists")
+			return
+		}
+		filename = fmt.Sprintf("loom-export-%s.json", time.Now().Format("2006-01-02"))
 	}
 
 	// Build export data
@@ -103,7 +136,7 @@ func (e *ExportAPI) HandleExport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set content disposition header for download
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=loom-export-%s.json", time.Now().Format("2006-01-02")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	respondJSON(w, http.StatusOK, exportData)
 }
 
@@ -199,35 +232,65 @@ func (e *ExportAPI) HandleImport(w http.ResponseWriter, r *http.Request) {
 
 		listIDMap[exportList.ID] = newList.ID
 
-		// Import bookmarks
-		for _, exportBookmark := range exportList.Bookmarks {
+		// Import items
+		for _, exportItem := range exportList.Items {
 			if req.Mode == "merge" {
-				// Try to get existing bookmark
-				existingBookmark, err := e.db.GetBookmark(exportBookmark.ID)
+				// Try to get existing item
+				existingItem, err := e.db.GetItem(exportItem.ID)
 				if err != nil {
 					respondError(w, http.StatusInternalServerError, "Database error")
 					return
 				}
 
-				if existingBookmark != nil {
-					// Update existing bookmark
-					title := exportBookmark.Title
-					url := exportBookmark.URL
-					faviconPtr := exportBookmark.FaviconURL
-					faviconURL := &faviconPtr
-					if err := e.db.UpdateBookmark(exportBookmark.ID, &title, &url, faviconURL); err != nil {
-						respondError(w, http.StatusInternalServerError, "Failed to update bookmark")
+				if existingItem != nil {
+					// Update existing item
+					if err := e.db.UpdateItem(exportItem.ID, exportItem.Title, exportItem.URL, exportItem.Content, &exportItem.FaviconURL); err != nil {
+						respondError(w, http.StatusInternalServerError, "Failed to update item")
 						return
 					}
 					continue
 				}
 			}
 
-			// Create new bookmark
-			_, err := e.db.CreateBookmark(newList.ID, exportBookmark.Title, exportBookmark.URL, exportBookmark.FaviconURL, exportBookmark.Position)
+			// Create new item
+			_, err := e.db.CreateItem(newList.ID, exportItem.Type, exportItem.Title, exportItem.URL, exportItem.Content, exportItem.FaviconURL, "auto", nil, exportItem.Position)
 			if err != nil {
-				respondError(w, http.StatusInternalServerError, "Failed to create bookmark")
+				respondError(w, http.StatusInternalServerError, "Failed to create item")
 				return
+			}
+		}
+
+		// Backward compatibility: Import bookmarks if Items is empty
+		if len(exportList.Items) == 0 {
+			for _, exportBookmark := range exportList.Bookmarks {
+				if req.Mode == "merge" {
+					// Try to get existing item (bookmarks are now items)
+					existingItem, err := e.db.GetItem(exportBookmark.ID)
+					if err != nil {
+						respondError(w, http.StatusInternalServerError, "Database error")
+						return
+					}
+
+					if existingItem != nil && existingItem.Type == "bookmark" {
+						// Update existing bookmark
+						title := exportBookmark.Title
+						url := exportBookmark.URL
+						if err := e.db.UpdateItem(exportBookmark.ID, &title, &url, nil, &exportBookmark.FaviconURL); err != nil {
+							respondError(w, http.StatusInternalServerError, "Failed to update bookmark")
+							return
+						}
+						continue
+					}
+				}
+
+				// Create new bookmark as item
+				title := exportBookmark.Title
+				url := exportBookmark.URL
+				_, err := e.db.CreateItem(newList.ID, "bookmark", &title, &url, nil, exportBookmark.FaviconURL, "auto", nil, exportBookmark.Position)
+				if err != nil {
+					respondError(w, http.StatusInternalServerError, "Failed to create bookmark")
+					return
+				}
 			}
 		}
 	}

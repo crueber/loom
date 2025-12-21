@@ -183,13 +183,17 @@ async function getAllData() {
 }
 
 // Export/Import API
-async function exportData() {
-    const response = await fetch('/api/export');
+async function exportData(boardId, boardTitle) {
+    const urlParams = boardId ? `?board_id=${boardId}` : '';
+    const response = await fetch(`/api/export${urlParams}`);
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `loom-export-${new Date().toISOString().split('T')[0]}.json`;
+    const filename = boardTitle 
+        ? `loom-export-${boardTitle.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`
+        : `loom-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

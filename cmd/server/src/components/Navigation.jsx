@@ -247,7 +247,7 @@ export function Navigation() {
               </Show>
             </div>
           </li>
-          <li><button class="secondary" onClick={exportData}>{t('nav.export')}</button></li>
+          <li><button class="secondary" onClick={() => exportData(currentBoard.id, currentBoard.title)}>{t('nav.export')}</button></li>
           <li><button class="secondary" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button></li>
           <li><button class="contrast" onClick={logout}>{t('nav.logout')}</button></li>
         </ul>
@@ -384,7 +384,7 @@ export function Navigation() {
                     {user()?.theme === 'light' ? '☀️' : '🌙'}
                   </button>
                 </div>
-                <button class="secondary mobile-menu-btn" onClick={exportData}>{t('nav.export')}</button>
+                <button class="secondary mobile-menu-btn" onClick={() => exportData(currentBoard.id, currentBoard.title)}>{t('nav.export')}</button>
                 <button class="secondary mobile-menu-btn" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button>
                 <button class="contrast mobile-menu-btn" onClick={logout}>{t('nav.logout')}</button>
               </div>
