@@ -26,6 +26,16 @@ export function List(props) {
 
   const listItems = () => items[props.list.id] || [];
 
+  const getContrastColor = (hexcolor) => {
+    if (!hexcolor) return '#ffffff';
+    if (!hexcolor.startsWith('#')) return '#ffffff';
+    const r = parseInt(hexcolor.substr(1, 2), 16);
+    const g = parseInt(hexcolor.substr(3, 2), 16);
+    const b = parseInt(hexcolor.substr(5, 2), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#111111' : '#f8f8f8';
+  };
+
   const handleUpdateItem = (itemId, updates) => {
     updateItem(itemId, props.list.id, updates);
   };
@@ -130,10 +140,15 @@ export function List(props) {
         <div class="list-card-front">
           <header 
             class="list-header" 
-            style={{ background: isCollapsed() ? 'none' : color() }} 
+            style={{ 
+              background: isCollapsed() ? 'none' : color()
+            }} 
             onClick={handleToggleCollapse}
           >
-            <h3 class="list-title">
+            <h3 
+              class="list-title"
+              style={{ color: isCollapsed() ? 'inherit' : getContrastColor(color()) }}
+            >
               {props.list.title}
               <Show when={isCollapsed()}>
                 {" — "}{listItems().length}
@@ -141,7 +156,13 @@ export function List(props) {
             </h3>
             <div class="list-actions" onClick={(e) => e.stopPropagation()}>
               <Show when={!isCollapsed()}>
-                <button class="list-action-btn gear-icon" onClick={() => setIsFlipped(true)}>⚙️</button>
+                <button 
+                  class="list-action-btn gear-icon" 
+                  style={{ color: getContrastColor(color()) }}
+                  onClick={() => setIsFlipped(true)}
+                >
+                  ⚙️
+                </button>
               </Show>
             </div>
           </header>

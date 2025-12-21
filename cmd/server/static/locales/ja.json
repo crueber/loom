@@ -22,7 +22,8 @@
     "import_mode_merge": "既存のデータと統合",
     "import_mode_replace": "すべてのデータを置き換え",
     "import_error_file": "ファイルを選択してください",
-    "change_language": "言語を変更"
+    "change_language": "言語を変更",
+    "toggle_theme": "ライト/ダークモードの切り替え"
   },
   "board": {
     "loading": "読み込み中...",

@@ -44,6 +44,9 @@ func (h *AppHandler) ServeApp(w http.ResponseWriter, r *http.Request) {
 	// Inject version query strings for cache busting
 	html := h.injectVersions(string(data))
 
+	// Inject theme preference
+	html = h.injectTheme(html, r)
+
 	// Inject i18n data
 	html = h.injectI18nData(html, r)
 
@@ -71,6 +74,18 @@ func (h *AppHandler) injectVersions(html string) string {
 func (h *AppHandler) injectBootstrapData(html, bootstrapData string) string {
 	bootstrapScript := fmt.Sprintf(`<script>window.__BOOTSTRAP_DATA__ = %s;</script>`, bootstrapData)
 	return strings.Replace(html, "<!-- Bootstrap -->", bootstrapScript, 1)
+}
+
+// injectTheme adds the data-theme attribute to the HTML tag
+func (h *AppHandler) injectTheme(html string, r *http.Request) string {
+	theme := "dark" // Default
+
+	if userID, ok := h.sessionManager.GetUserID(r); ok {
+		if user, err := h.database.GetUserByID(userID); err == nil && user != nil && user.Theme != "" && user.Theme != "auto" {
+			theme = user.Theme
+		}
+	}
+	return strings.Replace(html, `data-theme="dark"`, fmt.Sprintf(`data-theme="%s"`, theme), 1)
 }
 
 // injectI18nData adds the i18n data script to the HTML
@@ -202,6 +217,7 @@ func (h *AppHandler) fetchBoardData(userID, boardID int) string {
 		"username": user.Username,
 		"email":    user.Email,
 		"locale":   user.Locale,
+		"theme":    user.Theme,
 	}
 
 	// Build bootstrap data structure

@@ -22,7 +22,8 @@
     "import_mode_merge": "Cumasc le sonraí reatha",
     "import_mode_replace": "Ionadaigh gach sonraí",
     "import_error_file": "Roghnaigh comhad le do thoil",
-    "change_language": "Athraigh Teanga"
+    "change_language": "Athraigh Teanga",
+    "toggle_theme": "Togáil Mód Solais/Dorcha"
   },
   "board": {
     "loading": "Ag lódáil...",

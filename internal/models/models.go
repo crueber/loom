@@ -8,6 +8,7 @@ type User struct {
 	Username      string    `json:"username"`
 	Email         string    `json:"email"`
 	Locale        string    `json:"locale"`
+	Theme         string    `json:"theme"`
 	PasswordHash  string    `json:"-"`
 	OAuthProvider *string   `json:"oauth_provider,omitempty"`
 	OAuthSub      *string   `json:"oauth_sub,omitempty"`

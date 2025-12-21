@@ -33,11 +33,12 @@ func (db *DB) GetUserByID(id int) (*models.User, error) {
 	var user models.User
 	var email sql.NullString
 	var locale sql.NullString
+	var theme sql.NullString
 	var oauthProvider, oauthSub sql.NullString
 	err := db.QueryRow(
-		"SELECT id, username, email, locale, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE id = ?",
+		"SELECT id, username, email, locale, theme, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE id = ?",
 		id,
-	).Scan(&user.ID, &user.Username, &email, &locale, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
+	).Scan(&user.ID, &user.Username, &email, &locale, &theme, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -51,6 +52,9 @@ func (db *DB) GetUserByID(id int) (*models.User, error) {
 	}
 	if locale.Valid {
 		user.Locale = locale.String
+	}
+	if theme.Valid {
+		user.Theme = theme.String
 	}
 	if oauthProvider.Valid {
 		user.OAuthProvider = &oauthProvider.String
@@ -67,11 +71,12 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	var user models.User
 	var email sql.NullString
 	var locale sql.NullString
+	var theme sql.NullString
 	var oauthProvider, oauthSub sql.NullString
 	err := db.QueryRow(
-		"SELECT id, username, email, locale, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE username = ?",
+		"SELECT id, username, email, locale, theme, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE username = ?",
 		username,
-	).Scan(&user.ID, &user.Username, &email, &locale, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
+	).Scan(&user.ID, &user.Username, &email, &locale, &theme, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -85,6 +90,9 @@ func (db *DB) GetUserByUsername(username string) (*models.User, error) {
 	}
 	if locale.Valid {
 		user.Locale = locale.String
+	}
+	if theme.Valid {
+		user.Theme = theme.String
 	}
 	if oauthProvider.Valid {
 		user.OAuthProvider = &oauthProvider.String
@@ -117,7 +125,7 @@ func (db *DB) DeleteUser(username string) error {
 
 // ListUsers returns all users
 func (db *DB) ListUsers() ([]*models.User, error) {
-	rows, err := db.Query("SELECT id, username, email, locale, password_hash, oauth_provider, oauth_sub, created_at FROM users ORDER BY username")
+	rows, err := db.Query("SELECT id, username, email, locale, theme, password_hash, oauth_provider, oauth_sub, created_at FROM users ORDER BY username")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
@@ -128,8 +136,9 @@ func (db *DB) ListUsers() ([]*models.User, error) {
 		var user models.User
 		var email sql.NullString
 		var locale sql.NullString
+		var theme sql.NullString
 		var oauthProvider, oauthSub sql.NullString
-		if err := rows.Scan(&user.ID, &user.Username, &email, &locale, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &email, &locale, &theme, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan user: %w", err)
 		}
 		if email.Valid {
@@ -137,6 +146,9 @@ func (db *DB) ListUsers() ([]*models.User, error) {
 		}
 		if locale.Valid {
 			user.Locale = locale.String
+		}
+		if theme.Valid {
+			user.Theme = theme.String
 		}
 		if oauthProvider.Valid {
 			user.OAuthProvider = &oauthProvider.String
@@ -173,11 +185,12 @@ func (db *DB) UpdateUserPassword(username, passwordHash string) error {
 func (db *DB) GetUserByEmail(email string) (*models.User, error) {
 	var user models.User
 	var locale sql.NullString
+	var theme sql.NullString
 	var oauthProvider, oauthSub sql.NullString
 	err := db.QueryRow(
-		"SELECT id, username, email, locale, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE email = ?",
+		"SELECT id, username, email, locale, theme, password_hash, oauth_provider, oauth_sub, created_at FROM users WHERE email = ?",
 		email,
-	).Scan(&user.ID, &user.Username, &user.Email, &locale, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
+	).Scan(&user.ID, &user.Username, &user.Email, &locale, &theme, &user.PasswordHash, &oauthProvider, &oauthSub, &user.CreatedAt)
 
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("user not found")
@@ -188,6 +201,9 @@ func (db *DB) GetUserByEmail(email string) (*models.User, error) {
 
 	if locale.Valid {
 		user.Locale = locale.String
+	}
+	if theme.Valid {
+		user.Theme = theme.String
 	}
 
 	if oauthProvider.Valid {

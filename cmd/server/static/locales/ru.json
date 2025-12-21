@@ -22,7 +22,8 @@
     "import_mode_merge": "Объединить с существующими данными",
     "import_mode_replace": "Заменить все данные",
     "import_error_file": "Пожалуйста, выберите файл",
-    "change_language": "Сменить язык"
+    "change_language": "Сменить язык",
+    "toggle_theme": "Переключить светлую/темную тему"
   },
   "board": {
     "loading": "Загрузка...",

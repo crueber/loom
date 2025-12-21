@@ -167,6 +167,13 @@ func (db *DB) migrate() error {
 				ALTER TABLE users ADD COLUMN locale TEXT DEFAULT 'en';
 			`,
 		},
+		{
+			version: 9,
+			sql: `
+				-- Migration v9: Add theme preference to users
+				ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'auto';
+			`,
+		},
 	}
 
 	// Run each migration

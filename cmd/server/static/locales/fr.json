@@ -22,7 +22,8 @@
     "import_mode_merge": "Fusionner avec les données existantes",
     "import_mode_replace": "Remplacer toutes les données",
     "import_error_file": "Veuillez sélectionner un fichier",
-    "change_language": "Changer de langue"
+    "change_language": "Changer de langue",
+    "toggle_theme": "Basculer entre le mode clair/sombre"
   },
   "board": {
     "loading": "Chargement...",

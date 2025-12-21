@@ -22,7 +22,8 @@
     "import_mode_merge": "Mit vorhandenen Daten zusammenführen",
     "import_mode_replace": "Alle Daten ersetzen",
     "import_error_file": "Bitte wählen Sie eine Datei aus",
-    "change_language": "Sprache ändern"
+    "change_language": "Sprache ändern",
+    "toggle_theme": "Hell/Dunkel-Modus umschalten"
   },
   "board": {
     "loading": "Laden...",

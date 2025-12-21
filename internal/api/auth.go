@@ -205,6 +205,42 @@ func (a *AuthAPI) HandleUpdateLocale(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
+// HandleUpdateTheme updates the user's theme preference
+func (a *AuthAPI) HandleUpdateTheme(w http.ResponseWriter, r *http.Request) {
+	userID, ok := a.sessionManager.GetUserID(r)
+	if !ok {
+		respondError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req struct {
+		Theme string `json:"theme"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request")
+		return
+	}
+
+	if req.Theme == "" {
+		respondError(w, http.StatusBadRequest, "Theme is required")
+		return
+	}
+
+	// Validate theme value
+	if req.Theme != "light" && req.Theme != "dark" && req.Theme != "auto" {
+		respondError(w, http.StatusBadRequest, "Invalid theme value")
+		return
+	}
+
+	_, err := a.db.Exec("UPDATE users SET theme = ? WHERE id = ?", req.Theme, userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to update theme")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
+}
+
 // HandleGetUser returns the current user's information
 func (a *AuthAPI) HandleGetUser(w http.ResponseWriter, r *http.Request) {
 	userID, ok := a.sessionManager.GetUserID(r)

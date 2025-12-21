@@ -5,6 +5,23 @@
     --list-gap: 16px;
 }
 
+[data-theme="light"] {
+    --pico-background-color: #f4f4f9;
+    --pico-card-background-color: #ffffff;
+    --pico-muted-color: #666666;
+    --pico-muted-border-color: #e1e1e1;
+    --pico-secondary-background: #f0f0f0;
+}
+
+[data-theme="light"] .link-item:hover,
+[data-theme="light"] .note-item:hover {
+    background: #f8f8f8;
+}
+
+[data-theme="light"] .list-card.collapsed .list-header h3 {
+    color: var(--pico-color);
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -154,7 +171,8 @@ nav strong {
 }
 
 .board-dropdown a:hover {
-    background-color: var(--pico-secondary-background);
+    background-color: var(--pico-primary);
+    color: var(--pico-primary-inverse);
 }
 
 .board-dropdown hr {
@@ -309,7 +327,8 @@ nav strong {
 }
 
 .board-dropdown-mobile a:hover {
-    background-color: var(--pico-secondary-background);
+    background-color: var(--pico-primary);
+    color: var(--pico-primary-inverse);
 }
 
 .board-dropdown-mobile hr {
@@ -426,6 +445,18 @@ nav strong {
     justify-content: space-between;
     align-items: center;
     user-select: none;
+    color: #ffffff; /* Default for dark mode or colored headers */
+}
+
+[data-theme="light"] .list-header {
+    color: #ffffff; /* Keep white for colored headers, but we might need to adjust if color is light */
+}
+
+/* Ensure text is readable on light headers in light mode */
+[data-theme="light"] .list-header[style*="background-color: #ffffff"],
+[data-theme="light"] .list-header[style*="background-color: #f"],
+[data-theme="light"] .list-header[style*="background-color: white"] {
+    color: #000000 !important;
 }
 
 .list-card.collapsed .list-header {
@@ -530,8 +561,9 @@ nav strong {
 .list-header h3 {
     margin: 0;
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 700;
     flex: 1;
+    letter-spacing: 0.02em;
 }
 
 .list-card.collapsed .list-header h3 {
@@ -1167,7 +1199,8 @@ nav strong {
 .add-link-btn:hover,
 .add-note-btn:hover {
     border-color: var(--pico-primary);
-    background: var(--pico-primary-background);
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
     opacity: 1;
 }
 
@@ -1478,6 +1511,26 @@ dialog article {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.theme-toggle-btn {
+  padding: 0.2rem 0.4rem;
+  margin: 0;
+  height: auto;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: none;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.theme-toggle-btn:hover, .theme-toggle-btn:focus {
+  background: none;
+  box-shadow: none;
+  opacity: 1;
 }
 
 .note-actions {

@@ -22,7 +22,8 @@
     "import_mode_merge": "دمج مع البيانات الموجودة",
     "import_mode_replace": "استبدال جميع البيانات",
     "import_error_file": "يرجى اختيار ملف",
-    "change_language": "تغيير اللغة"
+    "change_language": "تغيير اللغة",
+    "toggle_theme": "تبديل الوضع الفاتح/الداكن"
   },
   "board": {
     "loading": "جاري التحميل...",

@@ -8,6 +8,28 @@ export function AuthProvider(props) {
   const [user, setUser] = createSignal(bootstrapData.user || null);
   const [showLoginScreen, setShowLoginScreen] = createSignal(!bootstrapData.user);
 
+  const toggleTheme = async () => {
+    const currentUser = user();
+    if (!currentUser) return;
+
+    const newTheme = currentUser.theme === 'light' ? 'dark' : 'light';
+    
+    try {
+      const response = await fetch('/api/user/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme })
+      });
+
+      if (response.ok) {
+        setUser({ ...currentUser, theme: newTheme });
+        document.documentElement.setAttribute('data-theme', newTheme);
+      }
+    } catch (error) {
+      console.error('Failed to update theme:', error);
+    }
+  };
+
   const login = () => {
     window.location.href = '/auth/login';
   };
@@ -28,7 +50,8 @@ export function AuthProvider(props) {
     showLoginScreen,
     login,
     logout,
-    setUser
+    setUser,
+    toggleTheme
   };
 
   return (

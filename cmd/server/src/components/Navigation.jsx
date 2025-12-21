@@ -20,7 +20,7 @@ const LOCALE_FLAGS = {
 };
 
 export function Navigation() {
-  const { user, logout } = useAuth();
+  const { user, logout, toggleTheme } = useAuth();
   const { boards, currentBoard, createBoard, updateBoard, deleteBoard } = useBoard();
   const { t } = useI18n();
   
@@ -164,6 +164,13 @@ export function Navigation() {
                   <option value="la">Latin</option>
                 </select>
               </div>
+              <button 
+                class="theme-toggle-btn" 
+                onClick={toggleTheme}
+                title={t('nav.toggle_theme')}
+              >
+                {user()?.theme === 'light' ? '☀️' : '🌙'}
+              </button>
             </div>
           </li>
           <li>
@@ -344,6 +351,13 @@ export function Navigation() {
                       <option value="la">Latin</option>
                     </select>
                   </div>
+                  <button 
+                    class="theme-toggle-btn" 
+                    onClick={toggleTheme}
+                    title={t('nav.toggle_theme')}
+                  >
+                    {user()?.theme === 'light' ? '☀️' : '🌙'}
+                  </button>
                 </div>
                 <button class="secondary mobile-menu-btn" onClick={exportData}>{t('nav.export')}</button>
                 <button class="secondary mobile-menu-btn" onClick={() => setShowImportModal(true)}>{t('nav.import')}</button>
