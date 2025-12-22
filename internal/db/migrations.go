@@ -174,6 +174,21 @@ func (db *DB) migrate() error {
 				ALTER TABLE users ADD COLUMN theme TEXT DEFAULT 'auto';
 			`,
 		},
+		{
+			version: 10,
+			sql: `
+				-- Migration v10: Add performance indices
+				-- Optimize board listing and sorting (GetBoards)
+				CREATE INDEX IF NOT EXISTS idx_boards_user_updated ON boards(user_id, is_default, updated_at);
+
+				-- Optimize user listing (ListUsers)
+				CREATE INDEX IF NOT EXISTS idx_users_username_list ON users(username);
+
+				-- Optimize item retrieval by board (GetItemsByBoard)
+				-- This helps the JOIN and ORDER BY i.list_id, i.position
+				CREATE INDEX IF NOT EXISTS idx_items_list_position_v10 ON items(list_id, position);
+			`,
+		},
 	}
 
 	// Run each migration
