@@ -24,6 +24,10 @@ This file provides guidance to agents when working with code in this repository.
 - **Migrations**: Managed in `internal/db/migrations.go`. Never drop tables; use `INNER JOIN` to handle data migration safely and avoid orphaned records.
 - **User Isolation**: Every query MUST filter by `user_id` from the session context.
 - **Embedded Assets**: Static files are embedded via `//go:embed static`. Rebuild the Go binary after running `node build.js` to see frontend changes.
+- **In-Memory Caching**: 
+  - The `ServeApp` handler uses an LRU cache (keyed by `userID:boardID`) to store fully hydrated HTML.
+  - **Invalidation**: Managed via `cacheInvalidationMiddleware` in `cmd/server/middleware.go`. It intercepts `POST`, `PUT`, and `DELETE` requests to `/api/boards`, `/api/lists`, and `/api/items`.
+  - **Manual Invalidation**: If adding new mutation endpoints, ensure they are covered by the middleware or call `appHandler.InvalidateCache(userID, boardID)` manually.
 
 ### Critical Commands
 - **JS Build**: `cd cmd/server && node build.js` (Required after any `src/` change).

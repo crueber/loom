@@ -41,7 +41,7 @@ func SetupRouter(deps *RouterDependencies) *chi.Mux {
 	setupOAuthRoutes(r, deps.AuthAPI)
 
 	// Setup API routes
-	setupAPIRoutes(r, deps.Database, deps.AuthAPI, deps.DataAPI)
+	setupAPIRoutes(r, deps.Database, deps.AuthAPI, deps.DataAPI, deps.AppHandler)
 
 	return r
 }
@@ -71,7 +71,7 @@ func setupOAuthRoutes(r *chi.Mux, authAPI *api.AuthAPI) {
 }
 
 // setupAPIRoutes configures all API endpoints
-func setupAPIRoutes(r *chi.Mux, database *db.DB, authAPI *api.AuthAPI, dataAPI *api.DataAPI) {
+func setupAPIRoutes(r *chi.Mux, database *db.DB, authAPI *api.AuthAPI, dataAPI *api.DataAPI, appHandler *AppHandler) {
 	// Initialize API handlers
 	listsAPI := api.NewListsAPI(database)
 	bookmarksAPI := api.NewBookmarksAPI(database, favicon.New())
@@ -86,6 +86,7 @@ func setupAPIRoutes(r *chi.Mux, database *db.DB, authAPI *api.AuthAPI, dataAPI *
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(authAPI.AuthMiddleware)
+			r.Use(cacheInvalidationMiddleware(appHandler))
 
 			// Auth endpoints
 			setupAuthEndpoints(r, authAPI)

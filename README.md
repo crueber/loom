@@ -37,6 +37,7 @@ A self-hosted, minimalistic browser home/dashboard for links and notes with a be
 - **Minimal Footprint** - Docker image under 20MB
 - **Instant Load** - ~100ms full page load.
 - **Fast** - Less than 20kb with cache loaded, ~150kb including cache hydration.
+- **In-Memory Caching** - Server-side LRU cache for fully hydrated HTML, reducing database load and response times.
 
 ---
 

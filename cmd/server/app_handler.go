@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/crueber/loom/internal/auth"
+	"github.com/crueber/loom/internal/cache"
 	"github.com/crueber/loom/internal/db"
 	"github.com/crueber/loom/internal/models"
 )
@@ -19,6 +20,7 @@ type AppHandler struct {
 	staticFiles    embed.FS
 	database       *db.DB
 	sessionManager *auth.SessionManager
+	cache          *cache.Cache
 	buildVersion   string
 	isStandalone   bool
 }
@@ -29,13 +31,49 @@ func NewAppHandler(staticFiles embed.FS, database *db.DB, sessionManager *auth.S
 		staticFiles:    staticFiles,
 		database:       database,
 		sessionManager: sessionManager,
+		cache:          cache.New(1000), // Cache up to 1000 user/board combinations
 		buildVersion:   buildVersion,
 		isStandalone:   isStandalone,
 	}
 }
 
+// InvalidateCache invalidates the cache for a specific user and board
+func (h *AppHandler) InvalidateCache(userID, boardID int) {
+	key := fmt.Sprintf("%d:%d", userID, boardID)
+	h.cache.Invalidate(key)
+}
+
 // ServeApp serves the main application HTML with version cache busting and bootstrapped data
 func (h *AppHandler) ServeApp(w http.ResponseWriter, r *http.Request) {
+	// Check if user is authenticated to get userID and boardID for cache key
+	userID, ok := h.sessionManager.GetUserID(r)
+	if !ok && h.isStandalone {
+		user, err := h.database.GetUserByEmail("user@standalone")
+		if err == nil && user != nil {
+			userID = user.ID
+			ok = true
+		}
+	}
+
+	var boardID int
+	if ok {
+		boardID = h.parseBoardID(r.URL.Path)
+		if boardID == 0 {
+			boardID = h.getDefaultBoardID(userID)
+		}
+
+		// Try cache
+		if boardID > 0 {
+			key := fmt.Sprintf("%d:%d", userID, boardID)
+			if cachedHTML, found := h.cache.Get(key); found {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Header().Set("X-Cache", "HIT")
+				w.Write([]byte(cachedHTML))
+				return
+			}
+		}
+	}
+
 	// Load index.html from embedded static files
 	data, err := h.staticFiles.ReadFile("static/index.html")
 	if err != nil {
@@ -53,11 +91,19 @@ func (h *AppHandler) ServeApp(w http.ResponseWriter, r *http.Request) {
 	html = h.injectI18nData(html, r)
 
 	// Bootstrap data if user is authenticated
-	if bootstrapData := h.getBootstrapData(r); bootstrapData != "" {
-		html = h.injectBootstrapData(html, bootstrapData)
+	if ok && boardID > 0 {
+		bootstrapData := h.fetchBoardData(userID, boardID)
+		if bootstrapData != "" {
+			html = h.injectBootstrapData(html, bootstrapData)
+
+			// Store in cache
+			key := fmt.Sprintf("%d:%d", userID, boardID)
+			h.cache.Set(key, html)
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Cache", "MISS")
 	w.Write([]byte(html))
 }
 
