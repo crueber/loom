@@ -43,6 +43,12 @@ func (h *AppHandler) InvalidateCache(userID, boardID int) {
 	h.cache.Invalidate(key)
 }
 
+// InvalidateUserCache invalidates all cache entries for a specific user
+func (h *AppHandler) InvalidateUserCache(userID int) {
+	prefix := fmt.Sprintf("%d:", userID)
+	h.cache.InvalidatePrefix(prefix)
+}
+
 // ServeApp serves the main application HTML with version cache busting and bootstrapped data
 func (h *AppHandler) ServeApp(w http.ResponseWriter, r *http.Request) {
 	// Check if user is authenticated to get userID and boardID for cache key

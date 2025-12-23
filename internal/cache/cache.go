@@ -2,6 +2,7 @@ package cache
 
 import (
 	"container/list"
+	"strings"
 	"sync"
 )
 
@@ -66,6 +67,18 @@ func (c *Cache) Invalidate(key string) {
 
 	if ent, ok := c.items[key]; ok {
 		c.removeElement(ent)
+	}
+}
+
+// InvalidatePrefix removes all keys that start with the given prefix
+func (c *Cache) InvalidatePrefix(prefix string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	for key, ent := range c.items {
+		if strings.HasPrefix(key, prefix) {
+			c.removeElement(ent)
+		}
 	}
 }
 

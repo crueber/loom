@@ -139,6 +139,9 @@ func cacheInvalidationMiddleware(appHandler *AppHandler) func(http.Handler) http
 						}
 					}
 				}
+			} else if strings.HasPrefix(path, "/api/user/locale") || strings.HasPrefix(path, "/api/user/theme") {
+				// Invalidate all boards for this user if they change global settings
+				appHandler.InvalidateUserCache(userID)
 			}
 
 			// Call next handler first to ensure the operation succeeds
