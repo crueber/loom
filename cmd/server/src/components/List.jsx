@@ -47,10 +47,10 @@ export function List(props) {
     }
   };
 
-  onMount(() => {
+  createEffect(() => {
     const el = itemsRef();
-    if (el && !props.list.id.toString().startsWith('temp-')) {
-      Sortable.create(el, {
+    if (el && !isCollapsed() && !props.list.id.toString().startsWith('temp-')) {
+      const sortable = Sortable.create(el, {
         group: 'items',
         animation: 150,
         ghostClass: 'sortable-ghost',
@@ -79,6 +79,8 @@ export function List(props) {
           }
         },
       });
+
+      return () => sortable.destroy();
     }
   });
 
