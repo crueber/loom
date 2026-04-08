@@ -9,6 +9,7 @@ export function LinkItem(props) {
   const [url, setUrl] = createSignal(props.item.url || '');
   const [iconSource, setIconSource] = createSignal(props.item.icon_source || 'auto');
   const [customIconUrl, setCustomIconUrl] = createSignal(props.item.custom_icon_url || '');
+  const [isUrlFocused, setIsUrlFocused] = createSignal(false);
 
   const isSelfReferencing = () => {
     const currentUrl = url();
@@ -22,9 +23,18 @@ export function LinkItem(props) {
   };
 
   let titleInputRef;
+  let urlInputRef;
 
   createEffect(() => {
-    if (isFlipped() && titleInputRef) {
+    if (!isFlipped()) return;
+
+    if (props.item.id.toString().startsWith('temp-') && urlInputRef) {
+      urlInputRef.focus();
+      urlInputRef.select();
+      return;
+    }
+
+    if (titleInputRef) {
       titleInputRef.focus();
       titleInputRef.select();
     }
@@ -93,6 +103,26 @@ export function LinkItem(props) {
             <div class="item-config-panel">
               <ItemHeader title={t('item.edit_link')} onClose={handleCancel} />
               <div class="config-form-group">
+                <label for={`link-url-${props.item.id}`} class="sr-only">{t('item.url_placeholder')}</label>
+                <input 
+                  id={`link-url-${props.item.id}`}
+                  ref={urlInputRef}
+                  type="text" 
+                  value={url()} 
+                  onInput={(e) => setUrl(e.currentTarget.value)} 
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setIsUrlFocused(true)}
+                  onBlur={() => setIsUrlFocused(false)}
+                  class="config-link-url-primary"
+                  classList={{ 'config-link-url-primary-focused': isUrlFocused() }}
+                  style={{
+                    border: '2px solid var(--primary, #3b82f6)',
+                    'box-shadow': isUrlFocused() ? '0 0 0 3px rgba(59, 130, 246, 0.2)' : 'none'
+                  }}
+                  placeholder={t('item.url_placeholder')} 
+                />
+              </div>
+              <div class="config-form-group">
                 <label for={`link-title-${props.item.id}`} class="sr-only">{t('item.title_placeholder')}</label>
                 <input 
                   id={`link-title-${props.item.id}`}
@@ -102,17 +132,6 @@ export function LinkItem(props) {
                   onInput={(e) => setTitle(e.currentTarget.value)} 
                   onKeyDown={handleKeyDown}
                   placeholder={t('item.title_placeholder')} 
-                />
-              </div>
-              <div class="config-form-group">
-                <label for={`link-url-${props.item.id}`} class="sr-only">{t('item.url_placeholder')}</label>
-                <input 
-                  id={`link-url-${props.item.id}`}
-                  type="text" 
-                  value={url()} 
-                  onInput={(e) => setUrl(e.currentTarget.value)} 
-                  onKeyDown={handleKeyDown}
-                  placeholder={t('item.url_placeholder')} 
                 />
               </div>
               

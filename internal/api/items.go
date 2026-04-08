@@ -1,16 +1,37 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"html"
+	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/crueber/loom/internal/db"
 	"github.com/crueber/loom/internal/favicon"
 	"github.com/crueber/loom/internal/models"
 	"github.com/go-chi/chi/v5"
+)
+
+const (
+	bookmarkTitleMaxLength = 200
+	titleFetchTimeout      = 2 * time.Second
+	titleFetchMaxBytes     = 1024 * 1024 // 1MiB
+)
+
+var (
+	htmlTitlePattern     = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+	htmlTagPattern       = regexp.MustCompile(`(?is)<[^>]+>`)
+	bookmarkTitleFetcher = fetchHTMLTitle
 )
 
 // ItemsAPI handles item endpoints (unified bookmarks and notes)
@@ -134,13 +155,12 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 	// Type-specific validation
 	var faviconURL *string
 	if req.Type == "bookmark" {
-		// Validate bookmark fields
-		if req.Title == nil || strings.TrimSpace(*req.Title) == "" {
-			respondError(w, http.StatusBadRequest, "Title is required for bookmarks")
-			return
+		var normalizedTitle string
+		if req.Title != nil {
+			normalizedTitle = strings.TrimSpace(*req.Title)
 		}
-		*req.Title = strings.TrimSpace(*req.Title)
-		if len(*req.Title) > 200 {
+
+		if normalizedTitle != "" && len(normalizedTitle) > bookmarkTitleMaxLength {
 			respondError(w, http.StatusBadRequest, "Title must be less than 200 characters")
 			return
 		}
@@ -154,6 +174,11 @@ func (api *ItemsAPI) HandleCreateItem(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "Invalid URL")
 			return
 		}
+
+		if normalizedTitle == "" {
+			normalizedTitle = autoTitleForBookmarkURL(*req.URL)
+		}
+		req.Title = &normalizedTitle
 
 		// Fetch favicon based on icon source
 		domain := extractDomainFromURL(*req.URL)
@@ -456,4 +481,197 @@ func extractDomainFromURL(rawURL string) string {
 	}
 
 	return rawURL[domainStart:domainEnd]
+}
+
+func autoTitleForBookmarkURL(rawURL string) string {
+	title, err := bookmarkTitleFetcher(rawURL)
+	if err == nil {
+		title = normalizeBookmarkTitle(title)
+		if title != "" {
+			return title
+		}
+	}
+
+	return fallbackBookmarkTitle(rawURL)
+}
+
+func fetchHTMLTitle(rawURL string) (string, error) {
+	if err := validateTitleFetchTarget(rawURL); err != nil {
+		return "", err
+	}
+
+	dialer := &net.Dialer{Timeout: titleFetchTimeout}
+
+	client := &http.Client{
+		Timeout: titleFetchTimeout,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+				return dialTitleFetchContext(ctx, dialer, network, address)
+			},
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := client.Get(rawURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	if contentType != "" && !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "application/xhtml+xml") {
+		return "", fmt.Errorf("unsupported content type: %s", contentType)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, titleFetchMaxBytes))
+	if err != nil {
+		return "", err
+	}
+
+	matches := htmlTitlePattern.FindSubmatch(body)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("title element not found")
+	}
+
+	return string(matches[1]), nil
+}
+
+func normalizeBookmarkTitle(rawTitle string) string {
+	normalized := html.UnescapeString(rawTitle)
+	normalized = htmlTagPattern.ReplaceAllString(normalized, "")
+	normalized = strings.Join(strings.Fields(normalized), " ")
+	normalized = strings.TrimSpace(normalized)
+
+	return truncateRunes(normalized, bookmarkTitleMaxLength)
+}
+
+func fallbackBookmarkTitle(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err == nil {
+		host := strings.TrimSpace(parsedURL.Hostname())
+		if host != "" {
+			return truncateRunes(host, bookmarkTitleMaxLength)
+		}
+	}
+
+	return truncateRunes(strings.TrimSpace(rawURL), bookmarkTitleMaxLength)
+}
+
+func truncateRunes(input string, maxLen int) string {
+	if maxLen <= 0 {
+		return ""
+	}
+
+	runes := []rune(input)
+	if len(runes) <= maxLen {
+		return input
+	}
+
+	return string(runes[:maxLen])
+}
+
+func validateTitleFetchTarget(rawURL string) error {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+
+	host := strings.TrimSpace(parsedURL.Hostname())
+	if host == "" {
+		return fmt.Errorf("missing host")
+	}
+
+	if isLocalhostHost(host) {
+		return fmt.Errorf("blocked localhost host")
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedIP(ip) {
+			return fmt.Errorf("blocked ip target")
+		}
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), titleFetchTimeout)
+	defer cancel()
+
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return err
+	}
+	if len(addrs) == 0 {
+		return fmt.Errorf("no addresses resolved")
+	}
+
+	for _, addr := range addrs {
+		if isBlockedIP(addr.IP) {
+			return fmt.Errorf("blocked resolved ip target")
+		}
+	}
+
+	return nil
+}
+
+func isLocalhostHost(host string) bool {
+	normalized := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(host), "."))
+	return normalized == "localhost" || strings.HasSuffix(normalized, ".localhost")
+}
+
+func isBlockedIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified()
+}
+
+func dialTitleFetchContext(ctx context.Context, dialer *net.Dialer, network, address string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+
+	if isLocalhostHost(host) {
+		return nil, fmt.Errorf("blocked localhost host")
+	}
+
+	if ip := net.ParseIP(host); ip != nil {
+		if isBlockedIP(ip) {
+			return nil, fmt.Errorf("blocked ip target")
+		}
+		return dialer.DialContext(ctx, network, address)
+	}
+
+	resolved, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+
+	var dialErr error
+	for _, addr := range resolved {
+		if isBlockedIP(addr.IP) {
+			continue
+		}
+
+		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(addr.IP.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		if dialErr == nil {
+			dialErr = err
+		}
+	}
+
+	if dialErr != nil {
+		return nil, dialErr
+	}
+
+	return nil, errors.New("all resolved targets are blocked")
 }
