@@ -35,3 +35,6 @@ temp/
 *.log
 logs/
 push.sh
+
+# Local git worktrees
+.worktrees/
