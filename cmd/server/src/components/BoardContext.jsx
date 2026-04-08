@@ -137,7 +137,7 @@ export function BoardProvider(props) {
       list_id: listId,
       type,
       ...data,
-      title: data.title || (type === 'bookmark' ? 'New Link' : ''),
+      title: data.title || '',
       url: data.url || (type === 'bookmark' ? 'https://' : ''),
       content: data.content || ''
     };
