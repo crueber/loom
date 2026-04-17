@@ -73,7 +73,37 @@ func cacheInvalidationMiddleware(appHandler *AppHandler) func(http.Handler) http
 				}
 				boardID, _ = strconv.Atoi(idStr)
 			} else if strings.HasPrefix(path, "/api/lists") {
-				if r.Method == http.MethodPost {
+				if r.Method == http.MethodPost && strings.HasSuffix(path, "/copy-or-move") {
+					// copy-or-move: read body once to get target_board_id and copy flag
+					var sourceBoardID int
+					parts := strings.Split(path, "/")
+					if len(parts) >= 4 {
+						listID, _ := strconv.Atoi(parts[3])
+						if listID > 0 {
+							if list, err := appHandler.database.GetList(listID, userID); err == nil && list != nil {
+								sourceBoardID = list.BoardID
+							}
+						}
+					}
+					body, err := io.ReadAll(r.Body)
+					if err == nil {
+						r.Body = io.NopCloser(bytes.NewBuffer(body))
+						var req struct {
+							TargetBoardID int  `json:"target_board_id"`
+							Copy          bool `json:"copy"`
+						}
+						if err := json.Unmarshal(body, &req); err == nil {
+							// Only invalidate source board on a move (not a copy)
+							if !req.Copy && sourceBoardID > 0 {
+								appHandler.InvalidateCache(userID, sourceBoardID)
+							}
+							if req.TargetBoardID > 0 {
+								appHandler.InvalidateCache(userID, req.TargetBoardID)
+							}
+						}
+					}
+					// boardID stays 0 so we don't double-invalidate below
+				} else if r.Method == http.MethodPost {
 					// For POST /api/lists, the board_id is in the request body
 					body, err := io.ReadAll(r.Body)
 					if err == nil {
