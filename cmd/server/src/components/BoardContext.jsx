@@ -37,6 +37,7 @@ export function BoardProvider(props) {
       }
 
       const newBoard = await response.json();
+      try { sessionStorage.setItem('loom:newBoard', '1'); } catch (_) {}
       window.location.href = `/boards/${newBoard.id}`;
     } catch (error) {
       console.error('Failed to create board:', error);

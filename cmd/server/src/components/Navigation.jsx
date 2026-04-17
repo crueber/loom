@@ -53,6 +53,25 @@ export function Navigation() {
 
   onMount(() => {
     document.addEventListener('mousedown', handleClickOutside);
+
+    // Auto-open rename UI if this is a freshly created board
+    let isNewBoard = false;
+    try { isNewBoard = sessionStorage.getItem('loom:newBoard') === '1'; if (isNewBoard) sessionStorage.removeItem('loom:newBoard'); } catch (_) {}
+    if (isNewBoard) {
+      setBoardSwitcherOpen(true);
+      setRenameBoardTitle(currentBoard?.title || '');
+      setShowRenameUI(true);
+      setTimeout(() => {
+        if (renameInput) {
+          renameInput.focus();
+          renameInput.select();
+        }
+        if (renameInputMobile) {
+          renameInputMobile.focus();
+          renameInputMobile.select();
+        }
+      }, 0);
+    }
   });
 
   onCleanup(() => {
