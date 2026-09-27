@@ -46,6 +46,19 @@ export function NoteItem(props) {
       }
       props.onSaveNew(props.item.id, { content: next });
     } else {
+      // Slice 2 empty-note semantic: editing an EXISTING note down to
+      // empty/whitespace and blurring REVERTS to the persisted content
+      // (no PUT, editor closes). Rationale: revert is non-destructive —
+      // discarding (delete) on edit-to-empty would surprise-delete a note
+      // the user may have cleared by accident, while persisting an empty
+      // card would leave silent empty notes. New-note drafts keep the
+      // Slice 1 semantic (empty draft discards on blur); explicit delete
+      // stays on the Delete button.
+      if (!next.trim()) {
+        setContent(prev);
+        setIsFlipped(false);
+        return;
+      }
       // No-op when nothing changed: close the editor without a PUT so a
       // stray blur never costs a write or a focus jump.
       if (next === prev) {
