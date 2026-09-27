@@ -4,7 +4,8 @@ import { useI18n } from './I18nContext';
 
 export function NoteItem(props) {
   const { t } = useI18n();
-  const [isFlipped, setIsFlipped] = createSignal(props.item.id.toString().startsWith('temp-'));
+  const isTemp = () => props.item.id.toString().startsWith('temp-');
+  const [isFlipped, setIsFlipped] = createSignal(isTemp());
   const [content, setContent] = createSignal(props.item.content || '');
   let textareaRef;
 
@@ -23,12 +24,35 @@ export function NoteItem(props) {
     }
   });
 
+  // Keep the editor in sync with the persisted item while viewing, so a
+  // reload or an external update is reflected without touching the draft
+  // the user is actively editing.
+  createEffect(() => {
+    if (!isFlipped()) {
+      setContent(props.item.content || '');
+    }
+  });
+
   const handleSave = () => {
-    const updates = { content: content() };
-    if (props.item.id.toString().startsWith('temp-')) {
-      props.onSaveNew(props.item.id, updates);
+    if (!isFlipped()) return;
+    const next = content();
+    const prev = props.item.content || '';
+    if (isTemp()) {
+      // Blurring/Enter on an untouched new note discards the draft instead
+      // of persisting an empty card.
+      if (!next.trim()) {
+        props.onDelete();
+        return;
+      }
+      props.onSaveNew(props.item.id, { content: next });
     } else {
-      props.onUpdate(props.item.id, updates);
+      // No-op when nothing changed: close the editor without a PUT so a
+      // stray blur never costs a write or a focus jump.
+      if (next === prev) {
+        setIsFlipped(false);
+        return;
+      }
+      props.onUpdate(props.item.id, { content: next });
       setIsFlipped(false);
     }
   };
@@ -44,12 +68,24 @@ export function NoteItem(props) {
   };
 
   const handleCancel = () => {
-    if (props.item.id.toString().startsWith('temp-')) {
+    if (isTemp()) {
       props.onDelete();
     } else {
       setIsFlipped(false);
       setContent(props.item.content || '');
     }
+  };
+
+  // Blur commits the draft in place: no modal, no navigation, no focus
+  // jump. Save/Cancel buttons suppress the blur (mousedown default
+  // prevented) so their explicit click handler owns the outcome and the
+  // commit below never double-fires.
+  const handleBlur = () => {
+    handleSave();
+  };
+
+  const keepFocus = (e) => {
+    e.preventDefault();
   };
 
   const renderMarkdown = (text) => {
@@ -73,15 +109,16 @@ export function NoteItem(props) {
                   adjustHeight();
                 }} 
                 onKeyDown={handleKeyDown}
+                onBlur={handleBlur}
                 placeholder={t('item.note_placeholder')}
                 rows="1"
               />
               <div class="item-config-actions">
-                <Show when={!props.item.id.toString().startsWith('temp-')}>
-                  <button class="item-config-delete-btn" onClick={props.onDelete}>{t('item.delete')}</button>
+                <Show when={!isTemp()}>
+                  <button class="item-config-delete-btn" onMouseDown={keepFocus} onClick={props.onDelete}>{t('item.delete')}</button>
                 </Show>
-                <button class="item-config-cancel-btn secondary" onClick={handleCancel}>{t('item.cancel')}</button>
-                <button class="item-config-save-btn" onClick={handleSave}>{t('item.save')}</button>
+                <button class="item-config-cancel-btn secondary" onMouseDown={keepFocus} onClick={handleCancel}>{t('item.cancel')}</button>
+                <button class="item-config-save-btn" onMouseDown={keepFocus} onClick={handleSave}>{t('item.save')}</button>
               </div>
             </div>
           </div>
