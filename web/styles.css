@@ -28,15 +28,28 @@ body {
   color: var(--ink);
   font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   transition: background 0.25s ease;
+  /* Round 3 item 5: app-shell layout — the page never scrolls. The canvas
+     strip (.cols) is the single canvas-level scroll container, so its
+     horizontal scrollbar sits at the window bottom and columns never
+     dangle page-length scrolls; tall lanes scroll internally instead. */
+  display: flex; flex-direction: column;
+  overflow: hidden;
 }
 #topbar {
+  flex: 0 0 auto;
   display: flex; align-items: center; gap: 12px;
   padding: 10px 16px;
-  position: sticky; top: 0; z-index: 10;
+  z-index: 10;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--line);
 }
+#topbar .actions { margin-left: auto; display: flex; gap: 6px; }
+#topbar .actions button {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 13.5px;
+}
+#topbar .actions button:hover { color: var(--ink); border-color: var(--muted); }
 .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
 #boards { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 #boards button {
@@ -65,23 +78,33 @@ body {
 .creatorform button[data-ok], .composer button[data-ok] {
   background: var(--ink); color: var(--bg); border-color: var(--ink);
 }
-#board { padding: 4px 20px 60px; min-height: calc(100% - 53px); }
-.boardhead {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 14px 2px 12px;
+#board {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  padding: 10px 20px 0;
+}
+#creator { flex: 0 0 auto; }
+/* Round 3 item 7: single navbar — board controls live at the far right
+   of the ONE top bar as compact controls; no second header row. */
+#boards { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+.boardctl {
+  margin-left: auto; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
 }
 .boardtitle {
-  margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.4px;
-  cursor: text; border-radius: 8px; padding: 2px 8px; margin-left: -8px;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.2px; white-space: nowrap;
+  max-width: 28vw; overflow: hidden; text-overflow: ellipsis;
+  cursor: text; border-radius: 8px; padding: 3px 8px;
 }
 .boardtitle:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-.swatches { display: flex; gap: 6px; align-items: center; }
+.swatches { display: flex; gap: 4px; align-items: center; }
 .swatches button {
   border: 2px solid transparent; background: transparent; cursor: pointer;
-  border-radius: 50%; padding: 2px; line-height: 0;
+  border-radius: 50%; padding: 1px; line-height: 0;
 }
 .swatches button.on { border-color: var(--accent); }
-.swatches .sw { display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
+.swatches .sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.15); }
 .sw-paper { background: #f4f2ec; }
 .sw-honey { background: #e8b96a; }
 .sw-sage { background: #8fae85; }
@@ -91,25 +114,49 @@ body {
 button.ghost {
   border: 1px solid var(--line); background: transparent; color: var(--muted);
   border-radius: 8px; padding: 5px 12px; cursor: pointer; font-size: 13px;
-  margin-left: auto;
 }
 button.ghost:hover { color: var(--ink); border-color: var(--muted); }
+button.ghost.compact { padding: 3px 9px; font-size: 12px; white-space: nowrap; }
+.i18n-slot {
+  border: 1px dashed var(--line); background: transparent; color: var(--muted);
+  border-radius: 8px; padding: 3px 8px; font-size: 12px; cursor: default;
+}
 button.primary {
   border: none; background: var(--ink); color: var(--bg);
   border-radius: 10px; padding: 9px 18px; cursor: pointer; font-size: 14px;
 }
 .cols {
-  display: flex; gap: 20px; align-items: flex-start;
-  overflow-x: auto; padding-bottom: 20px;
+  flex: 1 1 auto; min-height: 0;
+  display: flex; gap: 20px; align-items: stretch;
+  overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 12px;
+  /* Round 3 item 6: horizontal pans are handled via pointer events;
+     keep native vertical gestures off the strip so touch drags pan. */
+  touch-action: pan-y;
 }
 .cols.focus { justify-content: flex-start; }
-.column { width: 340px; flex: 0 0 340px; min-width: 0; }
+/* Round 3 item 6: grabbing cursor while canvas-panning. */
+.cols.panning, .cols.panning * { cursor: grabbing !important; }
+.column {
+  width: 340px; flex: 0 0 340px; min-width: 0;
+  /* Round 3 item 5: lanes cap at the viewport and scroll internally. */
+  max-height: 100%;
+  display: flex; flex-direction: column; min-height: 0;
+}
 .column.reading { width: min(680px, 92vw); flex: 0 1 680px; margin: 0 auto; }
+/* Round 3 item 3: the header is JOINED to the top color border — no gap
+   (margin-top 0, square top corners), a stronger shared wash, and a
+   hairline tinted edge under it so name and border read as one unit. */
 .column > h2 {
+  flex: 0 0 auto;
   font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--muted); margin: 4px 2px 10px;
+  color: var(--muted); margin: 0 0 10px;
   display: flex; align-items: center; gap: 8px;
   min-height: 28px;
+  background: color-mix(in srgb, var(--colc, transparent) 22%, transparent);
+  border-radius: 0 0 8px 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--colc, transparent) 38%, transparent);
 }
 .fold {
   border: 1px solid transparent; background: transparent; color: var(--muted);
@@ -120,10 +167,28 @@ button.primary {
   width: 14px; height: 14px; border-radius: 50%; display: inline-block;
   cursor: pointer; position: relative; overflow: hidden; flex: 0 0 auto;
   border: 1px solid rgba(0,0,0,0.12);
+  padding: 0;
 }
-.cdot input[type="color"] {
-  position: absolute; inset: -6px; opacity: 0; cursor: pointer;
-  width: 30px; height: 30px;
+/* Round 3 item 4: presets + custom color popover. */
+.colpop {
+  position: absolute; z-index: 50;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 10px; width: 182px;
+}
+.colpop-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.colpop-grid button {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+}
+.colpop-grid button.on { border-color: var(--accent); }
+.colpop-custom {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 12.5px; color: var(--muted);
+}
+.colpop-custom input {
+  width: 30px; height: 24px; border: none; background: none;
+  padding: 0; cursor: pointer;
 }
 .coltitle { cursor: text; border-radius: 6px; padding: 1px 6px; margin-left: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .coltitle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
@@ -146,7 +211,15 @@ button.primary {
   max-height: 40vh; margin: 0; padding: 6px 1px;
 }
 .column.collapsed .colcount { padding: 0 6px; }
-.cards { display: flex; flex-direction: column; gap: 14px; }
+/* Round 3 item 5: lanes scroll internally, capped at the viewport —
+   the page itself never scrolls. */
+.cards {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 2px 2px 14px;
+  border-radius: 8px;
+}
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -270,9 +343,9 @@ button.primary {
 .column.drop-col-before { box-shadow: -4px 0 0 var(--accent); }
 .column.drop-col-after { box-shadow: 4px 0 0 var(--accent); }
 /* Item 8: column color themes the column — accent top border + header wash.
-   color-mix keeps it tasteful in light and dark modes. */
+   color-mix keeps it tasteful in light and dark modes. Round 3 item 3:
+   the h2 joinery (flush wash, joined corners) lives with the h2 rule. */
 .column { border-top: 3px solid var(--colc, transparent); border-radius: 0 0 12px 12px; }
-.column > h2 { background: color-mix(in srgb, var(--colc, transparent) 12%, transparent); border-radius: 8px; padding: 4px 6px; }
 .column[draggable="true"], .card[draggable="true"] { cursor: grab; }
 .column[draggable="true"]:active, .card[draggable="true"]:active { cursor: grabbing; }
 .emptyboard {
@@ -284,7 +357,8 @@ button.primary {
   .column { width: 86vw; flex-basis: 86vw; }
   .column.reading { width: 94vw; flex-basis: 94vw; }
   .column.collapsed { width: 44px; flex-basis: 44px; }
-  .boardtitle { font-size: 20px; }
+  #topbar { overflow-x: auto; }
+  .boardtitle { max-width: 34vw; }
 }
 @media (prefers-color-scheme: dark) {
   body:not([data-bg="paper"]):not([data-bg="honey"]):not([data-bg="sage"]):not([data-bg="sky"]):not([data-bg="rose"]):not([data-bg="slate"]) {

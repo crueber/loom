@@ -200,3 +200,55 @@ func TestV1Import(t *testing.T) {
 		t.Fatalf("expected export v2, got %d", exp.Version)
 	}
 }
+
+// TestV1ImportFixtureShape mirrors the real legacy export
+// (loom-export-home-2026-09-28.json): lists carry no "notes" key, items
+// carry extra favicon_url fields, and note items have content only.
+// The import must accept that shape additively without touching boards
+// that already exist.
+func TestV1ImportFixtureShape(t *testing.T) {
+	_, mux := newTestServer(t)
+	before := do(t, mux, "GET", "/api/boards", nil)
+	var boardsBefore []model.Board
+	if err := json.Unmarshal(before.Body.Bytes(), &boardsBefore); err != nil {
+		t.Fatal(err)
+	}
+	v1 := `{"version":1,"exported_at":"2026-09-28T21:57:12Z","lists":[
+		{"id":10,"title":"Priorities","color":"#a96800","position":0,"collapsed":false,
+		 "bookmarks":[{"id":210,"title":"Rally Coach","url":"https://coach.example/","favicon_url":"data:image/png;base64,AAA","position":1}],
+		 "items":[
+		   {"id":1,"type":"bookmark","title":"It","url":"https://item.test","favicon_url":"data:image/png;base64,BBB","position":0},
+		   {"id":2,"type":"note","content":"just a note","position":2}]},
+		{"id":11,"title":"Personal","color":"#697374","position":1,"collapsed":true,
+		 "bookmarks":[],"items":[]}
+	]}`
+	req := httptest.NewRequest("POST", "/api/import/v1", bytes.NewReader([]byte(v1)))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != 201 {
+		t.Fatalf("import v1 fixture shape: %d %s", rec.Code, rec.Body.String())
+	}
+	var tree model.BoardTree
+	if err := json.Unmarshal(rec.Body.Bytes(), &tree); err != nil {
+		t.Fatal(err)
+	}
+	if len(tree.Columns) != 2 {
+		t.Fatalf("expected 2 columns, got %d", len(tree.Columns))
+	}
+	n := 0
+	for _, cs := range tree.Cards {
+		n += len(cs)
+	}
+	if n != 3 {
+		t.Fatalf("expected 3 cards, got %d", n)
+	}
+	// Additive: previously existing boards are still listed.
+	after := do(t, mux, "GET", "/api/boards", nil)
+	var boardsAfter []model.Board
+	if err := json.Unmarshal(after.Body.Bytes(), &boardsAfter); err != nil {
+		t.Fatal(err)
+	}
+	if len(boardsAfter) != len(boardsBefore)+1 {
+		t.Fatalf("import not additive: before=%d after=%d", len(boardsBefore), len(boardsAfter))
+	}
+}

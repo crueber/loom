@@ -26,6 +26,7 @@
   var boardEl = document.getElementById('board');
   var boardsEl = document.getElementById('boards');
   var creatorEl = document.getElementById('creator');
+  var topbarCtl = document.getElementById('boardctl');
   var state = { boards: [], trees: {}, boardId: null };
   // Item 11 (white theme bug): Paper is an explicit 'paper' theme, never ''.
   // Root cause was SWATCHES id '' + CSS dark-mode guard keyed on "paper",
@@ -227,6 +228,7 @@
     var tree = curTree();
     if (!tree) {
       document.body.dataset.bg = BG_DEFAULT;
+      topbarCtl.innerHTML = '';
       boardEl.innerHTML = state.boards.length
         ? '<div class="emptyboard"><p>Select a board above, or create one to start writing.</p></div>'
         : '<div class="emptyboard"><p>Welcome to Loom — create your first board to start writing.</p><button class="primary" data-newboard>＋ New board</button></div>';
@@ -239,21 +241,23 @@
     var open = cols.filter(function (c) { return !c.collapsed; });
     var focus = open.length === 1 && cols.length > 1;
     var allFolded = cols.length > 0 && open.length === 0;
-    var head = '<div class="boardhead"><h1 class="boardtitle" id="boardtitle" title="Click to rename">' +
-      esc(tree.board.title) + '</h1><div class="swatches" role="group" aria-label="Board background">' +
+    // Round 3 item 7: single navbar — board rename, theme picker, and
+    // collapse-all live at the far right of the ONE top bar (rendered
+    // into #boardctl), never as a second header row over the canvas.
+    topbarCtl.innerHTML = '<span class="boardtitle" id="boardtitle" title="Click to rename">' +
+      esc(tree.board.title) + '</span><span class="swatches" role="group" aria-label="Board background">' +
       SWATCHES.map(function (s) {
         return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
           ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + s.id + '"></i></button>';
-      }).join('') + '</div>' +
-      (cols.length ? '<button class="ghost" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
-      '</div>';
+      }).join('') + '</span>' +
+      (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '');
     if (!cols.length) {
-      boardEl.innerHTML = head + '<div class="emptyboard"><p>This board has no columns yet.</p><button class="primary" data-newcol>Add your first column</button></div>';
+      boardEl.innerHTML = '<div class="emptyboard"><p>This board has no columns yet.</p><button class="primary" data-newcol>Add your first column</button></div>';
       return;
     }
     // Column strip with inline [+ add column] at the end (not at top).
     // New column titles auto-focus via openCreator('column').
-    boardEl.innerHTML = head + '<div class="cols' + (focus ? ' focus' : '') + '">' + cols.map(function (col) {
+    boardEl.innerHTML = '<div class="cols' + (focus ? ' focus' : '') + '">' + cols.map(function (col) {
       var cards = (tree.cards[col.id] || []).map(cardHTML).join('');
       var w = widths[col.id];
       // Item 8: column color themes the column via --colc (header wash +
@@ -262,8 +266,7 @@
         ((w && !col.collapsed) ? 'width:' + w + 'px;flex-basis:' + w + 'px;' : '');
       return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" draggable="true" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
         '<h2><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
-        '<label class="cdot" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color">' +
-        '<input type="color" data-colcolor="' + col.id + '" value="' + esc(col.color || '#4c8dff') + '" tabindex="-1"></label>' +
+        '<button class="cdot" data-coldot="' + col.id + '" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color" aria-label="Column color"></button>' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="Click to rename">' + esc(col.title) + '</span>' +
         '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
         '<span class="resize" data-resize="' + col.id + '" title="Resize column"></span></h2>' +
@@ -696,40 +699,52 @@
     document.addEventListener('pointerup', up);
   });
 
+  // ---- Drag-to-scroll: pointer-drag on empty canvas pans horizontally ----
+  // (round 3 item 6; mouse + touch). Starts ONLY on empty canvas area —
+  // never on columns, cards, or any control — so it coexists with
+  // card/column HTML5 drag and the resize handle. A click landing right
+  // after a pan is swallowed so it never triggers a board action.
+  var panState = null, panMovedAt = 0;
+  function panEmptyTarget(t) {
+    if (!t || !t.closest) return false;
+    if (!t.closest('.cols')) return t === boardEl;
+    return !t.closest('.column,.card,button,input,a,select,textarea,.inline-col-form,.composer');
+  }
+  boardEl.addEventListener('pointerdown', function (e) {
+    if (e.isPrimary === false) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (!panEmptyTarget(e.target)) return;
+    var strip = (e.target.closest && e.target.closest('.cols')) || boardEl.querySelector('.cols');
+    panState = { strip: strip, x: e.clientX, active: false };
+  });
+  document.addEventListener('pointermove', function (e) {
+    if (!panState || e.isPrimary === false) return;
+    var dx = e.clientX - panState.x;
+    if (!panState.active) {
+      if (Math.abs(dx) < 5) return;
+      panState.active = true;
+      if (panState.strip) panState.strip.classList.add('panning');
+    }
+    if (panState.strip) panState.strip.scrollLeft -= dx;
+    panState.x = e.clientX;
+    panMovedAt = Date.now();
+  });
+  function endPan() {
+    if (panState && panState.strip) panState.strip.classList.remove('panning');
+    panState = null;
+  }
+  document.addEventListener('pointerup', endPan);
+  document.addEventListener('pointercancel', endPan);
+
   boardEl.addEventListener('click', function (e) {
     var t = e.target;
+    // Swallow the click that lands right after a canvas pan (item 6).
+    if (panMovedAt && Date.now() - panMovedAt < 350) return;
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
     if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
-    // Board background swatches (scoped: body also carries data-bg).
-    var sw = t.closest && t.closest('.swatches [data-bg]');
-    if (sw) {
-      var tree = curTree();
-      if (!tree) return;
-      tree.board.background = sw.dataset.bg;
-      saveCache(); render();
-      api('PATCH', '/api/boards/' + tree.board.id, { background: sw.dataset.bg }).then(function (b) {
-        tree.board = b; saveCache(); render();
-      }).catch(function () {});
-      return;
-    }
-    // Collapse all / expand all (persisted per column; never regressed).
-    if (t.closest && t.closest('[data-foldall]')) {
-      var tr = curTree();
-      if (!tr) return;
-      var anyOpen = (tr.columns || []).some(function (c) { return !c.collapsed; });
-      (tr.columns || []).forEach(function (c) {
-        c.collapsed = anyOpen;
-        api('PATCH', '/api/columns/' + c.id, c).catch(function () {});
-      });
-      saveCache(); render();
-      return;
-    }
-    // Board title rename (inline; no Edit button).
-    if (t.closest && t.closest('#boardtitle')) {
-      var bt = document.getElementById('boardtitle');
-      startEdit(bt, true);
-      return;
-    }
+    // Column color dot opens the presets + custom popover (item 4).
+    var dot = t.closest && t.closest('[data-coldot]');
+    if (dot) { openColPop(dot); return; }
     // Column title rename (inline; no Edit button).
     var ct = t.closest && t.closest('[data-coltitle]');
     if (ct) { startEdit(ct, true); return; }
@@ -868,28 +883,64 @@
     }
   });
 
-  // Column color picker (input bubbles as `input`/`change`).
-  boardEl.addEventListener('input', function (e) {
-    var t = e.target;
-    if (t.dataset && t.dataset.colcolor) {
-      var cols = (curTree() && curTree().columns) || [];
-      cols.forEach(function (c) { if (c.id === t.dataset.colcolor) c.color = t.value; });
-      var dot = t.closest && t.closest('.cdot');
-      if (dot) dot.style.background = t.value;
-    }
-  });
-  boardEl.addEventListener('change', function (e) {
-    var t = e.target;
-    if (t.dataset && t.dataset.colcolor) {
-      var target = findCol(t.dataset.colcolor);
-      if (!target) return;
-      saveCache(); render();
-      api('PATCH', '/api/columns/' + target.id, target).catch(function () {});
-    }
-  });
+  // Column color presets + custom color (round 3 item 4). The header
+  // dot opens a small popover: 12 preset swatches plus a native custom
+  // color input (live preview, commits on change). Persists via the
+  // existing column PATCH path.
+  var COL_PRESETS = ['#4c8dff', '#7aa5d8', '#00838f', '#4d7831', '#8fae85', '#697374',
+    '#a96800', '#e8b96a', '#d8969c', '#c0392b', '#6b3d7d', '#37474f'];
+  var colPop = null;
+  function closeColPop() { if (colPop) { colPop.remove(); colPop = null; } }
+  function commitColColor(id, color) {
+    var col = findCol(id);
+    if (!col) return;
+    col.color = color;
+    saveCache(); render();
+    api('PATCH', '/api/columns/' + id, col).catch(function () {});
+  }
+  function openColPop(dot) {
+    var id = dot.dataset.coldot;
+    var col = findCol(id);
+    if (!col) return;
+    if (colPop && colPop.dataset.col === id) { closeColPop(); return; }
+    closeColPop();
+    var pop = document.createElement('div');
+    pop.className = 'colpop';
+    pop.dataset.col = id;
+    pop.innerHTML = '<div class="colpop-grid" role="group" aria-label="Column color presets">' +
+      COL_PRESETS.map(function (c) {
+        return '<button data-preset="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="Color ' + c + '"' +
+          (col.color === c ? ' class="on"' : '') + '></button>';
+      }).join('') + '</div><label class="colpop-custom">Custom <input type="color" data-custom value="' +
+      esc(col.color || '#4c8dff') + '"></label>';
+    document.body.appendChild(pop);
+    var r = dot.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - 194, r.left - 8)) + 'px';
+    pop.style.top = (r.bottom + 6) + 'px';
+    colPop = pop;
+    pop.addEventListener('click', function (e) {
+      var sw = e.target.closest && e.target.closest('[data-preset]');
+      if (sw) { commitColColor(id, sw.dataset.preset); closeColPop(); }
+    });
+    var custom = pop.querySelector('[data-custom]');
+    custom.addEventListener('input', function () {
+      col.color = custom.value;
+      dot.style.background = custom.value;
+      var sec = boardEl.querySelector('[data-col="' + id + '"]');
+      if (sec) sec.style.setProperty('--colc', custom.value);
+      saveCache();
+    });
+    custom.addEventListener('change', function () { commitColColor(id, custom.value); closeColPop(); });
+  }
+  document.addEventListener('pointerdown', function (e) {
+    if (colPop && !(e.target.closest && (e.target.closest('.colpop') || e.target.closest('[data-coldot]')))) closeColPop();
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeColPop(); });
 
   // Commit inline edits on focus loss (blur doesn't bubble; focusout does).
-  boardEl.addEventListener('focusout', function (e) {
+  // Document-level: the board title lives in the single navbar (item 7),
+  // column titles and notes live on the canvas — one listener covers all.
+  document.addEventListener('focusout', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
     t.contentEditable = 'false';
@@ -942,7 +993,7 @@
       sel.addRange(range);
     } catch (e) {}
   }
-  boardEl.addEventListener('keydown', function (e) {
+  document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
     if (e.key === 'Escape') { e.preventDefault(); t.blur(); render(); }
@@ -960,6 +1011,75 @@
     if (nb) { openCreator('board'); return; }
     var b = e.target.closest && e.target.closest('[data-board]');
     if (b) selectBoard(b.dataset.board);
+  });
+
+  // Round 3 item 7: the single navbar owns the board controls (they
+  // moved out of the removed second header row into #boardctl).
+  topbarCtl.addEventListener('click', function (e) {
+    var t = e.target;
+    // Board background swatches (scoped: body also carries data-bg).
+    var sw = t.closest && t.closest('.swatches [data-bg]');
+    if (sw) {
+      var tree = curTree();
+      if (!tree) return;
+      tree.board.background = sw.dataset.bg;
+      saveCache(); render();
+      api('PATCH', '/api/boards/' + tree.board.id, { background: sw.dataset.bg }).then(function (b) {
+        tree.board = b; saveCache(); render();
+      }).catch(function () {});
+      return;
+    }
+    // Collapse all / expand all (persisted per column; never regressed).
+    if (t.closest && t.closest('[data-foldall]')) {
+      var tr = curTree();
+      if (!tr) return;
+      var anyOpen = (tr.columns || []).some(function (c) { return !c.collapsed; });
+      (tr.columns || []).forEach(function (c) {
+        c.collapsed = anyOpen;
+        api('PATCH', '/api/columns/' + c.id, c).catch(function () {});
+      });
+      saveCache(); render();
+      return;
+    }
+    // Board title rename (inline; no Edit button).
+    if (t.closest && t.closest('#boardtitle')) {
+      var bt = document.getElementById('boardtitle');
+      startEdit(bt, true);
+    }
+  });
+
+  // Legacy importer (round 3 item 1): file picker reads an OLD-style Loom
+  // v1 export JSON and POSTs it raw to /api/import/v1, which creates new
+  // boards additively (never overwrites/deletes). The new board is
+  // selected after revalidation so the import is immediately visible.
+  document.getElementById('import-v1').addEventListener('click', function () {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.onchange = function () {
+      if (!input.files.length) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var raw = rd.result;
+        try {
+          var probe = JSON.parse(raw);
+          if (!probe || !Array.isArray(probe.lists)) throw new Error('bad shape');
+        } catch (err) {
+          alert('Import failed: that file is not a Loom v1 export (missing "lists").');
+          return;
+        }
+        fetch('/api/import/v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: raw })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(function (tree) {
+            revalidate().then(function () {
+              if (tree && tree.board) selectBoard(tree.board.id);
+            });
+          })
+          .catch(function () { alert('Import failed on the server. Nothing was changed.'); });
+      };
+      rd.readAsText(input.files[0]);
+    };
+    input.click();
   });
 
   function selectBoard(id, fromNav) {
