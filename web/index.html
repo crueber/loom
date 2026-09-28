@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loom</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#f4f2ec">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">loom</div>
+  <nav id="boards"></nav>
+  <div class="actions">
+    <button id="add-board" title="New board">+ board</button>
+    <button id="add-column" title="New column">+ column</button>
+  </div>
+</header>
+<main id="board"></main>
+<script>window.__BOOTSTRAP_DATA__=/*__BOOTSTRAP_DATA__*/null;</script>
+<script src="/app.js" defer></script>
+<script>
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(function(){}); }
+</script>
+</body>
+</html>

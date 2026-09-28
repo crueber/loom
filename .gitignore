@@ -1,40 +1,7 @@
-# Binaries
-bin/
-*.exe
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-
-# Data directory
-data/
-
-# Environment files
-.env
-.env.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# Build artifacts
-dist/
-build/
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-
-# Logs
-*.log
-logs/
-push.sh
-
-# Local git worktrees
-.worktrees/
+loom-data.json
+loom-data.json.tmp
+loom-verify
+loom-test
+verify*.db*
+verify*.log
+verify*.pid

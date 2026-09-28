@@ -1,0 +1,79 @@
+/* Loom rebuild — Columns.app-style: warm paper background, roomy cards,
+   wide columns, minimal chrome. */
+:root {
+  --bg: #f4f2ec;
+  --card: #fffdf8;
+  --ink: #2b2a26;
+  --muted: #8a867c;
+  --line: #e4e0d4;
+  --accent: #4c8dff;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+#topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+.brand { font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
+#boards { display: flex; gap: 6px; flex-wrap: wrap; }
+#boards button, .actions button {
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 14px;
+}
+#boards button.active { background: var(--card); color: var(--ink); border-color: var(--line); }
+.actions { margin-left: auto; display: flex; gap: 4px; }
+.actions button:hover { border-color: var(--line); color: var(--ink); }
+#board {
+  display: flex; gap: 20px; align-items: flex-start;
+  padding: 12px 20px 60px;
+  overflow-x: auto; min-height: calc(100% - 53px);
+}
+.column { width: 340px; flex: 0 0 340px; }
+.column > h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); margin: 4px 2px 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.column > h2 .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.column.collapsed .cards { display: none; }
+.cards { display: flex; flex-direction: column; gap: 14px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 2px rgba(60, 55, 40, 0.05);
+}
+.card .block { margin: 0 0 10px; }
+.card .block:last-child { margin-bottom: 0; }
+.card a.link { display: flex; gap: 10px; align-items: center; text-decoration: none; color: var(--ink); }
+.card a.link img { width: 22px; height: 22px; border-radius: 6px; }
+.card a.link:hover .t { text-decoration: underline; }
+.card a.link .u { color: var(--muted); font-size: 12.5px; }
+.card .note { white-space: pre-wrap; word-wrap: break-word; }
+.card .note[contenteditable="true"]:focus, .editable:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.card img.photo { width: 100%; border-radius: 10px; display: block; background: var(--line); }
+.card .cardbar { display: flex; gap: 4px; margin-top: 8px; opacity: 0; }
+.card:hover .cardbar, .card:focus-within .cardbar { opacity: 1; }
+.card .cardbar button {
+  border: none; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 12.5px; padding: 2px 6px; border-radius: 6px;
+}
+.card .cardbar button:hover { background: var(--bg); color: var(--ink); }
+.add-card {
+  width: 100%; border: 1px dashed var(--line); background: transparent;
+  color: var(--muted); border-radius: 14px; padding: 10px; cursor: pointer;
+}
+.add-card:hover { color: var(--ink); border-color: var(--muted); }
+@media (max-width: 700px) {
+  .column { width: 86vw; flex-basis: 86vw; }
+}

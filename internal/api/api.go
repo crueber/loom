@@ -1,0 +1,426 @@
+// Package api implements the JSON API served by the single binary.
+// Routes (all under /api):
+//
+//	GET    /api/boards            list boards
+//	POST   /api/boards            {title}
+//	GET    /api/boards/{id}       full tree (board + columns + cards)
+//	PATCH  /api/boards/{id}       {title}
+//	DELETE /api/boards/{id}
+//	POST   /api/boards/{id}/columns        {title,color}
+//	PATCH  /api/columns/{id}               {title,color,position,collapsed}
+//	DELETE /api/columns/{id}
+//	POST   /api/columns/{id}/cards         {blocks}
+//	PATCH  /api/cards/{id}                 full card (blocks edited inline)
+//	DELETE /api/cards/{id}
+//	POST   /api/cards/{id}/move            {column_id,position}
+//	POST   /api/import/v1                  v1 export JSON -> board tree
+//	GET    /api/export                     v2 export (boards + trees)
+package api
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"strings"
+
+	"github.com/crueber/loom-rebuild/internal/images"
+	"github.com/crueber/loom-rebuild/internal/model"
+	"github.com/crueber/loom-rebuild/internal/store"
+)
+
+// ImageBackend is implemented by stores that can keep uploads
+// (currently SQLite; the file backend returns 501).
+type ImageBackend interface {
+	SaveImage(contentType string, w, h, tw, th int, blob, thumb []byte) (store.ImageRecord, error)
+	GetImage(id string) (store.ImageRecord, error)
+}
+
+// Handler wires the store to HTTP routes on a stdlib mux.
+type Handler struct {
+	Store store.Store
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeErr(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	defer r.Body.Close()
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return false
+	}
+	return true
+}
+
+// Register mounts all API routes onto mux.
+func (h *Handler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("/api/boards", h.boards)
+	mux.HandleFunc("/api/boards/", h.boardSub)
+	mux.HandleFunc("/api/columns/", h.columnSub)
+	mux.HandleFunc("/api/cards/", h.cardSub)
+	mux.HandleFunc("/api/import/v1", h.importV1)
+	mux.HandleFunc("/api/export", h.export)
+	mux.HandleFunc("/api/images", h.uploadImage)
+	mux.HandleFunc("/images/", h.serveImage)
+}
+
+func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		boards, err := h.Store.ListBoards()
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		if boards == nil {
+			boards = []model.Board{}
+		}
+		writeJSON(w, 200, boards)
+	case http.MethodPost:
+		var body struct {
+			Title string `json:"title"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		if strings.TrimSpace(body.Title) == "" {
+			writeErr(w, http.StatusBadRequest, "title is required")
+			return
+		}
+		b, err := h.Store.CreateBoard(body.Title)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 201, b)
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// boardSub handles /api/boards/{id} and /api/boards/{id}/columns.
+func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/boards/")
+	id, sub, _ := strings.Cut(rest, "/")
+	if id == "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if sub == "columns" {
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var body struct {
+			Title string `json:"title"`
+			Color string `json:"color"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		col, err := h.Store.CreateColumn(id, body.Title, body.Color)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 201, col)
+		return
+	}
+	if sub != "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		tree, err := h.Store.GetTree(id)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, 200, tree)
+	case http.MethodPatch:
+		var body struct {
+			Title string `json:"title"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		b, err := h.Store.UpdateBoard(id, body.Title)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, 200, b)
+	case http.MethodDelete:
+		if err := h.Store.DeleteBoard(id); err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// columnSub handles /api/columns/{id} and /api/columns/{id}/cards.
+func (h *Handler) columnSub(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/columns/")
+	id, sub, _ := strings.Cut(rest, "/")
+	if id == "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if sub == "cards" {
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var body struct {
+			Blocks []model.Block `json:"blocks"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		card, err := h.Store.CreateCard(id, body.Blocks)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 201, card)
+		return
+	}
+	if sub != "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	switch r.Method {
+	case http.MethodPatch:
+		var col model.Column
+		if !decodeJSON(w, r, &col) {
+			return
+		}
+		col.ID = id
+		updated, err := h.Store.UpdateColumn(col)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, 200, updated)
+	case http.MethodDelete:
+		if err := h.Store.DeleteColumn(id); err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+// cardSub handles /api/cards/{id} and /api/cards/{id}/move.
+func (h *Handler) cardSub(w http.ResponseWriter, r *http.Request) {
+	rest := strings.TrimPrefix(r.URL.Path, "/api/cards/")
+	id, sub, _ := strings.Cut(rest, "/")
+	if id == "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	if sub == "move" {
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		var body struct {
+			ColumnID string `json:"column_id"`
+			Position int    `json:"position"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		card, err := h.Store.MoveCard(id, body.ColumnID, body.Position)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, 200, card)
+		return
+	}
+	if sub != "" {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	switch r.Method {
+	case http.MethodPatch:
+		var card model.Card
+		if !decodeJSON(w, r, &card) {
+			return
+		}
+		card.ID = id
+		updated, err := h.Store.UpdateCard(card)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, 200, updated)
+	case http.MethodDelete:
+		if err := h.Store.DeleteCard(id); err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (h *Handler) importV1(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	defer r.Body.Close()
+	var raw json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	tree, err := model.ImportV1(raw)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	stored, err := h.Store.ImportTree(tree)
+	if err != nil {
+		writeErr(w, 500, err.Error())
+		return
+	}
+	writeJSON(w, 201, stored)
+}
+
+func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	boards, err := h.Store.ListBoards()
+	if err != nil {
+		writeErr(w, 500, err.Error())
+		return
+	}
+	type v2 struct {
+		Version int               `json:"version"`
+		Boards  []model.BoardTree `json:"boards"`
+	}
+	out := v2{Version: 2, Boards: []model.BoardTree{}}
+	for _, b := range boards {
+		tree, err := h.Store.GetTree(b.ID)
+		if err != nil {
+			continue
+		}
+		out.Boards = append(out.Boards, tree)
+	}
+	writeJSON(w, 200, out)
+}
+
+// uploadImage accepts one multipart file field ("file", jpeg/png/gif,
+// <=12MB), stores original + JPEG thumbnail, and returns the image
+// block payload to attach to a card.
+func (h *Handler) uploadImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	backend, ok := h.Store.(ImageBackend)
+	if !ok {
+		writeErr(w, http.StatusNotImplemented, "image uploads require the SQLite backend")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, images.MaxUploadBytes+1024)
+	if err := r.ParseMultipartForm(images.MaxUploadBytes); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid multipart upload")
+		return
+	}
+	f, hdr, err := r.FormFile("file")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "missing file field")
+		return
+	}
+	defer f.Close()
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "cannot read upload")
+		return
+	}
+	proc, err := images.Process(raw, hdr.Header.Get("Content-Type"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	rec, err := backend.SaveImage(proc.ContentType, proc.Width, proc.Height, proc.ThumbWidth, proc.ThumbHeight, proc.Blob, proc.Thumb)
+	if err != nil {
+		writeErr(w, 500, err.Error())
+		return
+	}
+	writeJSON(w, 201, map[string]any{
+		"id":        rec.ID,
+		"url":       "/images/" + rec.ID,
+		"thumb_url": "/images/" + rec.ID + "/thumb",
+		"width":     rec.Width, "height": rec.Height,
+	})
+}
+
+// serveImage serves /images/{id} (original) and /images/{id}/thumb
+// (JPEG thumbnail) with immutable long-cache headers. Thumbnails keep
+// card grids fast; full originals load only on click-through.
+func (h *Handler) serveImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	backend, ok := h.Store.(ImageBackend)
+	if !ok {
+		writeErr(w, http.StatusNotImplemented, "image serving requires the SQLite backend")
+		return
+	}
+	rest := strings.TrimPrefix(r.URL.Path, "/images/")
+	id, sub, _ := strings.Cut(rest, "/")
+	if id == "" || (sub != "" && sub != "thumb") {
+		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	rec, err := backend.GetImage(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "image not found")
+		return
+	}
+	blob, ctype := rec.Blob, rec.ContentType
+	if sub == "thumb" {
+		blob, ctype = rec.ThumbBlob, "image/jpeg"
+	}
+	w.Header().Set("Content-Type", ctype)
+	w.Header().Set("Content-Length", itoa(len(blob)))
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.WriteHeader(200)
+	_, _ = w.Write(blob)
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var b [20]byte
+	i := len(b)
+	for n > 0 {
+		i--
+		b[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(b[i:])
+}
