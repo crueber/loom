@@ -6,14 +6,23 @@
  * Writes are optimistic-local first, synced behind, server = truth.
  *
  * UX model (Columns.app feel): everything edits inline — click board
- * title, column titles, or any note to edit in place. New notes focus
- * immediately. Column dots recolor, swatches theme the board, collapsing
- * columns folds them into slim rails (one open column = reading mode).
+ * title, column titles, or any note to edit in place (no Edit buttons).
+ * Enter commits an edit; Ctrl/Cmd+Enter inserts a newline. New notes and
+ * new column titles focus immediately. Column dots recolor, swatches theme
+ * the board, collapsing columns folds them into slim rails (one open
+ * column = reading mode). Boards are deep-linkable via #/b/<id>.
+ * Column widths persist in localStorage (loom.colwidths.v1) — documented
+ * here because no server column-prefs field exists; collapse persists on
+ * the server. Cards/columns reorder via HTML5 drag-drop, persisted through
+ * the existing move/PATCH paths. Cards render with only a URL (no note
+ * required); adding a link to a fresh empty-note card replaces the
+ * placeholder so link-only cards stay link-only.
  */
 (function () {
   var t0 = (window.performance && performance.now()) || 0;
   var LS_KEY = 'loom.cache.v2';
   var LS_OLD = 'loom.cache.v1';
+  var LS_WIDTHS = 'loom.colwidths.v1'; // colId -> px; see header comment.
   var boardEl = document.getElementById('board');
   var boardsEl = document.getElementById('boards');
   var creatorEl = document.getElementById('creator');
@@ -25,20 +34,61 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  // Tiny markdown: **bold**, *italic*, `code`, [text](url), lines. No deps.
-  function md(s) {
-    var h = esc(s);
+  // Minimal markdown: "# H1", "## H2", "**bold**", "*italic*", "`code`",
+  // "[text](url)", "- list". No deps. Headings/lists are line-based;
+  // inline marks apply within each line.
+  function inlineFmt(h) {
     h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
     h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
     h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     h = h.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-    return h.replace(/\n/g, '<br>');
+    return h;
+  }
+  function md(s) {
+    var lines = esc(s == null ? '' : s).split('\n');
+    var out = [];
+    var inList = false;
+    lines.forEach(function (line) {
+      var m2 = line.match(/^##\s+(.*)/);
+      var m1 = line.match(/^#\s+(.*)/);
+      var ml = line.match(/^-\s+(.*)/);
+      if (m2) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push('<h1 class="md-h2">' + inlineFmt(m2[1]) + '</h1>');
+      } else if (m1) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push('<h1 class="md-h1">' + inlineFmt(m1[1]) + '</h1>');
+      } else if (ml) {
+        if (!inList) { out.push('<ul class="md-list">'); inList = true; }
+        out.push('<li>' + inlineFmt(ml[1]) + '</li>');
+      } else {
+        if (inList) { out.push('</ul>'); inList = false; }
+        if (/^\s*$/.test(line)) out.push('');
+        else out.push(inlineFmt(line) + '<br>');
+      }
+    });
+    if (inList) out.push('</ul>');
+    var html = out.join('');
+    return html.replace(/(<br>)+$/g, '').replace(/^(<br>)+/g, '') || '';
   }
   function favicon(url) {
     try { return 'https://www.google.com/s2/favicons?domain=' + new URL(url).hostname + '&sz=64'; }
     catch (e) { return ''; }
   }
   function host(url) { try { return new URL(url).hostname; } catch (e) { return url; } }
+
+  // Column widths: localStorage only (no server prefs field). Returns {}.
+  function getWidths() {
+    try { return JSON.parse(localStorage.getItem(LS_WIDTHS) || '{}') || {}; }
+    catch (e) { return {}; }
+  }
+  function setWidth(id, px) {
+    try {
+      var w = getWidths();
+      w[id] = px;
+      localStorage.setItem(LS_WIDTHS, JSON.stringify(w));
+    } catch (e) {}
+  }
 
   function normalizeTree(tree) {
     if (!tree) return null;
@@ -106,6 +156,9 @@
       return '<div class="block"><a href="' + esc(full) + '" target="_blank" rel="noopener">' +
         '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a></div>';
     }
+    // Note blocks render even when empty (placeholder for brand-new cards);
+    // link-only cards have no note block at all, so no placeholder appears.
+    // No validation requires note content anywhere (client or server).
     if (b.type === 'note' || b.content) {
       var empty = !b.content;
       return '<div class="block note' + (empty ? ' empty' : '') + '" data-block="' + esc(b.id || '') + '"' +
@@ -115,12 +168,17 @@
   }
 
   function cardHTML(card) {
+    // Link-only: blocks render as-is; only a card with zero blocks (or
+    // blocks that render to '') falls back to the editable placeholder.
     var inner = card.blocks.map(blockHTML).join('') ||
       '<div class="block note empty" data-block="" title="Click to edit">Write something&hellip;</div>';
-    return '<article class="card" data-card="' + card.id + '">' + inner +
-      '<div class="cardbar"><button data-act="edit">edit</button>' +
-      '<button data-act="addlink">+ link</button><button data-act="addnote">+ note</button>' +
-      '<button data-act="addimg">+ image</button><button data-act="addimgurl">+ img url</button><button data-act="del">delete</button></div></article>';
+    // Compact ghost icon bar (no Edit button; editing is click-to-edit).
+    return '<article class="card" draggable="true" data-card="' + card.id + '">' + inner +
+      '<div class="cardbar"><button data-act="addlink" title="Add link">&#128279;</button>' +
+      '<button data-act="addnote" title="Add note">&#9998;</button>' +
+      '<button data-act="addimg" title="Upload image">&#128247;</button>' +
+      '<button data-act="addimgurl" title="Add image URL">&#127760;</button>' +
+      '<button data-act="del" title="Delete card">&times;</button></div></article>';
   }
 
   var SWATCHES = [
@@ -133,10 +191,10 @@
   ];
 
   function render() {
-    // Board switcher.
+    // Board switcher with inline [+ board] chip after the last tab.
     boardsEl.innerHTML = state.boards.map(function (b) {
       return '<button data-board="' + b.id + '"' + (b.id === state.boardId ? ' class="active"' : '') + '>' + esc(b.title) + '</button>';
-    }).join('');
+    }).join('') + '<button class="add-inline" data-newboard title="New board">+ </button>';
     var tree = curTree();
     if (!tree) {
       document.body.dataset.bg = BG_DEFAULT;
@@ -147,6 +205,7 @@
     }
     var bg = tree.board.background || BG_DEFAULT;
     document.body.dataset.bg = bg;
+    var widths = getWidths();
     var cols = tree.columns || [];
     var open = cols.filter(function (c) { return !c.collapsed; });
     var focus = open.length === 1 && cols.length > 1;
@@ -163,16 +222,21 @@
       boardEl.innerHTML = head + '<div class="emptyboard"><p>This board has no columns yet.</p><button class="primary" data-newcol>Add your first column</button></div>';
       return;
     }
+    // Column strip with inline [+ add column] at the end (not at top).
+    // New column titles auto-focus via openCreator('column').
     boardEl.innerHTML = head + '<div class="cols' + (focus ? ' focus' : '') + '">' + cols.map(function (col) {
       var cards = (tree.cards[col.id] || []).map(cardHTML).join('');
-      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" data-col="' + col.id + '">' +
+      var w = widths[col.id];
+      var style = (w && !col.collapsed) ? ' style="width:' + w + 'px;flex-basis:' + w + 'px"' : '';
+      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" draggable="true" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + style + '>' +
         '<h2><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
         '<label class="cdot" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color">' +
         '<input type="color" data-colcolor="' + col.id + '" value="' + esc(col.color || '#4c8dff') + '" tabindex="-1"></label>' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="Click to rename">' + esc(col.title) + '</span>' +
-        '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span></h2>' +
-        '<div class="cards">' + cards + '<button class="add-card" data-add="' + col.id + '">+ Add card</button></div></section>';
-    }).join('') + '</div>';
+        '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
+        '<span class="resize" data-resize="' + col.id + '" title="Resize column"></span></h2>' +
+        '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+</button></div></section>';
+    }).join('') + '<button class="add-col-inline" data-newcol title="Add column">+<span>add column</span></button></div>';
   }
 
   function findCard(id) {
@@ -185,6 +249,11 @@
     }
     return null;
   }
+  function findCol(id) {
+    var cols = (curTree() && curTree().columns) || [];
+    for (var i = 0; i < cols.length; i++) if (cols[i].id === id) return cols[i];
+    return null;
+  }
 
   // Optimistic PATCH with background sync; server is source of truth.
   function syncCard(card) {
@@ -193,6 +262,19 @@
       Object.assign(card, fresh);
       saveCache(); render();
     }).catch(function () { /* stays local; revalidates next load */ });
+  }
+
+  // If a card holds only a fresh empty note, a new link/image block
+  // replaces it so link-only (or image-only) cards stay single-block.
+  function pushOrReplace(card, blk) {
+    if (card.blocks.length === 1 && card.blocks[0].type === 'note' && !card.blocks[0].content) {
+      blk.id = card.blocks[0].id || blk.id;
+      blk.position = 0;
+      card.blocks = [blk];
+    } else {
+      blk.position = card.blocks.length;
+      card.blocks.push(blk);
+    }
   }
 
   function startEdit(el, selectAll) {
@@ -269,6 +351,7 @@
   }
 
   // Header inline creator form (replaces prompt() for boards/columns).
+  // New column titles auto-focus after creation.
   function openCreator(kind) {
     closeCreator();
     var box = document.createElement('div');
@@ -288,9 +371,26 @@
           state.boards.push(nb);
           state.trees[nb.id] = normalizeTree({ board: nb, columns: [], cards: {} });
           selectBoard(nb.id);
+          setTimeout(function () {
+            var bt = document.getElementById('boardtitle');
+            if (bt) startEdit(bt, true);
+          }, 0);
         });
       } else if (state.boardId) {
-        api('POST', '/api/boards/' + state.boardId + '/columns', { title: val, color: '#4c8dff' }).then(revalidate);
+        api('POST', '/api/boards/' + state.boardId + '/columns', { title: val, color: '#4c8dff' }).then(function (col) {
+          var tree = curTree();
+          if (tree) {
+            tree.columns = (tree.columns || []).concat([col]);
+            tree.cards[col.id] = [];
+            saveCache(); render();
+            // Auto-focus the new column title for immediate rename.
+            setTimeout(function () {
+              var el = boardEl.querySelector('[data-coltitle="' + col.id + '"]');
+              if (el) startEdit(el, true);
+            }, 0);
+          }
+          revalidate();
+        });
       }
     }
     box.querySelector('[data-ok]').addEventListener('click', function () { done(true); });
@@ -301,6 +401,141 @@
     });
   }
   function closeCreator() { creatorEl.innerHTML = ''; }
+
+  // ---- Deep-linkable boards: #/b/<id> (back/forward via hashchange) ----
+  function boardFromURL() {
+    var m = (location.hash || '').match(/^#\/b\/([A-Za-z0-9_-]+)/);
+    if (m) return m[1];
+    try {
+      var q = new URLSearchParams(location.search).get('board');
+      if (q) return q;
+    } catch (e) {}
+    return null;
+  }
+  function pushBoardURL(id) {
+    var want = '#/b/' + id;
+    if (location.hash !== want) {
+      try { history.pushState(null, '', want); }
+      catch (e) { location.hash = want; }
+    }
+  }
+  window.addEventListener('hashchange', function () {
+    var id = boardFromURL();
+    if (id && id !== state.boardId && state.boards.some(function (b) { return b.id === id; })) selectBoard(id, true);
+  });
+  window.addEventListener('popstate', function () {
+    var id = boardFromURL();
+    if (id && id !== state.boardId && state.boards.some(function (b) { return b.id === id; })) selectBoard(id, true);
+  });
+
+  // ---- HTML5 drag-drop: cards within/across columns, columns reorder ----
+  var dragCard = null, dragCol = null;
+  document.addEventListener('dragstart', function (e) {
+    var cardEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
+    if (cardEl && !dragCol) {
+      // Avoid starting a card drag from an active inline editor.
+      if (e.target.isContentEditable) { e.preventDefault(); return; }
+      dragCard = cardEl.dataset.card;
+      try { e.dataTransfer.setData('text/plain', 'card:' + dragCard); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+      return;
+    }
+    var colEl = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
+    if (colEl && (e.target === colEl || (e.target.closest && e.target.closest('h2')))) {
+      if (e.target.isContentEditable || (e.target.closest && e.target.closest('button,input,label'))) return;
+      dragCol = colEl.dataset.coldrag;
+      try { e.dataTransfer.setData('text/plain', 'col:' + dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+    }
+  });
+  document.addEventListener('dragend', function () { dragCard = null; dragCol = null; });
+  boardEl.addEventListener('dragover', function (e) {
+    if (!dragCard && !dragCol) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
+  });
+  boardEl.addEventListener('drop', function (e) {
+    if (dragCol) {
+      e.preventDefault();
+      var over = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
+      var tree = curTree();
+      if (!tree || !over || over.dataset.coldrag === dragCol) { dragCol = null; return; }
+      var ids = tree.columns.map(function (c) { return c.id; });
+      var from = ids.indexOf(dragCol);
+      var to = ids.indexOf(over.dataset.coldrag);
+      if (from < 0 || to < 0) { dragCol = null; return; }
+      var moved = tree.columns.splice(from, 1)[0];
+      tree.columns.splice(to, 0, moved);
+      tree.columns.forEach(function (c, i) { c.position = i; });
+      saveCache(); render();
+      tree.columns.forEach(function (c) { api('PATCH', '/api/columns/' + c.id, c).catch(function () {}); });
+      dragCol = null;
+      return;
+    }
+    if (dragCard) {
+      e.preventDefault();
+      var lane = e.target && e.target.closest ? e.target.closest('[data-cards]') : null;
+      var onCard = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
+      var toCol = lane ? lane.dataset.cards : (onCard ? (onCard.closest('[data-cards]') || {}).dataset.cards : null);
+      // Fallback: dropping on a column section resolves its lane.
+      if (!toCol) {
+        var sec = e.target && e.target.closest ? e.target.closest('[data-col]') : null;
+        if (sec) toCol = sec.dataset.col;
+      }
+      if (!toCol) { dragCard = null; return; }
+      var tree2 = curTree();
+      var cards = (tree2.cards[toCol] || []).filter(function (c) { return c.id !== dragCard; });
+      var pos = cards.length;
+      if (onCard && onCard.dataset.card !== dragCard) {
+        for (var i = 0; i < cards.length; i++) if (cards[i].id === onCard.dataset.card) { pos = i; break; }
+      }
+      var moving = findCard(dragCard);
+      var fromCol = moving ? moving.column_id : null;
+      // Optimistic local move; server persists via existing move path.
+      Object.keys(tree2.cards).forEach(function (k) {
+        tree2.cards[k] = tree2.cards[k].filter(function (c) { return c.id !== dragCard; });
+        tree2.cards[k].forEach(function (c, j) { c.position = j; });
+      });
+      if (moving) {
+        moving.column_id = toCol;
+        var dst = tree2.cards[toCol] || [];
+        if (pos < 0 || pos > dst.length) pos = dst.length;
+        dst.splice(pos, 0, moving);
+        dst.forEach(function (c, j) { c.position = j; });
+        tree2.cards[toCol] = dst;
+      }
+      saveCache(); render();
+      api('POST', '/api/cards/' + dragCard + '/move', { column_id: toCol, position: pos })
+        .then(revalidate).catch(function () {});
+      // Keep collapse + per-board cache intact; revalidate merges server truth.
+      void fromCol;
+      dragCard = null;
+    }
+  });
+
+  // ---- Resizable columns: drag handle, widths in localStorage ----
+  boardEl.addEventListener('pointerdown', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-resize]') : null;
+    if (!h) return;
+    e.preventDefault();
+    var id = h.dataset.resize;
+    var sec = boardEl.querySelector('[data-col="' + id + '"]');
+    if (!sec) return;
+    var startX = e.clientX;
+    var startW = sec.getBoundingClientRect().width;
+    function mv(ev) {
+      var w = Math.max(200, Math.min(900, Math.round(startW + (ev.clientX - startX))));
+      sec.style.width = w + 'px';
+      sec.style.flexBasis = w + 'px';
+    }
+    function up(ev) {
+      document.removeEventListener('pointermove', mv);
+      document.removeEventListener('pointerup', up);
+      var w = Math.max(200, Math.min(900, Math.round(startW + (ev.clientX - startX))));
+      setWidth(id, w);
+      saveCache();
+    }
+    document.addEventListener('pointermove', mv);
+    document.addEventListener('pointerup', up);
+  });
 
   boardEl.addEventListener('click', function (e) {
     var t = e.target;
@@ -318,7 +553,7 @@
       }).catch(function () {});
       return;
     }
-    // Collapse all / expand all.
+    // Collapse all / expand all (persisted per column; never regressed).
     if (t.closest && t.closest('[data-foldall]')) {
       var tr = curTree();
       if (!tr) return;
@@ -330,21 +565,19 @@
       saveCache(); render();
       return;
     }
-    // Board title rename.
+    // Board title rename (inline; no Edit button).
     if (t.closest && t.closest('#boardtitle')) {
       var bt = document.getElementById('boardtitle');
       startEdit(bt, true);
       return;
     }
-    // Column title rename.
+    // Column title rename (inline; no Edit button).
     var ct = t.closest && t.closest('[data-coltitle]');
     if (ct) { startEdit(ct, true); return; }
     if (t.dataset && t.dataset.fold) {
       // Collapse toggle: optimistic-local, synced behind.
       var colId = t.dataset.fold;
-      var target = null;
-      var cols = (curTree() && curTree().columns) || [];
-      cols.forEach(function (c) { if (c.id === colId) target = c; });
+      var target = findCol(colId);
       if (!target) return;
       target.collapsed = !target.collapsed;
       saveCache(); render();
@@ -395,7 +628,7 @@
     } else if (act === 'addlink') {
       askInCard(cardEl, 'Link URL', 'Paste link URL…').then(function (url) {
         if (!url) return;
-        card.blocks.push({ id: '', type: 'link', url: url, title: url, position: card.blocks.length });
+        pushOrReplace(card, { id: '', type: 'link', url: url, title: url, position: card.blocks.length });
         syncCard(card); render();
       });
     } else if (act === 'addnote') {
@@ -417,7 +650,7 @@
           if (!r.ok) throw new Error('upload failed');
           return r.json();
         }).then(function (up) {
-          card.blocks.push({ id: '', type: 'image', image_url: up.url, thumb_url: up.thumb_url, position: card.blocks.length });
+          pushOrReplace(card, { id: '', type: 'image', image_url: up.url, thumb_url: up.thumb_url, position: card.blocks.length });
           syncCard(card); render();
         }).catch(function () { alert('Image upload failed (jpeg/png/gif, max 12MB).'); });
       };
@@ -425,20 +658,9 @@
     } else if (act === 'addimgurl') {
       askInCard(cardEl, 'Image URL', 'Paste image URL…').then(function (src) {
         if (!src) return;
-        card.blocks.push({ id: '', type: 'image', image_url: src, position: card.blocks.length });
+        pushOrReplace(card, { id: '', type: 'image', image_url: src, position: card.blocks.length });
         syncCard(card); render();
       });
-    } else if (act === 'edit') {
-      // Inline editing: focus the first note (new one if empty).
-      // Render + focus first; the blur commit persists.
-      var first = cardEl.querySelector('.note[data-block]');
-      if (!first || !card.blocks.length) {
-        card.blocks.push({ id: '', type: 'note', content: '', position: card.blocks.length });
-        saveCache(); render();
-        focusNote(card.id, '', true);
-        return;
-      }
-      startEdit(first, false);
     }
   });
 
@@ -455,8 +677,7 @@
   boardEl.addEventListener('change', function (e) {
     var t = e.target;
     if (t.dataset && t.dataset.colcolor) {
-      var target = null;
-      ((curTree() && curTree().columns) || []).forEach(function (c) { if (c.id === t.dataset.colcolor) target = c; });
+      var target = findCol(t.dataset.colcolor);
       if (!target) return;
       saveCache(); render();
       api('PATCH', '/api/columns/' + target.id, target).catch(function () {});
@@ -485,8 +706,7 @@
       return;
     }
     if (t.dataset && t.dataset.coltitle) {
-      var col = null;
-      ((curTree() && curTree().columns) || []).forEach(function (c) { if (c.id === t.dataset.coltitle) col = c; });
+      var col = findCol(t.dataset.coltitle);
       if (!col) return;
       var ct = t.innerText.trim();
       if (!ct || ct === col.title) { render(); return; }
@@ -497,30 +717,51 @@
     }
     if (t.classList && t.classList.contains('note')) commitNote(t);
   });
-  // Enter commits single-line titles; Escape cancels.
+  // Enter commits an inline edit and exits edit mode; Ctrl/Cmd+Enter
+  // inserts a newline. Applies to board/column titles and notes.
+  // Escape cancels.
+  function insertNewline(t) {
+    try {
+      if (document.execCommand && document.execCommand('insertText', false, '\n')) return;
+    } catch (e) {}
+    try {
+      var sel = window.getSelection();
+      if (!sel.rangeCount) return;
+      var range = sel.getRangeAt(0);
+      range.deleteContents();
+      var br = document.createTextNode('\n');
+      range.insertNode(br);
+      range.setStartAfter(br);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {}
+  }
   boardEl.addEventListener('keydown', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
     if (e.key === 'Escape') { e.preventDefault(); t.blur(); render(); }
-    else if (e.key === 'Enter' && (t.id === 'boardtitle' || (t.dataset && t.dataset.coltitle))) {
-      e.preventDefault(); t.blur();
+    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      insertNewline(t);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      t.blur();
     }
   });
 
   boardsEl.addEventListener('click', function (e) {
+    var nb = e.target.closest && e.target.closest('[data-newboard]');
+    if (nb) { openCreator('board'); return; }
     var b = e.target.closest && e.target.closest('[data-board]');
     if (b) selectBoard(b.dataset.board);
   });
-  document.getElementById('add-board').addEventListener('click', function () { openCreator('board'); });
-  document.getElementById('add-column').addEventListener('click', function () {
-    if (!state.boardId) return;
-    openCreator('column');
-  });
 
-  function selectBoard(id) {
+  function selectBoard(id, fromNav) {
     if (!id) return;
     state.boardId = id;
     saveCache();
+    if (!fromNav) pushBoardURL(id);
     var cached = state.trees[id];
     if (cached) render(); // instant paint from per-board cache
     api('GET', '/api/boards/' + id).then(function (tree) {
@@ -535,11 +776,14 @@
   }
 
   function revalidate() {
-    api('GET', '/api/boards').then(function (boards) {
+    return api('GET', '/api/boards').then(function (boards) {
       state.boards = boards || [];
       var known = {};
       state.boards.forEach(function (b) { known[b.id] = true; });
-      if (!state.boardId || !known[state.boardId]) {
+      var deep = boardFromURL();
+      if (deep && known[deep]) {
+        state.boardId = deep;
+      } else if (!state.boardId || !known[state.boardId]) {
         state.boardId = state.boards.length ? state.boards[0].id : null;
       }
       if (!state.boardId) { saveCache(); render(); return; }
@@ -564,6 +808,10 @@
     state.trees[seed.board.id] = seed;
     state.boardId = seed.board.id;
   }
+  // Deep link wins over cached selection when it names a known board.
+  // Boards list may still be loading; revalidate() re-applies it.
+  var deep0 = boardFromURL();
+  if (deep0) state.boardId = deep0;
   render();
   if (window.performance && performance.now) {
     window.__LOOM_FIRST_PAINT_MS = Math.round((performance.now() - t0) * 10) / 10;
