@@ -7,7 +7,7 @@
  *
  * UX model (Columns.app feel): everything edits inline — click board
  * title, column titles, or any note to edit in place (no Edit buttons).
- * Enter commits an edit; Ctrl/Cmd+Enter inserts a newline. New notes and
+ * Enter commits an edit; Shift/Ctrl/Cmd+Enter inserts a newline. New notes and
  * new column titles focus immediately. Column dots recolor, swatches theme
  * the board, collapsing columns folds them into slim rails (one open
  * column = reading mode). Boards are deep-linkable via #/b/<id>.
@@ -27,7 +27,12 @@
   var boardsEl = document.getElementById('boards');
   var creatorEl = document.getElementById('creator');
   var state = { boards: [], trees: {}, boardId: null };
-  var BG_DEFAULT = '';
+  // Item 11 (white theme bug): Paper is an explicit 'paper' theme, never ''.
+  // Root cause was SWATCHES id '' + CSS dark-mode guard keyed on "paper",
+  // so selecting Paper left data-bg="" and the prefers-color-scheme:dark
+  // rule kept applying. Empty/legacy values normalize to 'paper' on read.
+  var BG_DEFAULT = 'paper';
+  function normBg(bg) { return bg || 'paper'; }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -143,46 +148,70 @@
 
   function curTree() { return state.boardId ? state.trees[state.boardId] : null; }
 
+  // Inline Iconify-style icons (item 5): hand-picked 16px outline SVGs in
+  // the spirit of the Iconify "link" sets (tabler/mdi lineage), inlined so
+  // there is no new runtime dep and the gzip budget holds. The + affordance
+  // for new card/board stays a text label (items 9/10) and is untouched.
+  var ICONS = {
+    link: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+    note: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+    img: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg>',
+    globe: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    del: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+  };
+
   function blockHTML(b) {
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
-      return '<div class="block"><a class="link" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
+      // Item 7: small remove affordance on link blocks, persisted via card PATCH.
+      return '<div class="block block-link"><a class="link" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
         (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22">' : '') +
-        '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a></div>';
+        '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
+        '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove link" aria-label="Remove link">&times;</button></div>';
     }
     if (b.type === 'image' && (b.thumb_url || b.image_url)) {
       var src = b.thumb_url || b.image_url;
       var full = b.image_url || b.thumb_url;
-      return '<div class="block"><a href="' + esc(full) + '" target="_blank" rel="noopener">' +
-        '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a></div>';
+      // Item 7: small remove affordance on image blocks, persisted via card PATCH.
+      return '<div class="block block-img"><a href="' + esc(full) + '" target="_blank" rel="noopener">' +
+        '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a>' +
+        '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove image" aria-label="Remove image">&times;</button></div>';
     }
-    // Note blocks render even when empty (placeholder for brand-new cards);
-    // link-only cards have no note block at all, so no placeholder appears.
+    // Item 1 (empty-note whitespace): empty notes render as a zero-layout
+    // inline affordance, not an empty block. Link-only cards carry no note
+    // block at all, so nothing renders until click-to-add-text.
     // No validation requires note content anywhere (client or server).
     if (b.type === 'note' || b.content) {
-      var empty = !b.content;
-      return '<div class="block note' + (empty ? ' empty' : '') + '" data-block="' + esc(b.id || '') + '"' +
-        ' title="Click to edit">' + (empty ? 'Write something&hellip;' : md(b.content)) + '</div>';
+      if (!b.content) {
+        return '<button class="note-add" data-block="' + esc(b.id || '') + '" title="Add text">+ add text</button>';
+      }
+      return '<div class="block note" data-block="' + esc(b.id || '') + '"' +
+        ' title="Click to edit">' + md(b.content) + '</div>';
     }
     return '';
   }
 
   function cardHTML(card) {
-    // Link-only: blocks render as-is; only a card with zero blocks (or
-    // blocks that render to '') falls back to the editable placeholder.
+    // Item 1: a card with zero blocks (or blocks rendering to '') gets a
+    // zero-layout add-text affordance, never an empty note div. Tabindex
+    // makes first-tap reveal the hover toolbar on touch (item 2).
     var inner = card.blocks.map(blockHTML).join('') ||
-      '<div class="block note empty" data-block="" title="Click to edit">Write something&hellip;</div>';
-    // Compact ghost icon bar (no Edit button; editing is click-to-edit).
-    return '<article class="card" draggable="true" data-card="' + card.id + '">' + inner +
-      '<div class="cardbar"><button data-act="addlink" title="Add link">&#128279;</button>' +
-      '<button data-act="addnote" title="Add note">&#9998;</button>' +
-      '<button data-act="addimg" title="Upload image">&#128247;</button>' +
-      '<button data-act="addimgurl" title="Add image URL">&#127760;</button>' +
-      '<button data-act="del" title="Delete card">&times;</button></div></article>';
+      '<button class="note-add" data-block="" title="Add text">+ add text</button>';
+    // Item 2: floating overlay toolbar (CSS absolute, no layout shift),
+    // revealed on hover / focus-within / first tap (.showbar). Item 5:
+    // Iconify-style inline SVG icons. Item 6: delete X far right with
+    // red hover + title/aria-label. Item 10 handled in column lane below.
+    return '<article class="card" draggable="true" tabindex="0" data-card="' + card.id + '">' + inner +
+      '<div class="cardbar" role="toolbar" aria-label="Card actions">' +
+      '<button data-act="addlink" title="Add link" aria-label="Add link">' + ICONS.link + '</button>' +
+      '<button data-act="addnote" title="Add note" aria-label="Add note">' + ICONS.note + '</button>' +
+      '<button data-act="addimg" title="Upload image" aria-label="Upload image">' + ICONS.img + '</button>' +
+      '<button data-act="addimgurl" title="Add image URL" aria-label="Add image URL">' + ICONS.globe + '</button>' +
+      '<button data-act="del" class="del" title="Delete card" aria-label="Delete card">' + ICONS.del + '</button></div></article>';
   }
 
   var SWATCHES = [
-    { id: '', name: 'Paper' },
+    { id: 'paper', name: 'Paper' },
     { id: 'honey', name: 'Honey' },
     { id: 'sage', name: 'Sage' },
     { id: 'sky', name: 'Sky' },
@@ -203,7 +232,7 @@
         : '<div class="emptyboard"><p>Welcome to Loom — create your first board to start writing.</p><button class="primary" data-newboard>＋ New board</button></div>';
       return;
     }
-    var bg = tree.board.background || BG_DEFAULT;
+    var bg = normBg(tree.board.background);
     document.body.dataset.bg = bg;
     var widths = getWidths();
     var cols = tree.columns || [];
@@ -213,8 +242,8 @@
     var head = '<div class="boardhead"><h1 class="boardtitle" id="boardtitle" title="Click to rename">' +
       esc(tree.board.title) + '</h1><div class="swatches" role="group" aria-label="Board background">' +
       SWATCHES.map(function (s) {
-        return '<button data-bg="' + s.id + '"' + ((bg || '') === s.id ? ' class="on"' : '') +
-          ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + (s.id || 'paper') + '"></i></button>';
+        return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
+          ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + s.id + '"></i></button>';
       }).join('') + '</div>' +
       (cols.length ? '<button class="ghost" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
       '</div>';
@@ -227,16 +256,20 @@
     boardEl.innerHTML = head + '<div class="cols' + (focus ? ' focus' : '') + '">' + cols.map(function (col) {
       var cards = (tree.cards[col.id] || []).map(cardHTML).join('');
       var w = widths[col.id];
-      var style = (w && !col.collapsed) ? ' style="width:' + w + 'px;flex-basis:' + w + 'px"' : '';
-      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" draggable="true" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + style + '>' +
+      // Item 8: column color themes the column via --colc (header wash +
+      // accent border in CSS); keeps working in light/dark via color-mix.
+      var style = '--colc:' + esc(col.color || '#c9c4b6') + ';' +
+        ((w && !col.collapsed) ? 'width:' + w + 'px;flex-basis:' + w + 'px;' : '');
+      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" draggable="true" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
         '<h2><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
         '<label class="cdot" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color">' +
         '<input type="color" data-colcolor="' + col.id + '" value="' + esc(col.color || '#4c8dff') + '" tabindex="-1"></label>' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="Click to rename">' + esc(col.title) + '</span>' +
         '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
         '<span class="resize" data-resize="' + col.id + '" title="Resize column"></span></h2>' +
-        '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+</button></div></section>';
-    }).join('') + '<button class="add-col-inline" data-newcol title="Add column">+<span>add column</span></button></div>';
+        // Item 10: explicit "+ add card" text label, not a bare +.
+        '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+ add card</button></div></section>';
+    }).join('') + '<button class="add-col-rail" data-newcol title="Add column"><span aria-hidden="true">+</span><span class="rail-label">add column</span></button></div>';
   }
 
   function findCard(id) {
@@ -292,6 +325,24 @@
     } catch (e) {}
   }
 
+  // Item 3 (editable markdown source): re-editing swaps the rendered HTML
+  // for the RAW markdown source first, so render applies only on commit and
+  // nothing is lost round-tripping through md().
+  function editNoteRaw(noteEl, blk, selectAll) {
+    if (noteEl && blk && typeof blk.content === 'string') {
+      noteEl.textContent = blk.content;
+    }
+    startEdit(noteEl, selectAll);
+  }
+
+  function blockById(card, id) {
+    if (!card) return null;
+    for (var i = 0; i < card.blocks.length; i++) {
+      if ((card.blocks[i].id || '') === (id || '')) return card.blocks[i];
+    }
+    return null;
+  }
+
   function commitNote(el) {
     var cardEl = el.closest && el.closest('[data-card]');
     if (!cardEl) return;
@@ -322,11 +373,33 @@
     if (!cardEl) return;
     var target = blockId ? cardEl.querySelector('[data-block="' + blockId + '"]') : null;
     if (!target) {
-      var notes = cardEl.querySelectorAll('.note');
+      var notes = cardEl.querySelectorAll('.note,.note-add');
       target = notes.length ? notes[notes.length - 1] : null;
     }
-    if (target) startEdit(target, selectAll !== false);
-    else cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!target) { cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+    // Item 1: the zero-layout affordance is a <button>; convert to an
+    // editable note div in place, then edit raw source (item 3).
+    if (target.classList.contains('note-add')) {
+      var card = findCard(cardId);
+      var blk = card && blockById(card, target.dataset.block);
+      if (!blk && card) {
+        blk = { id: target.dataset.block || '', type: 'note', content: '', position: card.blocks.length };
+        card.blocks.push(blk);
+        saveCache(); render();
+        focusNote(cardId, blk.id, selectAll);
+        return;
+      }
+      var div = document.createElement('div');
+      div.className = 'block note editing';
+      div.dataset.block = target.dataset.block || '';
+      div.title = 'Click to edit';
+      div.textContent = (blk && blk.content) || '';
+      target.replaceWith(div);
+      startEdit(div, selectAll !== false);
+      return;
+    }
+    var c = findCard(cardId);
+    editNoteRaw(target, c && blockById(c, target.dataset.block), selectAll !== false);
   }
 
   // Inline single-line composer inside a card (replaces prompt()).
@@ -400,6 +473,57 @@
       else if (e.key === 'Escape') done(false);
     });
   }
+  // Item 12: add-column form renders INLINE at the strip end where the
+  // column will appear (not a top-of-window field). Commit creates the
+  // column in place; Escape cancels.
+  function openInlineColForm() {
+    closeCreator();
+    closeInlineColForm();
+    var strip = boardEl.querySelector('.cols');
+    var rail = boardEl.querySelector('.add-col-rail');
+    var form = document.createElement('div');
+    form.className = 'inline-col-form';
+    form.innerHTML = '<input type="text" placeholder="Column name…" aria-label="New column name">' +
+      '<button data-ok>Create</button><button data-cancel aria-label="Cancel">✕</button>';
+    if (strip) strip.insertBefore(form, rail || null);
+    else { creatorEl.appendChild(form); }
+    var input = form.querySelector('input');
+    input.focus();
+    function done(commit) {
+      var val = input.value.trim();
+      var go = commit && val && state.boardId;
+      form.remove();
+      if (!go) return;
+      api('POST', '/api/boards/' + state.boardId + '/columns', { title: val, color: '#4c8dff' }).then(function (col) {
+        var tree = curTree();
+        if (tree) {
+          tree.columns = (tree.columns || []).concat([col]);
+          tree.cards[col.id] = [];
+          saveCache(); render();
+          // Auto-focus the new column title for immediate rename.
+          setTimeout(function () {
+            var el = boardEl.querySelector('[data-coltitle="' + col.id + '"]');
+            if (el) startEdit(el, true);
+          }, 0);
+        }
+        revalidate();
+      });
+    }
+    form.querySelector('[data-ok]').addEventListener('click', function () { done(true); });
+    form.querySelector('[data-cancel]').addEventListener('click', function () { done(false); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') done(true);
+      else if (e.key === 'Escape') done(false);
+    });
+    input.addEventListener('blur', function () {
+      // Commit on blur only if a name was typed; otherwise just close.
+      setTimeout(function () { if (form.isConnected) done(!!input.value.trim()); }, 0);
+    });
+  }
+  function closeInlineColForm() {
+    var f = boardEl.querySelector && boardEl.querySelector('.inline-col-form');
+    if (f) f.remove();
+  }
   function closeCreator() { creatorEl.innerHTML = ''; }
 
   // ---- Deep-linkable boards: #/b/<id> (back/forward via hashchange) ----
@@ -446,13 +570,48 @@
       try { e.dataTransfer.setData('text/plain', 'col:' + dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
     }
   });
-  document.addEventListener('dragend', function () { dragCard = null; dragCol = null; });
+  document.addEventListener('dragend', function () { dragCard = null; dragCol = null; clearDropHints(); });
+  // Item 13: visible drop zones — insertion line/highlight in lanes and
+  // between columns during the drag, via native drag events. Hints clear
+  // on every dragover reset, drop, and dragend; no silent reordering.
+  function clearDropHints() {
+    boardEl.querySelectorAll('.drop-hint,.drop-before,.drop-col-before,.drop-col-after').forEach(function (el) {
+      el.classList.remove('drop-hint', 'drop-before', 'drop-col-before', 'drop-col-after');
+    });
+  }
   boardEl.addEventListener('dragover', function (e) {
     if (!dragCard && !dragCol) return;
     e.preventDefault();
     try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
+    clearDropHints();
+    if (dragCard) {
+      var onCard = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
+      var lane = e.target && e.target.closest ? e.target.closest('[data-cards]') : null;
+      if (onCard && onCard.dataset.card !== dragCard) onCard.classList.add('drop-before');
+      if (lane) lane.classList.add('drop-hint');
+      else {
+        var sec = e.target && e.target.closest ? e.target.closest('[data-col]') : null;
+        if (sec) {
+          var l = sec.querySelector('[data-cards]');
+          if (l) l.classList.add('drop-hint');
+        }
+      }
+    } else if (dragCol) {
+      var over = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
+      if (over && over.dataset.coldrag !== dragCol) {
+        var r = over.getBoundingClientRect();
+        var after = (e.clientX - r.left) > r.width / 2;
+        over.classList.add(after ? 'drop-col-after' : 'drop-col-before');
+      }
+    }
+  });
+  boardEl.addEventListener('dragleave', function (e) {
+    // Only clear when truly leaving the board surface, not moving between
+    // children (relatedTarget still inside boardEl).
+    if (!e.relatedTarget || !(e.relatedTarget instanceof Node) || !boardEl.contains(e.relatedTarget)) clearDropHints();
   });
   boardEl.addEventListener('drop', function (e) {
+    clearDropHints();
     if (dragCol) {
       e.preventDefault();
       var over = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
@@ -540,7 +699,7 @@
   boardEl.addEventListener('click', function (e) {
     var t = e.target;
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
-    if (t.closest && t.closest('[data-newcol]')) { openCreator('column'); return; }
+    if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
     // Board background swatches (scoped: body also carries data-bg).
     var sw = t.closest && t.closest('.swatches [data-bg]');
     if (sw) {
@@ -596,10 +755,35 @@
         });
       return;
     }
-    // Click any note text to edit it directly (links still navigate).
+    // Click any note text to edit its RAW source directly (item 3; links
+    // still navigate). The zero-layout "+ add text" affordance (item 1)
+    // converts to an editable note in place with zero prior layout cost.
+    var addText = t.closest && t.closest('.note-add[data-block]');
+    if (addText) {
+      var cardElA = addText.closest('[data-card]');
+      var cardA = cardElA && findCard(cardElA.dataset.card);
+      if (cardA) {
+        var blkA = blockById(cardA, addText.dataset.block);
+        if (!blkA) {
+          blkA = { id: addText.dataset.block || '', type: 'note', content: '', position: cardA.blocks.length };
+          cardA.blocks.push(blkA);
+          saveCache(); render();
+          focusNote(cardA.id, blkA.id, true);
+        } else {
+          var divA = document.createElement('div');
+          divA.className = 'block note editing';
+          divA.dataset.block = addText.dataset.block || '';
+          divA.title = 'Click to edit';
+          divA.textContent = blkA.content || '';
+          addText.replaceWith(divA);
+          startEdit(divA, true);
+        }
+      }
+      return;
+    }
     var note = t.closest && t.closest('.note[data-block]');
     if (note && !note.isContentEditable && !(t.tagName === 'A')) {
-      // Empty-card placeholder also lands here via .note.empty[data-block=""].
+      // Empty-card placeholder also lands here via .note-add[data-block=""].
       var cardEl0 = note.closest('[data-card]');
       var card0 = cardEl0 && findCard(cardEl0.dataset.card);
       if (card0) {
@@ -608,9 +792,29 @@
           saveCache(); render();
           focusNote(card0.id, '', true);
         } else {
-          startEdit(note, false);
+          editNoteRaw(note, blockById(card0, note.dataset.block), false);
         }
       }
+      return;
+    }
+    // Item 7: remove an image/link block via its × affordance (card PATCH).
+    var rm = t.closest && t.closest('[data-rmblock]');
+    if (rm) {
+      var cardElR = rm.closest('[data-card]');
+      var cardR = cardElR && findCard(cardElR.dataset.card);
+      if (cardR) {
+        cardR.blocks = cardR.blocks.filter(function (x) { return (x.id || '') !== (rm.dataset.rmblock || ''); });
+        syncCard(cardR); render();
+      }
+      return;
+    }
+    // Item 2 (touch): first tap on a card reveals the overlay toolbar
+    // instead of triggering an action; second tap acts.
+    var cardTap = t.closest && t.closest('[data-card]');
+    if (cardTap && !cardTap.classList.contains('showbar') &&
+        window.matchMedia && matchMedia('(hover: none)').matches &&
+        !(t.closest && (t.closest('[data-act]') || t.closest('a') || t.closest('button') || (t.isContentEditable)))) {
+      cardTap.classList.add('showbar');
       return;
     }
     var bar = t.closest && t.closest('[data-act]');
@@ -717,8 +921,9 @@
     }
     if (t.classList && t.classList.contains('note')) commitNote(t);
   });
-  // Enter commits an inline edit and exits edit mode; Ctrl/Cmd+Enter
-  // inserts a newline. Applies to board/column titles and notes.
+  // Enter commits an inline edit and exits edit mode; Shift+Enter,
+  // Ctrl+Enter, AND Cmd/Meta+Enter all insert a newline (item 4 — all
+  // three, not platform-specific). Applies to board/column titles/notes.
   // Escape cancels.
   function insertNewline(t) {
     try {
@@ -741,7 +946,7 @@
     var t = e.target;
     if (!t || !t.isContentEditable) return;
     if (e.key === 'Escape') { e.preventDefault(); t.blur(); render(); }
-    else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       insertNewline(t);
     } else if (e.key === 'Enter') {

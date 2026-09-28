@@ -153,6 +153,7 @@ button.primary {
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: var(--shadow);
+  position: relative;
 }
 .card .block { margin: 0 0 12px; font-size: 14.5px; }
 .card .block:last-child { margin-bottom: 0; }
@@ -162,7 +163,25 @@ button.primary {
 .card a.link .u { color: var(--muted); font-size: 12.5px; }
 .card .note { white-space: pre-wrap; word-wrap: break-word; border-radius: 6px; }
 .card .note:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
-.card .note.empty { color: var(--muted); font-style: italic; cursor: text; }
+/* Item 1: zero-layout add-text affordance — inline, muted, no block space. */
+.note-add {
+  border: none; background: transparent; padding: 0; margin: 0;
+  color: var(--muted); font: inherit; font-size: 12.5px; cursor: text;
+  display: inline; text-align: left; line-height: 1.4;
+}
+.note-add:hover { color: var(--ink); text-decoration: underline; }
+/* Item 7: remove affordance on image/link blocks. */
+.block-link, .block-img { position: relative; }
+.rmblock {
+  position: absolute; top: 2px; right: 2px;
+  width: 22px; height: 22px; line-height: 1;
+  border: 1px solid var(--line); background: var(--card); color: var(--muted);
+  border-radius: 50%; cursor: pointer; font-size: 14px; padding: 0;
+  opacity: 0;
+}
+.block-link:hover .rmblock, .block-img:hover .rmblock,
+.block-link:focus-within .rmblock, .block-img:focus-within .rmblock { opacity: 1; }
+.rmblock:hover { color: #c0392b; border-color: #c0392b; }
 .md-h1 { font-size: 19px; margin: 2px 0 8px; letter-spacing: -0.2px; }
 .md-h2 { font-size: 16.5px; margin: 2px 0 8px; }
 .md-list { margin: 4px 0 8px; padding-left: 20px; }
@@ -173,32 +192,87 @@ button.primary {
 .card .note.editing { min-height: 1.4em; }
 .card img.photo { width: 100%; border-radius: 10px; display: block; background: var(--line); }
 .card code { background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 5px; padding: 0 5px; font-size: 13px; }
-.card .cardbar { display: flex; gap: 2px; margin-top: 8px; opacity: 0; flex-wrap: wrap; }
-.card:hover .cardbar, .card:focus-within .cardbar { opacity: 1; }
+/* Item 2: floating overlay toolbar — absolute, never shifts layout. */
+.card .cardbar {
+  position: absolute; right: 8px; bottom: 8px;
+  display: flex; gap: 2px; align-items: center;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border: 1px solid var(--line); border-radius: 10px;
+  padding: 3px 4px; margin: 0;
+  box-shadow: var(--shadow);
+  opacity: 0; pointer-events: none; transform: translateY(2px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 2;
+}
+.card:hover .cardbar, .card:focus-within .cardbar, .card.showbar .cardbar { opacity: 1; pointer-events: auto; transform: none; }
 .card .cardbar button {
   border: none; background: transparent; color: var(--muted);
-  cursor: pointer; font-size: 14px; line-height: 1; padding: 3px 7px; border-radius: 6px;
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 7px; border-radius: 6px;
+  display: inline-flex; align-items: center;
 }
 .card .cardbar button:hover { background: var(--bg-soft); color: var(--ink); }
+/* Item 6: delete X pinned far right with red hover state. */
+.card .cardbar button.del { margin-left: 6px; }
+.card .cardbar button.del:hover { color: #fff; background: #c0392b; }
 .composer { display: flex; gap: 6px; margin-top: 10px; }
 .composer input { font-size: 13.5px; padding: 6px 10px; }
 .composer button { padding: 6px 10px; font-size: 13px; }
-/* Compact ghost add-card: icon only, never stretches the column. */
+/* Item 10: explicit "+ add card" text pill, never a bare + or stretched row. */
 .add-compact {
-  align-self: flex-start; width: 30px; height: 30px; line-height: 1;
+  align-self: flex-start;
   border: 1px dashed var(--line); background: transparent;
-  color: var(--muted); border-radius: 50%; cursor: pointer; font-size: 17px;
+  color: var(--muted); border-radius: 10px; cursor: pointer;
+  font-size: 13px; padding: 5px 12px; white-space: nowrap;
 }
 .add-compact:hover { color: var(--ink); border-color: var(--muted); }
-/* Inline [+ add column] at the end of the column strip. */
-.add-col-inline {
-  flex: 0 0 auto; align-self: flex-start; margin-top: 34px;
-  display: flex; align-items: center; gap: 6px;
+/* Item 9: slim vertical add-column rail matching collapsed-column width. */
+.add-col-rail {
+  flex: 0 0 48px; width: 48px; align-self: stretch;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 14px 0;
   border: 1px dashed var(--line); background: transparent; color: var(--muted);
-  border-radius: 12px; padding: 10px 14px; cursor: pointer; font-size: 13.5px;
+  border-radius: 12px; cursor: pointer; font-size: 16px; line-height: 1;
+  min-height: 120px;
+}
+.add-col-rail .rail-label {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
   white-space: nowrap;
 }
-.add-col-inline:hover { color: var(--ink); border-color: var(--muted); }
+.add-col-rail:hover { color: var(--ink); border-color: var(--muted); }
+/* Item 12: inline new-column form at the strip end, sized like a column. */
+.inline-col-form {
+  flex: 0 0 340px; width: 340px;
+  display: flex; gap: 6px; align-items: center;
+  background: var(--card); border: 1px solid var(--accent);
+  border-radius: 14px; padding: 12px;
+  box-shadow: var(--shadow);
+}
+.inline-col-form input {
+  flex: 1; min-width: 0; font: inherit; color: var(--ink);
+  background: transparent; border: none; outline: none;
+}
+.inline-col-form button {
+  border: 1px solid var(--line); background: var(--bg-soft); color: var(--ink);
+  border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: 13px;
+  white-space: nowrap;
+}
+/* Item 13: visible drop zones — lane highlight, card insertion line,
+   and between-column insertion bars. */
+.cards.drop-hint {
+  outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  min-height: 48px;
+}
+.card.drop-before {
+  box-shadow: 0 -3px 0 var(--accent), var(--shadow);
+}
+.column.drop-col-before { box-shadow: -4px 0 0 var(--accent); }
+.column.drop-col-after { box-shadow: 4px 0 0 var(--accent); }
+/* Item 8: column color themes the column — accent top border + header wash.
+   color-mix keeps it tasteful in light and dark modes. */
+.column { border-top: 3px solid var(--colc, transparent); border-radius: 0 0 12px 12px; }
+.column > h2 { background: color-mix(in srgb, var(--colc, transparent) 12%, transparent); border-radius: 8px; padding: 4px 6px; }
 .column[draggable="true"], .card[draggable="true"] { cursor: grab; }
 .column[draggable="true"]:active, .card[draggable="true"]:active { cursor: grabbing; }
 .emptyboard {
