@@ -7,6 +7,7 @@
 CREATE TABLE IF NOT EXISTS boards (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL DEFAULT '',
+  background TEXT NOT NULL DEFAULT '',
   position INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL

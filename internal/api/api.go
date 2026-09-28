@@ -4,7 +4,7 @@
 //	GET    /api/boards            list boards
 //	POST   /api/boards            {title}
 //	GET    /api/boards/{id}       full tree (board + columns + cards)
-//	PATCH  /api/boards/{id}       {title}
+//	PATCH  /api/boards/{id}       {title,background}
 //	DELETE /api/boards/{id}
 //	POST   /api/boards/{id}/columns        {title,color}
 //	PATCH  /api/columns/{id}               {title,color,position,collapsed}
@@ -147,12 +147,34 @@ func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, tree)
 	case http.MethodPatch:
 		var body struct {
-			Title string `json:"title"`
+			Title      *string `json:"title"`
+			Background *string `json:"background"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		b, err := h.Store.UpdateBoard(id, body.Title)
+		if body.Title == nil && body.Background == nil {
+			writeErr(w, http.StatusBadRequest, "nothing to update")
+			return
+		}
+		// Merge with stored values so partial patches never wipe fields.
+		cur, err := h.Store.GetTree(id)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		title, bg := cur.Board.Title, cur.Board.Background
+		if body.Title != nil {
+			title = strings.TrimSpace(*body.Title)
+			if title == "" {
+				writeErr(w, http.StatusBadRequest, "title must not be empty")
+				return
+			}
+		}
+		if body.Background != nil {
+			bg = *body.Background
+		}
+		b, err := h.Store.UpdateBoard(id, title, bg)
 		if err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
 			return

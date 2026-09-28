@@ -15,11 +15,12 @@ const (
 
 // Board is a top-level page of columns.
 type Board struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	Position  int       `json:"position"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID         string    `json:"id"`
+	Title      string    `json:"title"`
+	Background string    `json:"background,omitempty"`
+	Position   int       `json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // Column is a vertical stack of cards. It carries over the v1

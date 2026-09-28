@@ -96,6 +96,58 @@ func TestBoardColumnCardCRUD(t *testing.T) {
 	}
 }
 
+func TestBoardStylingAndEmptyTreeShape(t *testing.T) {
+	_, mux := newTestServer(t)
+
+	rec := do(t, mux, "POST", "/api/boards", map[string]string{"title": "Styled"})
+	if rec.Code != 201 {
+		t.Fatalf("create board: %d %s", rec.Code, rec.Body.String())
+	}
+	var board model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &board); err != nil {
+		t.Fatal(err)
+	}
+
+	// Empty board tree must encode columns as [] (not null) so the
+	// client can render per-board without throwing.
+	rec = do(t, mux, "GET", "/api/boards/"+board.ID, nil)
+	if rec.Code != 200 {
+		t.Fatalf("get tree: %d %s", rec.Code, rec.Body.String())
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if cols, ok := raw["columns"].([]any); !ok || cols == nil {
+		t.Fatalf("expected columns [], got %v", raw["columns"])
+	}
+
+	// Partial PATCH (background only) must not wipe the title.
+	rec = do(t, mux, "PATCH", "/api/boards/"+board.ID, map[string]string{"background": "sage"})
+	if rec.Code != 200 {
+		t.Fatalf("patch background: %d %s", rec.Code, rec.Body.String())
+	}
+	var patched model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if patched.Background != "sage" || patched.Title != "Styled" {
+		t.Fatalf("bad merge: %+v", patched)
+	}
+
+	// Title-only PATCH must preserve the background.
+	rec = do(t, mux, "PATCH", "/api/boards/"+board.ID, map[string]string{"title": "Renamed"})
+	if rec.Code != 200 {
+		t.Fatalf("patch title: %d %s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil {
+		t.Fatal(err)
+	}
+	if patched.Title != "Renamed" || patched.Background != "sage" {
+		t.Fatalf("bad merge: %+v", patched)
+	}
+}
+
 func TestV1Import(t *testing.T) {
 	_, mux := newTestServer(t)
 	v1 := `{"version":1,"lists":[

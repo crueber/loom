@@ -33,6 +33,8 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	// Migrate pre-background databases: ignore duplicate-column errors.
+	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN background TEXT NOT NULL DEFAULT ''`)
 	return &SQLiteStore{db: db}, nil
 }
 
@@ -47,7 +49,7 @@ func parseTS(s string) time.Time {
 }
 
 func (s *SQLiteStore) ListBoards() ([]model.Board, error) {
-	rows, err := s.db.Query(`SELECT id,title,position,created_at,updated_at FROM boards ORDER BY position`)
+	rows, err := s.db.Query(`SELECT id,title,COALESCE(background,''),position,created_at,updated_at FROM boards ORDER BY position`)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +58,7 @@ func (s *SQLiteStore) ListBoards() ([]model.Board, error) {
 	for rows.Next() {
 		var b model.Board
 		var ca, ua string
-		if err := rows.Scan(&b.ID, &b.Title, &b.Position, &ca, &ua); err != nil {
+		if err := rows.Scan(&b.ID, &b.Title, &b.Background, &b.Position, &ca, &ua); err != nil {
 			return nil, err
 		}
 		b.CreatedAt, b.UpdatedAt = parseTS(ca), parseTS(ua)
@@ -74,16 +76,16 @@ func (s *SQLiteStore) CreateBoard(title string) (model.Board, error) {
 		return model.Board{}, err
 	}
 	b := model.NewBoard(title, n)
-	_, err := s.db.Exec(`INSERT INTO boards(id,title,position,created_at,updated_at) VALUES(?,?,?,?,?)`,
-		b.ID, b.Title, b.Position, ts(b.CreatedAt), ts(b.UpdatedAt))
+	_, err := s.db.Exec(`INSERT INTO boards(id,title,background,position,created_at,updated_at) VALUES(?,?,?,?,?,?)`,
+		b.ID, b.Title, b.Background, b.Position, ts(b.CreatedAt), ts(b.UpdatedAt))
 	return b, err
 }
 
 func (s *SQLiteStore) getBoard(id string) (model.Board, error) {
 	var b model.Board
 	var ca, ua string
-	err := s.db.QueryRow(`SELECT id,title,position,created_at,updated_at FROM boards WHERE id=?`, id).
-		Scan(&b.ID, &b.Title, &b.Position, &ca, &ua)
+	err := s.db.QueryRow(`SELECT id,title,COALESCE(background,''),position,created_at,updated_at FROM boards WHERE id=?`, id).
+		Scan(&b.ID, &b.Title, &b.Background, &b.Position, &ca, &ua)
 	if err == sql.ErrNoRows {
 		return b, fmt.Errorf("board not found")
 	}
@@ -108,6 +110,9 @@ func (s *SQLiteStore) listColumns(boardID string) ([]model.Column, error) {
 		c.Collapsed = collapsed != 0
 		c.CreatedAt = parseTS(ca)
 		out = append(out, c)
+	}
+	if out == nil {
+		out = []model.Column{}
 	}
 	return out, rows.Err()
 }
@@ -169,6 +174,9 @@ func (s *SQLiteStore) GetTree(boardID string) (model.BoardTree, error) {
 		return model.BoardTree{}, err
 	}
 	tree := model.BoardTree{Board: b, Columns: cols, Cards: map[string][]model.Card{}}
+	if tree.Columns == nil {
+		tree.Columns = []model.Column{}
+	}
 	for _, c := range cols {
 		cards, err := s.listCards(c.ID)
 		if err != nil {
@@ -179,8 +187,8 @@ func (s *SQLiteStore) GetTree(boardID string) (model.BoardTree, error) {
 	return tree, nil
 }
 
-func (s *SQLiteStore) UpdateBoard(id, title string) (model.Board, error) {
-	res, err := s.db.Exec(`UPDATE boards SET title=?, updated_at=? WHERE id=?`, title, ts(time.Now().UTC()), id)
+func (s *SQLiteStore) UpdateBoard(id, title, background string) (model.Board, error) {
+	res, err := s.db.Exec(`UPDATE boards SET title=?, background=?, updated_at=? WHERE id=?`, title, background, ts(time.Now().UTC()), id)
 	if err != nil {
 		return model.Board{}, err
 	}
@@ -394,8 +402,8 @@ func (s *SQLiteStore) ImportTree(tree model.BoardTree) (model.BoardTree, error) 
 		return model.BoardTree{}, err
 	}
 	tree.Board.Position = n
-	if _, err := tx.Exec(`INSERT INTO boards(id,title,position,created_at,updated_at) VALUES(?,?,?,?,?)`,
-		tree.Board.ID, tree.Board.Title, tree.Board.Position, ts(tree.Board.CreatedAt), ts(tree.Board.UpdatedAt)); err != nil {
+	if _, err := tx.Exec(`INSERT INTO boards(id,title,background,position,created_at,updated_at) VALUES(?,?,?,?,?,?)`,
+		tree.Board.ID, tree.Board.Title, tree.Board.Background, tree.Board.Position, ts(tree.Board.CreatedAt), ts(tree.Board.UpdatedAt)); err != nil {
 		return model.BoardTree{}, err
 	}
 	for _, c := range tree.Columns {

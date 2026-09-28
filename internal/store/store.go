@@ -23,7 +23,7 @@ type Store interface {
 	ListBoards() ([]model.Board, error)
 	CreateBoard(title string) (model.Board, error)
 	GetTree(boardID string) (model.BoardTree, error)
-	UpdateBoard(id, title string) (model.Board, error)
+	UpdateBoard(id, title, background string) (model.Board, error)
 	DeleteBoard(id string) error
 
 	CreateColumn(boardID, title, color string) (model.Column, error)
@@ -118,7 +118,7 @@ func (s *FileStore) GetTree(boardID string) (model.BoardTree, error) {
 		if b.ID != boardID {
 			continue
 		}
-		tree := model.BoardTree{Board: b, Cards: map[string][]model.Card{}}
+		tree := model.BoardTree{Board: b, Columns: []model.Column{}, Cards: map[string][]model.Card{}}
 		for _, c := range s.snap.Columns {
 			if c.BoardID == boardID {
 				tree.Columns = append(tree.Columns, c)
@@ -128,6 +128,9 @@ func (s *FileStore) GetTree(boardID string) (model.BoardTree, error) {
 		for _, c := range tree.Columns {
 			cards := append([]model.Card{}, s.snap.Cards[c.ID]...)
 			sort.Slice(cards, func(i, j int) bool { return cards[i].Position < cards[j].Position })
+			if cards == nil {
+				cards = []model.Card{}
+			}
 			tree.Cards[c.ID] = cards
 		}
 		return tree, nil
@@ -135,12 +138,13 @@ func (s *FileStore) GetTree(boardID string) (model.BoardTree, error) {
 	return model.BoardTree{}, fmt.Errorf("board not found")
 }
 
-func (s *FileStore) UpdateBoard(id, title string) (model.Board, error) {
+func (s *FileStore) UpdateBoard(id, title, background string) (model.Board, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i, b := range s.snap.Boards {
 		if b.ID == id {
 			s.snap.Boards[i].Title = title
+			s.snap.Boards[i].Background = background
 			return s.snap.Boards[i], s.persistLocked()
 		}
 	}
