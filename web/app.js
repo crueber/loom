@@ -52,7 +52,7 @@
   // inline marks apply within each line.
   function inlineFmt(h) {
     h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
-    h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>');
     h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     h = h.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
     return h;
@@ -224,7 +224,7 @@
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
       // Item 7: small remove affordance on link blocks, persisted via card PATCH.
-      return '<div class="block block-link">' + bhandleHTML(cardId, b.id) + '<a class="link" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
+      return '<div class="block block-link">' + bhandleHTML(cardId, b.id) + '<a class="link" href="' + esc(b.url) + '">' +
         (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22">' : '') +
         '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove link" aria-label="Remove link">&times;</button></div>';
@@ -233,7 +233,7 @@
       var src = b.thumb_url || b.image_url;
       var full = b.image_url || b.thumb_url;
       // Item 7: small remove affordance on image blocks, persisted via card PATCH.
-      return '<div class="block block-img">' + bhandleHTML(cardId, b.id) + '<a href="' + esc(full) + '" target="_blank" rel="noopener">' +
+      return '<div class="block block-img">' + bhandleHTML(cardId, b.id) + '<a href="' + esc(full) + '">' +
         '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove image" aria-label="Remove image">&times;</button></div>';
     }
