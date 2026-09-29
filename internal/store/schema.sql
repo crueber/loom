@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS blocks (
   image_url TEXT NOT NULL DEFAULT '',
   thumb_url TEXT NOT NULL DEFAULT '',
   alt TEXT NOT NULL DEFAULT '',
-  checked INTEGER NOT NULL DEFAULT 0
+  checked INTEGER NOT NULL DEFAULT 0,
+  items TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_blocks_card ON blocks(card_id, position);
 

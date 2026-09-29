@@ -107,14 +107,66 @@
     } catch (e) {}
   }
 
-  function normalizeTree(tree) {
-    if (!tree) return null;
+  function normalizeTree(tree) {    if (!tree) return null;
     if (!tree.columns) tree.columns = [];
     if (!tree.cards) tree.cards = {};
     tree.columns.forEach(function (c) {
       if (!tree.cards[c.id]) tree.cards[c.id] = [];
     });
+    Object.keys(tree.cards).forEach(function (k) {
+      (tree.cards[k] || []).forEach(normalizeCardTodos);
+    });
     return tree;
+  }
+
+  // Single-block checklist model: one {type:'todo'} block holds the whole
+  // list via its items array. Consecutive LEGACY single-row todo blocks
+  // (no items) merge into one list here so cached/server data renders as
+  // one <ul>; modern lists (with items) never merge, so adjacent lists
+  // from + todo stay separate. The server applies the same rule on card
+  // PATCH/read.
+  function todoItemsOf(b) {
+    if (b && Array.isArray(b.items) && b.items.length) return b.items;
+    if (b && b.type === 'todo') {
+      return [{ id: b.id || '', content: b.content || '', checked: !!b.checked }];
+    }
+    return [];
+  }
+  function normalizeCardTodos(card) {
+    if (!card || !Array.isArray(card.blocks)) return card;
+    var out = [], run = [];
+    function flush() {
+      if (!run.length) return;
+      if (run.length === 1) {
+        var b = run[0];
+        b.items = todoItemsOf(b);
+        b.content = '';
+        b.checked = false;
+        out.push(b);
+      } else {
+        var merged = { id: (run[0] && run[0].id) || '', type: 'todo', position: 0, items: [] };
+        run.forEach(function (x) {
+          todoItemsOf(x).forEach(function (it) { merged.items.push(it); });
+        });
+        out.push(merged);
+      }
+      run = [];
+    }
+    card.blocks.forEach(function (b) {
+      if (b.type === 'todo' && !(b.items && b.items.length)) run.push(b);
+      else { flush(); out.push(b); }
+    });
+    flush();
+    out.forEach(function (b, i) { b.position = i; });
+    card.blocks = out;
+    return card;
+  }
+  function countTodoItems(card) {
+    var n = 0;
+    (card.blocks || []).forEach(function (b) {
+      if (b.type === 'todo') n += todoItemsOf(b).length;
+    });
+    return n;
   }
 
   function loadCache() {
@@ -159,6 +211,12 @@
   }
 
   function curTree() { return state.boardId ? state.trees[state.boardId] : null; }
+  // Client-minted temp ids for new todo blocks/items so Enter-chained
+  // drafts match unambiguously before the server roundtrip assigns real
+  // ids (the server keeps client ids; it only backfills empty ones).
+  function tmpId() {
+    return 'tmp-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
   // Round 4 item 6: ordered boards — server order (creation/position)
   // with the localStorage override applied. No server reorder path, so
   // this is the single source of tab order; see LS_BOARDORDER comment.
@@ -216,10 +274,9 @@
   }
 
   function blockHTML(b, cardId) {
-    // Todo rows render grouped as one checklist via blocksHTML below;
-    // this single-row fallback keeps blockHTML total (drag/drop, tests).
+    // One todo block = one checklist <ul>; see todoListHTML below.
     if (b.type === 'todo') {
-      return '<ul class="todo-list">' + todoItemHTML(b, cardId) + '</ul>';
+      return todoListHTML(b, cardId);
     }
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
@@ -253,34 +310,29 @@
     return '';
   }
 
-  // Todo-list blocks: each row is one {type:'todo'} block; consecutive
-  // rows render as one checklist <ul>. The checkbox toggles checked via
-  // card PATCH without entering edit mode; the text span edits inline.
-  function todoItemHTML(b, cardId) {
-    var label = b.content ? esc(b.content) : '<span class="todo-empty">Todo…</span>';
-    return '<li class="block todo' + (b.checked ? ' done' : '') + '" data-block="' + esc(b.id || '') + '">' +
-      bhandleHTML(cardId, b.id) +
-      '<input type="checkbox" data-todotoggle="' + esc(b.id || '') + '"' + (b.checked ? ' checked' : '') + ' aria-label="Toggle todo">' +
-      '<span class="todo-text" data-todo="' + esc(b.id || '') + '" title="Click to edit">' + label + '</span>' +
-      '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove todo" aria-label="Remove todo">&times;</button></li>';
+  // Todo-list blocks: one block holds the whole checklist via its items
+  // array and renders as one <ul>. The checkbox toggles checked via card
+  // PATCH without entering edit mode; the text span edits inline. The <ul>
+  // itself carries .block + data-block so block drag-drop targets the list.
+  function todoItemHTML(block, it, cardId) {
+    void cardId;
+    var label = it.content ? esc(it.content) : '<span class="todo-empty">Todo…</span>';
+    var bid = esc(block.id || ''), iid = esc(it.id || '');
+    return '<li class="todo' + (it.checked ? ' done' : '') + '" data-todolist="' + bid + '" data-todo="' + iid + '">' +
+      '<input type="checkbox" data-todolist="' + bid + '" data-todotoggle="' + iid + '"' + (it.checked ? ' checked' : '') + ' aria-label="Toggle todo">' +
+      '<span class="todo-text" data-todolist="' + bid + '" data-todo="' + iid + '" title="Click to edit">' + label + '</span>' +
+      '<button class="rmblock" data-todolist="' + bid + '" data-rmtodo="' + iid + '" title="Remove todo" aria-label="Remove todo">&times;</button></li>';
   }
 
-  // Group consecutive todo blocks into single <ul> checklists; other
-  // blocks render via blockHTML as before.
+  function todoListHTML(b, cardId) {
+    return '<ul class="todo-list block" data-block="' + esc(b.id || '') + '">' + bhandleHTML(cardId, b.id) +
+      todoItemsOf(b).map(function (it) { return todoItemHTML(b, it, cardId); }).join('') + '</ul>';
+  }
+
+  // Each todo block renders its own <ul> checklist; no cross-block
+  // grouping (one block = one list; a second list needs + todo).
   function blocksHTML(card) {
-    var out = [];
-    var run = [];
-    function flush() {
-      if (!run.length) return;
-      out.push('<ul class="todo-list">' + run.map(function (b) { return todoItemHTML(b, card.id); }).join('') + '</ul>');
-      run = [];
-    }
-    card.blocks.forEach(function (b) {
-      if (b.type === 'todo') run.push(b);
-      else { flush(); out.push(blockHTML(b, card.id)); }
-    });
-    flush();
-    return out.join('');
+    return card.blocks.map(function (b) { return blockHTML(b, card.id); }).join('');
   }
 
   function cardHTML(card) {
@@ -557,25 +609,60 @@
     editNoteRaw(target, c && blockById(c, target.dataset.block), selectAll !== false);
   }
 
-  // Todo inline edit: the text span edits raw content like notes. Blur
-  // commits; committing empty text deletes that row only, keeping the rest.
-  function todoBlockOf(card, todoId) {
+  // Todo inline edit: the text span edits raw content like notes. Locate
+  // an item by (list block id, item id); ensures the block carries a real
+  // items array so edits always land in the same block. Blur commits;
+  // committing empty text deletes that item only, keeping the rest.
+  function todoLoc(card, blockId, itemId) {
     if (!card) return null;
     for (var i = 0; i < card.blocks.length; i++) {
-      var x = card.blocks[i];
-      if (x.type === 'todo' && (x.id || '') === (todoId || '')) return x;
-    }
-    if ((todoId || '') === '') {
-      for (var j = card.blocks.length - 1; j >= 0; j--) {
-        if (card.blocks[j].type === 'todo' && !card.blocks[j].content) return card.blocks[j];
+      var b = card.blocks[i];
+      if (b.type !== 'todo') continue;
+      if ((blockId || '') !== '' && (b.id || '') !== (blockId || '')) continue;
+      if (!Array.isArray(b.items) || !b.items.length) b.items = todoItemsOf(b);
+      for (var j = 0; j < b.items.length; j++) {
+        if ((b.items[j].id || '') === (itemId || '')) {
+          return { block: b, index: i, item: b.items[j], itemIndex: j };
+        }
+      }
+      if ((itemId || '') === '') {
+        for (var k = b.items.length - 1; k >= 0; k--) {
+          if (!b.items[k].content) return { block: b, index: i, item: b.items[k], itemIndex: k };
+        }
+      }
+      if ((blockId || '') !== '' && (b.id || '') === (blockId || '')) {
+        return { block: b, index: i, item: null, itemIndex: -1 };
       }
     }
     return null;
   }
 
-  function editTodoRaw(spanEl, blk, selectAll) {
-    if (spanEl && blk && typeof blk.content === 'string') {
-      spanEl.textContent = blk.content;
+  // Global item ordinal across all todo lists in a card (for focus).
+  function todoOrdinal(card, blockId, itemId) {
+    var n = 0;
+    for (var i = 0; i < card.blocks.length; i++) {
+      if (card.blocks[i].type !== 'todo') continue;
+      var items = todoItemsOf(card.blocks[i]);
+      for (var j = 0; j < items.length; j++) {
+        if ((card.blocks[i].id || '') === (blockId || '') && (items[j].id || '') === (itemId || '')) return n;
+        n++;
+      }
+    }
+    return n;
+  }
+
+  // Drop one item; when its list empties, drop the list block too.
+  function removeTodoItem(card, loc) {
+    loc.block.items.splice(loc.itemIndex, 1);
+    if (!loc.block.items.length) {
+      card.blocks.splice(loc.index, 1);
+    }
+    card.blocks.forEach(function (b, i) { b.position = i; });
+  }
+
+  function editTodoRaw(spanEl, item, selectAll) {
+    if (spanEl && item && typeof item.content === 'string') {
+      spanEl.textContent = item.content;
     }
     startEdit(spanEl, selectAll);
   }
@@ -585,43 +672,34 @@
     if (!cardEl) return;
     var card = findCard(cardEl.dataset.card);
     if (!card) return;
+    var loc = todoLoc(card, el.dataset.todolist, el.dataset.todo);
+    if (!loc || !loc.item) { render(); return; }
     var text = el.innerText.replace(/\n+$/, '');
-    var blk = todoBlockOf(card, el.dataset.todo);
-    if (!blk) { render(); return; }
     if (!text) {
-      // Empty todo commits as a delete of that row only.
-      card.blocks = card.blocks.filter(function (x) { return x !== blk; });
-      card.blocks.forEach(function (b, i) { b.position = i; });
+      // Empty todo commits as a delete of that item only.
+      removeTodoItem(card, loc);
       syncCard(card); render();
       return;
     }
-    if ((blk.content || '') !== text) {
-      blk.content = text;
+    if ((loc.item.content || '') !== text) {
+      loc.item.content = text;
       syncCard(card);
     }
     render();
   }
 
-  // Focus the todo text at block index right after a render commit.
-  // Index-based (not id-based) so Enter-chained empty rows focus exactly.
-  function focusTodoAt(cardId, index, selectAll) {
+  // Focus the todo text at global item ordinal right after a render
+  // commit. Ordinal-based (not id-based) so Enter-chained drafts focus
+  // exactly even before the server assigns ids.
+  function focusTodoAt(cardId, ordinal, selectAll) {
     var cardEl = boardEl.querySelector('[data-card="' + cardId + '"]');
     if (!cardEl) return;
     var spans = cardEl.querySelectorAll('.todo-text');
-    var target = spans.length ? spans[Math.max(0, Math.min(index, spans.length - 1))] : null;
+    var target = spans.length ? spans[Math.max(0, Math.min(ordinal, spans.length - 1))] : null;
     if (!target) { cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
     var c = findCard(cardId);
-    var blk = null;
-    if (c) {
-      var seen = -1;
-      for (var i = 0; i < c.blocks.length; i++) {
-        if (c.blocks[i].type !== 'todo') continue;
-        seen++;
-        if (seen === index) { blk = c.blocks[i]; break; }
-      }
-      if (!blk) blk = todoBlockOf(c, target.dataset.todo);
-    }
-    editTodoRaw(target, blk, selectAll !== false);
+    var loc = c ? todoLoc(c, target.dataset.todolist, target.dataset.todo) : null;
+    editTodoRaw(target, loc && loc.item, selectAll !== false);
   }
 
   // Inline single-line composer inside a card (replaces prompt()).
@@ -1143,7 +1221,25 @@
     if (todo && !todo.isContentEditable) {
       var cardElT = todo.closest('[data-card]');
       var cardT = cardElT && findCard(cardElT.dataset.card);
-      if (cardT) editTodoRaw(todo, todoBlockOf(cardT, todo.dataset.todo), false);
+      if (cardT) {
+        var locT = todoLoc(cardT, todo.dataset.todolist, todo.dataset.todo);
+        editTodoRaw(todo, locT && locT.item, false);
+      }
+      return;
+    }
+    // Todo item remove (× per row): drops that item only, keeping the
+    // rest of the list; an emptied list drops its block too.
+    var rmt = t.closest && t.closest('[data-rmtodo]');
+    if (rmt) {
+      var cardElM = rmt.closest('[data-card]');
+      var cardM = cardElM && findCard(cardElM.dataset.card);
+      if (cardM) {
+        var locM = todoLoc(cardM, rmt.dataset.todolist, rmt.dataset.rmtodo);
+        if (locM && locM.item) {
+          removeTodoItem(cardM, locM);
+          syncCard(cardM); render();
+        }
+      }
       return;
     }
     // Item 7: remove an image/link block via its × affordance (card PATCH).
@@ -1191,11 +1287,13 @@
       saveCache(); render();
       focusNote(card.id, '', true);
     } else if (act === 'addtodo') {
-      // Same render-first pattern as addnote; blur commits the row.
-      card.blocks.push({ id: '', type: 'todo', content: '', checked: false, position: card.blocks.length });
+      // New checklist block (one block = one list); render-first like
+      // addnote, then focus its first item. A second list needs another
+      // explicit + todo — Enter never creates a block, only items.
+      var nb = { id: tmpId(), type: 'todo', position: card.blocks.length, items: [{ id: tmpId(), content: '', checked: false }] };
+      card.blocks.push(nb);
       saveCache(); render();
-      var ti = card.blocks.filter(function (b) { return b.type === 'todo'; }).length - 1;
-      focusTodoAt(card.id, ti, true);
+      focusTodoAt(card.id, countTodoItems(card) - 1, true);
     } else if (act === 'addimg') {
       // Local upload: hidden file picker -> POST /api/images -> image block.
       var input = document.createElement('input');
@@ -1223,16 +1321,16 @@
     }
   });
 
-  // Todo checkbox toggles persist via card PATCH without edit mode.
+  // Todo checkbox toggles one item via card PATCH without edit mode.
   boardEl.addEventListener('change', function (e) {
     var t = e.target;
     if (!t || !t.dataset || t.dataset.todotoggle === undefined) return;
     var cardEl = t.closest && t.closest('[data-card]');
     var card = cardEl && findCard(cardEl.dataset.card);
     if (!card) return;
-    var blk = todoBlockOf(card, t.dataset.todotoggle);
-    if (!blk || blk.checked === t.checked) return;
-    blk.checked = t.checked;
+    var loc = todoLoc(card, t.dataset.todolist, t.dataset.todotoggle);
+    if (!loc || !loc.item || !!loc.item.checked === t.checked) return;
+    loc.item.checked = t.checked;
     syncCard(card);
   });
 
@@ -1343,11 +1441,12 @@
         var cardElC = t.closest && t.closest('[data-card]');
         var cardC = cardElC && findCard(cardElC.dataset.card);
         if (cardC) {
-          var blkC = todoBlockOf(cardC, t.dataset.todo);
-          if (blkC && !blkC.content) {
-            cardC.blocks = cardC.blocks.filter(function (x) { return x !== blkC; });
-            cardC.blocks.forEach(function (b, i) { b.position = i; });
-            saveCache();
+          var locC = todoLoc(cardC, t.dataset.todolist, t.dataset.todo);
+          // Escape discards uncommitted keystrokes; an empty draft item
+          // goes away, the rest of the list is untouched.
+          if (locC && locC.item && !locC.item.content) {
+            removeTodoItem(cardC, locC);
+            saveCache(); syncCard(cardC);
           }
         }
         render();
@@ -1380,9 +1479,10 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
-    // Todo rows: Enter commits + inserts the next row (each Enter saves);
-    // Escape stops editing, discarding keystrokes. Note behavior below
-    // is unchanged.
+    // Todo items: Enter commits text and creates the next item IN THE
+    // SAME block (no new block). Enter on an empty item ends editing
+    // without adding rows (an empty draft item is dropped, rest kept).
+    // Escape ends editing, discarding uncommitted keystrokes.
     if (t.classList && t.classList.contains('todo-text')) {
       if (e.key === 'Escape') { e.preventDefault(); t.dataset.cancel = '1'; t.blur(); return; }
       if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
@@ -1395,20 +1495,21 @@
         var cardElE = t.closest && t.closest('[data-card]');
         var cardE = cardElE && findCard(cardElE.dataset.card);
         if (!cardE) { t.blur(); return; }
+        var locE = todoLoc(cardE, t.dataset.todolist, t.dataset.todo);
+        if (!locE || !locE.item) { t.blur(); render(); return; }
         var textE = t.innerText.replace(/\n+$/, '');
-        var blkE = todoBlockOf(cardE, t.dataset.todo);
-        if (!blkE) { t.blur(); render(); return; }
-        var at = cardE.blocks.indexOf(blkE);
-        if (textE) blkE.content = textE;
-        else cardE.blocks.splice(at, 1);
-        if (at < 0) at = cardE.blocks.length;
-        var atNew = at + (textE ? 1 : 0);
-        cardE.blocks.splice(atNew, 0, { id: '', type: 'todo', content: '', checked: false, position: 0 });
+        if (!textE) {
+          if (!locE.item.content) removeTodoItem(cardE, locE);
+          saveCache(); syncCard(cardE); render();
+          t.blur();
+          return;
+        }
+        locE.item.content = textE;
+        var ordE = todoOrdinal(cardE, locE.block.id, locE.item.id);
+        locE.block.items.splice(locE.itemIndex + 1, 0, { id: tmpId(), content: '', checked: false });
         cardE.blocks.forEach(function (b, i) { b.position = i; });
-        var ord = 0;
-        for (var k = 0; k < atNew; k++) if (cardE.blocks[k].type === 'todo') ord++;
         saveCache(); syncCard(cardE); render();
-        focusTodoAt(cardE.id, ord, true);
+        focusTodoAt(cardE.id, ordE + 1, true);
         return;
       }
       return;

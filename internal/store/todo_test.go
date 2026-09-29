@@ -11,6 +11,8 @@ import (
 )
 
 // Todo checked state survives create/update/reload on both backends.
+// One todo block = one checklist: a single list block roundtrips with
+// its items intact.
 func TestTodoCheckedRoundTrip(t *testing.T) {
 	stores := map[string]Store{}
 	sqlite, err := OpenSQLite(filepath.Join(t.TempDir(), "todo.db"))
@@ -35,8 +37,11 @@ func TestTodoCheckedRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		done := model.NewTodoBlock("done")
-		done.Checked = true
-		card, err := st.CreateCard(col.ID, []model.Block{model.NewTodoBlock("open"), done})
+		done.Items[0].Checked = true
+		open := model.NewTodoBlock("open")
+		list := model.Block{ID: "list1", Type: model.BlockTodo,
+			Items: append(open.Items, done.Items...)}
+		card, err := st.CreateCard(col.ID, []model.Block{list})
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -45,12 +50,16 @@ func TestTodoCheckedRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		blocks := tree.Cards[col.ID][0].Blocks
-		if len(blocks) != 2 || blocks[0].Type != model.BlockTodo || blocks[0].Checked ||
-			blocks[1].Type != model.BlockTodo || !blocks[1].Checked || blocks[1].Content != "done" {
+		if len(blocks) != 1 || blocks[0].Type != model.BlockTodo || len(blocks[0].Items) != 2 {
+			t.Fatalf("%s: want one checklist block with 2 items, got %+v", name, blocks)
+		}
+		if blocks[0].Items[0].Content != "open" || blocks[0].Items[0].Checked ||
+			blocks[0].Items[1].Content != "done" || !blocks[0].Items[1].Checked {
 			t.Fatalf("%s: bad reload: %+v", name, blocks)
 		}
 		// Toggle via full-card persist, then reload.
-		card.Blocks[0].Checked = true
+		card = tree.Cards[col.ID][0]
+		card.Blocks[0].Items[0].Checked = true
 		if _, err := st.UpdateCard(card); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -58,9 +67,46 @@ func TestTodoCheckedRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if got := tree2.Cards[col.ID][0].Blocks; !got[0].Checked || !got[1].Checked {
+		if got := tree2.Cards[col.ID][0].Blocks; len(got) != 1 || !got[0].Items[0].Checked || !got[0].Items[1].Checked {
 			t.Fatalf("%s: toggle lost: %+v", name, got)
 		}
+	}
+}
+
+// Consecutive legacy single-row todo blocks (Content/Checked, no Items)
+// migrate into one checklist block on PATCH/read.
+func TestLegacyTodoRowsMerge(t *testing.T) {
+	legacy := []model.Block{
+		{ID: "r1", Type: model.BlockTodo, Content: "one"},
+		{ID: "r2", Type: model.BlockTodo, Content: "two", Checked: true},
+		{ID: "n", Type: model.BlockNote, Content: "sep"},
+		{ID: "r3", Type: model.BlockTodo, Content: "three"},
+	}
+	got := model.NormalizeTodoBlocks(legacy)
+	if len(got) != 3 {
+		t.Fatalf("want 3 blocks (list, note, list), got %+v", got)
+	}
+	if got[0].Type != model.BlockTodo || len(got[0].Items) != 2 ||
+		got[0].Items[0].ID != "r1" || got[0].Items[0].Content != "one" ||
+		got[0].Items[1].ID != "r2" || !got[0].Items[1].Checked {
+		t.Fatalf("first run not merged: %+v", got[0])
+	}
+	if got[1].Type != model.BlockNote || got[2].Type != model.BlockTodo || len(got[2].Items) != 1 ||
+		got[2].Items[0].Content != "three" {
+		t.Fatalf("separator run wrong: %+v", got)
+	}
+	// Adjacent modern lists (with Items) never merge: + todo stays separate.
+	modern := []model.Block{
+		{ID: "m1", Type: model.BlockTodo, Items: []model.TodoItem{{ID: "i1", Content: "l1"}}},
+		{ID: "m2", Type: model.BlockTodo, Items: []model.TodoItem{{ID: "i2", Content: "l2"}}},
+	}
+	if got := model.NormalizeTodoBlocks(modern); len(got) != 2 || got[0].ID != "m1" || got[1].ID != "m2" {
+		t.Fatalf("modern lists merged: %+v", got)
+	}
+	// Deprecated fallback: ItemsOf exposes Content/Checked rows.
+	fb := model.TodoItems(model.Block{ID: "x", Type: model.BlockTodo, Content: "hi", Checked: true})
+	if len(fb) != 1 || fb[0].Content != "hi" || !fb[0].Checked {
+		t.Fatalf("fallback read path broken: %+v", fb)
 	}
 }
 
@@ -100,13 +146,14 @@ func TestSQLiteTodoMigration(t *testing.T) {
 		t.Fatalf("old rows unreadable: %+v", tree)
 	}
 	card := tree.Cards["c"][0]
-	card.Blocks = append(card.Blocks, model.NewTodoBlock("migrated"))
-	card.Blocks[1].Checked = true
+	migrated := model.NewTodoBlock("migrated")
+	migrated.Items[0].Checked = true
+	card.Blocks = append(card.Blocks, migrated)
 	updated, err := st.UpdateCard(card)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(updated.Blocks) != 2 || !updated.Blocks[1].Checked {
+	if len(updated.Blocks) != 2 || len(updated.Blocks[1].Items) != 1 || !updated.Blocks[1].Items[0].Checked {
 		t.Fatalf("checked lost after migration: %+v", updated.Blocks)
 	}
 }
