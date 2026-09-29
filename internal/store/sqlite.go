@@ -1,6 +1,6 @@
 // SQLite-backed Store implementation (cgo via mattn/go-sqlite3).
 // Same Store interface as the file backend; schema matches schema.sql.
-// Selected automatically when --data points at a .db/.sqlite file.
+// Selected automatically when --data points at a .db/.sqlite/.sqlite3 file.
 package store
 
 import (

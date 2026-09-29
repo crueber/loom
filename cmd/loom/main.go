@@ -22,11 +22,11 @@ import (
 //     revalidation seed, so a cold tab still paints without a spinner.
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
-	data := flag.String("data", "loom-data.json", "data file path (.db/.sqlite = SQLite, else JSON file, empty = in-memory)")
+	data := flag.String("data", "loom-data.json", "data file path (.db/.sqlite/.sqlite3 = SQLite, else JSON file, empty = in-memory)")
 	webDir := flag.String("web", "web", "web assets directory")
 	flag.Parse()
 
-	// Store selection: SQLite for *.db/*.sqlite (plan default, single
+	// Store selection: SQLite for *.db/*.sqlite/*.sqlite3 (plan default, single
 	// binary via cgo), JSON file backend otherwise.
 	var st store.Store
 	var closer func() error
