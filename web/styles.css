@@ -223,6 +223,14 @@ button.primary {
   border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px;
 }
 .fold:hover { color: var(--ink); border-color: var(--line); }
+/* OSS-96: column delete affordance in the header; confirm-gated, red
+   hover like the board delete. Hidden on collapsed rails. */
+.del-col {
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px; line-height: 1;
+}
+.del-col:hover { color: #c0392b; border-color: #c0392b; }
+.column.collapsed .del-col { display: none; }
 .cdot {
   width: 14px; height: 14px; border-radius: 50%; display: inline-block;
   cursor: pointer; position: relative; overflow: hidden; flex: 0 0 auto;

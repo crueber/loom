@@ -96,6 +96,55 @@ func TestBoardColumnCardCRUD(t *testing.T) {
 	}
 }
 
+// OSS-96: DELETE /api/columns/{id} removes the column (204), drops it
+// from the board tree, and a repeat delete 404s.
+func TestDeleteColumnRoundTrip(t *testing.T) {
+	_, mux := newTestServer(t)
+
+	rec := do(t, mux, "POST", "/api/boards", map[string]string{"title": "Home"})
+	if rec.Code != 201 {
+		t.Fatalf("create board: %d %s", rec.Code, rec.Body.String())
+	}
+	var board model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &board); err != nil {
+		t.Fatal(err)
+	}
+	rec = do(t, mux, "POST", "/api/boards/"+board.ID+"/columns", map[string]string{"title": "Links", "color": "#4c8dff"})
+	if rec.Code != 201 {
+		t.Fatalf("create column: %d %s", rec.Code, rec.Body.String())
+	}
+	var col model.Column
+	if err := json.Unmarshal(rec.Body.Bytes(), &col); err != nil {
+		t.Fatal(err)
+	}
+	rec = do(t, mux, "POST", "/api/columns/"+col.ID+"/cards", map[string]any{
+		"blocks": []model.Block{model.NewNoteBlock("hi")},
+	})
+	if rec.Code != 201 {
+		t.Fatalf("create card: %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec = do(t, mux, "DELETE", "/api/columns/"+col.ID, nil)
+	if rec.Code != 204 {
+		t.Fatalf("delete column: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, mux, "DELETE", "/api/columns/"+col.ID, nil)
+	if rec.Code != 404 {
+		t.Fatalf("repeat delete: want 404, got %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, mux, "GET", "/api/boards/"+board.ID, nil)
+	if rec.Code != 200 {
+		t.Fatalf("get tree: %d %s", rec.Code, rec.Body.String())
+	}
+	var tree model.BoardTree
+	if err := json.Unmarshal(rec.Body.Bytes(), &tree); err != nil {
+		t.Fatal(err)
+	}
+	if len(tree.Columns) != 0 {
+		t.Fatalf("column still in tree: %+v", tree.Columns)
+	}
+}
+
 func TestBoardStylingAndEmptyTreeShape(t *testing.T) {
 	_, mux := newTestServer(t)
 

@@ -26,7 +26,11 @@ type SQLiteStore struct {
 // OpenSQLite opens (creating if needed) the SQLite database at path
 // and applies the schema.
 func OpenSQLite(path string) (*SQLiteStore, error) {
-	db, err := sql.Open("sqlite3", path+"?cache=shared&mode=rwc&_journal_mode=WAL&_busy_timeout=5000")
+	// OSS-96: _foreign_keys=on enforces the schema's ON DELETE CASCADE
+	// clauses (columns -> cards -> blocks, boards -> columns). Without
+	// it SQLite ignores the clauses and deleting a column/board/card
+	// orphans child rows.
+	db, err := sql.Open("sqlite3", path+"?cache=shared&mode=rwc&_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on")
 	if err != nil {
 		return nil, err
 	}

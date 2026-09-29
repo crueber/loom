@@ -274,6 +274,28 @@
       selectBoard(rest[0].id);
     }).catch(function () { alert('Delete failed — nothing was removed.'); });
   }
+  // OSS-96: delete a column behind an explicit confirm() — a single
+  // click must never delete. Cancel changes nothing (no network call).
+  // Confirm drops the column and its cards from client state without a
+  // full reload; failure alerts and revalidates to restore the view.
+  function deleteColumn(id) {
+    if (!id) return;
+    var tree = curTree();
+    var target = null;
+    (tree && tree.columns || []).forEach(function (c) { if (c.id === id) target = c; });
+    var title = target ? target.title : id;
+    var n = (tree && tree.cards && tree.cards[id] || []).length;
+    if (!window.confirm('Delete column "' + title + '"? Its ' + n + (n === 1 ? ' card goes' : ' cards go') + ' too. This cannot be undone.')) return;
+    api('DELETE', '/api/columns/' + id).then(function () {
+      var tree2 = curTree();
+      if (tree2) {
+        tree2.columns = (tree2.columns || []).filter(function (c) { return c.id !== id; });
+        if (tree2.cards) delete tree2.cards[id];
+      }
+      saveCache(); render();
+      revalidate();
+    }).catch(function () { alert('Delete failed — nothing was removed.'); revalidate(); });
+  }
   var boardMenuOpen = false;
 
   // Inline Iconify-style icons (item 5): hand-picked 16px outline SVGs in
@@ -475,6 +497,9 @@
         '<button class="cdot" data-coldot="' + col.id + '" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color" aria-label="Column color"></button>' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="Click to rename">' + esc(col.title) + '</span>' +
         '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
+        // OSS-96: delete affordance for the column, confirm-gated in
+        // deleteColumn(). Hidden on collapsed rails (CSS) to keep rails clean.
+        '<button class="del-col" data-delcol="' + col.id + '" title="Delete this column" aria-label="Delete column ' + esc(col.title) + '">×</button>' +
         '<span class="resize" data-resize="' + col.id + '" title="Resize column"></span></h2>' +
         // Item 10: explicit "+ add card" text label, not a bare +.
         '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+ add card</button></div></section>';
@@ -1218,6 +1243,10 @@
     // Column title rename (inline; no Edit button).
     var ct = t.closest && t.closest('[data-coltitle]');
     if (ct) { startEdit(ct, true); return; }
+    // OSS-96: confirm-gated column delete (cancel = no state change,
+    // no network DELETE). Stop propagation so header drag never starts.
+    var delcol = t.closest && t.closest('[data-delcol]');
+    if (delcol) { if (e.stopPropagation) e.stopPropagation(); deleteColumn(delcol.dataset.delcol); return; }
     if (t.dataset && t.dataset.fold) {
       // Collapse toggle: optimistic-local, synced behind.
       var colId = t.dataset.fold;
