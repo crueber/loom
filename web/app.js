@@ -259,7 +259,7 @@
     setBoardOrder(ids);
     saveCache(); render();
   }
-  // OSS-68: delete the current board behind an explicit confirm() —
+  // OSS-68: delete the current board behind an explicit confirmDialog —
   // a single click must never delete. Cancel changes nothing (no
   // network call). Confirm drops the board from client state without
   // a full reload and selects a remaining board (or empty state).
@@ -268,26 +268,29 @@
     var target = null;
     state.boards.forEach(function (b) { if (b.id === id) target = b; });
     var title = target ? target.title : id;
-    if (!window.confirm('Delete board "' + title + '"? Its columns and cards go too. This cannot be undone.')) return;
-    api('DELETE', '/api/boards/' + id).then(function () {
-      state.boards = state.boards.filter(function (b) { return b.id !== id; });
-      delete state.trees[id];
-      try { setBoardOrder(getBoardOrder().filter(function (x) { return x !== id; })); } catch (e) {}
-      if (state.boardId !== id) { saveCache(); render(); return; }
-      var rest = orderedBoards();
-      if (!rest.length) {
-        state.boardId = null;
-        try { history.pushState(null, '', location.pathname); } catch (e) {}
-        saveCache(); render();
-        return;
-      }
-      selectBoard(rest[0].id);
-    }).catch(function () { alert('Delete failed — nothing was removed.'); });
+    confirmDialog({ title: 'Delete board?', body: '<p>Delete board "' + esc(title) + '"? Its columns and cards go too. This cannot be undone.</p>', confirmLabel: 'Delete board', danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('DELETE', '/api/boards/' + id).then(function () {
+        state.boards = state.boards.filter(function (b) { return b.id !== id; });
+        delete state.trees[id];
+        try { setBoardOrder(getBoardOrder().filter(function (x) { return x !== id; })); } catch (e) {}
+        if (state.boardId !== id) { saveCache(); render(); return; }
+        var rest = orderedBoards();
+        if (!rest.length) {
+          state.boardId = null;
+          try { history.pushState(null, '', location.pathname); } catch (e) {}
+          saveCache(); render();
+          return;
+        }
+        selectBoard(rest[0].id);
+      }).catch(function () { showError('Delete failed', 'Nothing was removed.'); });
+    });
   }
-  // OSS-96: delete a column behind an explicit confirm() — a single
+  // OSS-96: delete a column behind an explicit confirmDialog — a single
   // click must never delete. Cancel changes nothing (no network call).
   // Confirm drops the column and its cards from client state without a
-  // full reload; failure alerts and revalidates to restore the view.
+  // full reload; failure shows a UI error and revalidates to restore
+  // the view.
   function deleteColumn(id) {
     if (!id) return;
     var tree = curTree();
@@ -295,16 +298,18 @@
     (tree && tree.columns || []).forEach(function (c) { if (c.id === id) target = c; });
     var title = target ? target.title : id;
     var n = (tree && tree.cards && tree.cards[id] || []).length;
-    if (!window.confirm('Delete column "' + title + '"? Its ' + n + (n === 1 ? ' card goes' : ' cards go') + ' too. This cannot be undone.')) return;
-    api('DELETE', '/api/columns/' + id).then(function () {
-      var tree2 = curTree();
-      if (tree2) {
-        tree2.columns = (tree2.columns || []).filter(function (c) { return c.id !== id; });
-        if (tree2.cards) delete tree2.cards[id];
-      }
-      saveCache(); render();
-      revalidate();
-    }).catch(function () { alert('Delete failed — nothing was removed.'); revalidate(); });
+    confirmDialog({ title: 'Delete column?', body: '<p>Delete column "' + esc(title) + '"? Its ' + n + (n === 1 ? ' card goes' : ' cards go') + ' too. This cannot be undone.</p>', confirmLabel: 'Delete column', danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('DELETE', '/api/columns/' + id).then(function () {
+        var tree2 = curTree();
+        if (tree2) {
+          tree2.columns = (tree2.columns || []).filter(function (c) { return c.id !== id; });
+          if (tree2.cards) delete tree2.cards[id];
+        }
+        saveCache(); render();
+        revalidate();
+      }).catch(function () { showError('Delete failed', 'Nothing was removed.'); revalidate(); });
+    });
   }
   var boardMenuOpen = false;
   // OSS-85: mobile dual-hamburger nav — left opens the board list, right
@@ -1625,11 +1630,16 @@
     if (!card) return;
     var act = bar.dataset.act;
     if (act === 'del') {
-      Object.keys(curTree().cards).forEach(function (k) {
-        curTree().cards[k] = curTree().cards[k].filter(function (c) { return c.id !== card.id; });
+      // OSS-108: card delete is confirm-gated like board/column — a
+      // single click must never delete. Cancel changes nothing.
+      confirmDialog({ title: 'Delete card?', body: '<p>Delete this card and its blocks? This cannot be undone.</p>', confirmLabel: 'Delete card', danger: true }).then(function (ok) {
+        if (!ok) return;
+        Object.keys(curTree().cards).forEach(function (k) {
+          curTree().cards[k] = curTree().cards[k].filter(function (c) { return c.id !== card.id; });
+        });
+        saveCache(); render();
+        api('DELETE', '/api/cards/' + card.id).then(revalidate).catch(function () { revalidate(); });
       });
-      saveCache(); render();
-      api('DELETE', '/api/cards/' + card.id).then(revalidate).catch(function () {});
     } else if (act === 'addlink') {
       askInCard(cardEl, 'Link URL', 'Paste link URL…').then(function (url) {
         if (!url) return;
@@ -1665,7 +1675,7 @@
         }).then(function (up) {
           pushOrReplace(card, { id: '', type: 'image', image_url: up.url, thumb_url: up.thumb_url, position: card.blocks.length });
           syncCard(card); render();
-        }).catch(function () { alert('Image upload failed (jpeg/png/gif, max 12MB).'); });
+        }).catch(function () { showError('Image upload failed', 'Only jpeg/png/gif images, max 12MB.'); });
       };
       input.click();
     } else if (act === 'addimgurl') {
@@ -1971,7 +1981,7 @@
           var probe = JSON.parse(raw);
           if (!probe || !Array.isArray(probe.lists)) throw new Error('bad shape');
         } catch (err) {
-          alert('Import failed: that file is not a Loom v1 export (missing "lists").');
+          showError('Import failed', 'That file is not a Loom v1 export (missing "lists").');
           return;
         }
         fetch('/api/import/v1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: raw })
@@ -1981,7 +1991,7 @@
               if (tree && tree.board) selectBoard(tree.board.id);
             });
           })
-          .catch(function () { alert('Import failed on the server. Nothing was changed.'); });
+          .catch(function () { showError('Import failed', 'The server rejected the import. Nothing was changed.'); });
       };
       rd.readAsText(input.files[0]);
     };
@@ -2062,7 +2072,8 @@
     return ov;
   }
   function closeDialog() {
-    var ov = document.querySelector('.dlg-ov');
+    var ovs = document.querySelectorAll('.dlg-ov');
+    var ov = ovs.length ? ovs[ovs.length - 1] : null;
     if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
   }
   function dlgErr(ov, msg) {
@@ -2073,6 +2084,63 @@
       ov.querySelector('.dlg').appendChild(el);
     }
     el.textContent = msg;
+  }
+  // OSS-108: UI error modal (replaces alert()). Body is plain text.
+  function showError(title, msg) {
+    openDialog(title, '<p>' + esc(msg) + '</p>');
+  }
+  // OSS-108: reusable confirmation modal (replaces window.confirm and
+  // window.prompt). Confirm-only resolves true/false; with input it
+  // resolves the trimmed string, or null on cancel/Esc/click-outside.
+  // Cancel never causes side effects. Stacks above other dialogs (only
+  // its own overlay is removed); Esc/Enter keys are contained so an
+  // underlying dialog stays open.
+  function confirmDialog(opts) {
+    opts = opts || {};
+    var hasInput = !!(opts.input && typeof opts.input === 'object');
+    var prevFocus = document.activeElement;
+    return new Promise(function (resolve) {
+      var settled = false;
+      var ov = document.createElement('div');
+      ov.className = 'dlg-ov';
+      var inpCfg = hasInput ? opts.input : {};
+      var inputHTML = hasInput
+        ? '<label>' + esc(opts.inputLabel || 'Name') + '<input type="text" data-confirm-input value="' + esc(inpCfg.value || '') + '"' +
+          (inpCfg.maxlength ? ' maxlength="' + (+inpCfg.maxlength) + '"' : '') +
+          (inpCfg.placeholder ? ' placeholder="' + esc(inpCfg.placeholder) + '"' : '') + '></label>'
+        : '';
+      ov.innerHTML = '<div class="dlg" role="dialog" aria-modal="true" aria-label="' + esc(opts.title || 'Confirm') + '"><h3>' +
+        esc(opts.title || 'Confirm') + '</h3><div class="dlg-body">' + (opts.body || '') + inputHTML +
+        '</div><div class="dlg-foot"><button data-confirm-cancel>' + esc(opts.cancelLabel || 'Cancel') + '</button>' +
+        '<button data-confirm-ok' + (opts.danger ? ' class="btn-danger"' : '') + '>' + esc(opts.confirmLabel || 'Confirm') + '</button></div></div>';
+      document.body.appendChild(ov);
+      function done(v) {
+        if (settled) return;
+        settled = true;
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} }
+        resolve(v);
+      }
+      function ok() {
+        if (!hasInput) { done(true); return; }
+        var inp = ov.querySelector('[data-confirm-input]');
+        var v = inp ? inp.value.trim() : '';
+        if (!v) { dlgErr(ov, 'Name cannot be empty.'); return; }
+        done(v);
+      }
+      ov.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { if (e.stopPropagation) e.stopPropagation(); done(hasInput ? null : false); }
+        else if (e.key === 'Enter' && hasInput && document.activeElement === ov.querySelector('[data-confirm-input]')) { if (e.stopPropagation) e.stopPropagation(); ok(); }
+      });
+      ov.addEventListener('click', function (e) {
+        if (e.target === ov) { done(hasInput ? null : false); return; }
+        if (!e.target.closest) return;
+        if (e.target.closest('[data-confirm-cancel]')) { done(hasInput ? null : false); return; }
+        if (e.target.closest('[data-confirm-ok]')) { ok(); return; }
+      });
+      var focusEl = hasInput ? ov.querySelector('[data-confirm-input]') : ov.querySelector('[data-confirm-cancel]');
+      if (focusEl && focusEl.focus) { try { focusEl.focus(); if (hasInput && focusEl.select) focusEl.select(); } catch (e) {} }
+    });
   }
   // ---- User prefs (OSS-83): localStorage cache, server truth when signed in ----
   // Shape {theme, language}; unknown themes fall back to paper (client
@@ -2165,13 +2233,13 @@
       '<h4>Default board theme</h4>' +
       '<div class="swatches" role="group" aria-label="Default board theme">' + swRow + '</div>' +
       '<div class="hint">New boards start with this theme; each board still stores its own background.<br><span data-prefs-sync></span></div></div>' +
-      '<div data-pane="data" hidden><h4>Import</h4>' +
+      '<div data-pane="data" hidden inert><h4>Import</h4>' +
       '<div><button data-import-v1 title="Import a Loom v1 export file (adds new boards, never deletes)">Import v1 file…</button> ' +
       '<span class="hint">Adds new boards, never deletes.</span></div>' +
       '<h4>Export</h4><div><a href="/api/export" download="loom-export.json">Download export (JSON)</a> ' +
       '<span class="hint">Full backup; never deletes.</span></div></div>' +
-      '<div data-pane="account" hidden>' + accountHTML + '</div>' +
-      '<div data-pane="admin" hidden><h4>Admin — OIDC</h4><div data-admin-body><span class="hint">Loading…</span></div></div>' +
+      '<div data-pane="account" hidden inert>' + accountHTML + '</div>' +
+      '<div data-pane="admin" hidden inert><h4>Admin — OIDC</h4><div data-admin-body><span class="hint">Loading…</span></div></div>' +
       '</div></div>' +
       '<div class="dlg-foot"><button data-dlg-close>Close</button></div></div>';
     document.body.appendChild(ov);
@@ -2190,7 +2258,7 @@
     ov.querySelectorAll('[data-sec]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         ov.querySelectorAll('[data-sec]').forEach(function (b) { b.classList.toggle('on', b === btn); });
-        ov.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = (p.dataset.pane !== btn.dataset.sec); });
+        ov.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = (p.dataset.pane !== btn.dataset.sec); p.inert = p.hidden; });
       });
     });
     // Prefs controls (General swatches + selects everywhere).
@@ -2218,24 +2286,30 @@
     var nameSave = ov.querySelector('[data-board-save]');
     if (nameInput && nameSave && setBoard) {
       nameSave.addEventListener('click', function () {
-        var title = nameInput.value.trim();
-        if (!title) { dlgErr(ov, 'Board name cannot be empty.'); return; }
-        if (title === setBoard.title) return;
-        var bid = setBoard.id;
-        state.boards.forEach(function (b) { if (b.id === bid) b.title = title; });
-        var tr0 = state.trees[bid];
-        if (tr0 && tr0.board) tr0.board.title = title;
-        setBoard.title = title;
-        saveCache(); render();
-        api('PATCH', '/api/boards/' + bid, { title: title }).then(function (b) {
-          state.boards.forEach(function (x, i) { if (x.id === b.id) state.boards[i] = b; });
-          var tr1 = state.trees[b.id];
-          if (tr1) tr1.board = b;
-          setBoard.title = b.title;
+        var typed = nameInput.value.trim();
+        if (!typed) { dlgErr(ov, 'Board name cannot be empty.'); return; }
+        if (typed === setBoard.title) return;
+        // OSS-108: rename goes through the shared confirm modal in input
+        // mode (stacked above Settings); cancel keeps Settings open.
+        confirmDialog({ title: 'Rename board?', body: '<p>Renaming is a major alteration — the new name shows everywhere this board is listed.</p>', confirmLabel: 'Rename', inputLabel: 'Board name', input: { value: typed, maxlength: 200 } }).then(function (title) {
+          if (title === null) return;
+          if (title === setBoard.title) return;
+          var bid = setBoard.id;
+          state.boards.forEach(function (b) { if (b.id === bid) b.title = title; });
+          var tr0 = state.trees[bid];
+          if (tr0 && tr0.board) tr0.board.title = title;
+          setBoard.title = title;
           saveCache(); render();
-        }).catch(function (err) {
-          if (!document.body.contains(ov)) return;
-          dlgErr(ov, 'Rename failed (' + (err && err.message ? err.message : 'network error') + ') — kept "' + setBoard.title + '".');
+          api('PATCH', '/api/boards/' + bid, { title: title }).then(function (b) {
+            state.boards.forEach(function (x, i) { if (x.id === b.id) state.boards[i] = b; });
+            var tr1 = state.trees[b.id];
+            if (tr1) tr1.board = b;
+            setBoard.title = b.title;
+            saveCache(); render();
+          }).catch(function (err) {
+            if (!document.body.contains(ov)) return;
+            dlgErr(ov, 'Rename failed (' + (err && err.message ? err.message : 'network error') + ') — kept "' + setBoard.title + '".');
+          });
         });
       });
     }
@@ -2335,7 +2409,7 @@
             }).catch(function () { dlgErr(ov, 'Invite failed (that email has no login yet?).'); });
           });
         });
-    }).catch(function () { alert('Share needs board-owner access.'); });
+    }).catch(function () { showError('Share unavailable', 'Share needs board-owner access.'); });
   }
   if (authBtn) authBtn.addEventListener('click', function () {
     if (state.auth.authenticated) {

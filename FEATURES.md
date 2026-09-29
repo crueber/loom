@@ -8,8 +8,8 @@ Pending = requested but not yet built on this branch.
 - Boards hold ordered columns; navbar switcher.
 - Columns hold ordered cards; per-column collapse toggle.
 - Add board / add column from navbar (appends at end).
-- Delete board from navbar (confirm required; removes its columns/cards).
-- Delete column from its header × (confirm required; removes its cards; hidden on collapsed rails).
+- Delete board from navbar (UI confirm modal; removes its columns/cards).
+- Delete column from its header × (UI confirm modal; removes its cards; hidden on collapsed rails).
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
 - Columns resize by dragging the header handle (widths persist locally); double-click the handle resets to the standard width.
@@ -28,7 +28,8 @@ Pending = requested but not yet built on this branch.
 - Inline note editing in place; blur commits.
 - Markdown renders; re-edit shows raw text.
 - Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
-- Card toolbar appears on hover/focus.
+- Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing).
+- Shared confirm modal (confirm + text-input modes) replaces native confirm/prompt/alert for deletes, board rename, and errors.
 - Compact add: + card per column; + link/note/image per card.
 - Pending: Enter-save + modifier-newline while editing.
 - Pending: drag cards within/across columns with drop hints (move API exists).
