@@ -280,10 +280,13 @@
     // reorder controls (localStorage order; see LS_BOARDORDER).
     var ordered = orderedBoards();
     var visible = ordered.length > 3 ? ordered.slice(0, 3) : ordered;
-    boardsEl.innerHTML = visible.map(function (b) {
+    // Round 6 item 3: the tabs scroll inside an inner .boardtabs element
+    // while the overflow menu (.boardmenu-wrap) sits OUTSIDE it as a
+    // direct child of #boards — navbar scrolling can never clip the menu.
+    boardsEl.innerHTML = '<span class="boardtabs">' + visible.map(function (b) {
       return '<button data-board="' + b.id + '"' + (b.id === state.boardId ? ' class="active"' : '') +
         ' title="Open board (double-click to rename)">' + esc(b.title) + '</button>';
-    }).join('') +
+    }).join('') + '</span>' +
       (ordered.length > 3
         ? '<span class="boardmenu-wrap"><button class="boardmenu-btn" data-boardmenu aria-haspopup="true" title="All boards">▾</button>' +
           (boardMenuOpen ? '<div class="boardmenu" role="menu">' + ordered.map(function (b) {
@@ -667,12 +670,19 @@
     try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
     clearDropHints();
     if (dragBlock) {
-      var hEl = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
       var cEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
-      if (hEl && !(hEl.dataset.bcard === dragBlock.card && hEl.dataset.bid === dragBlock.block)) {
-        var blk = hEl.closest('.block') || hEl;
-        var rr = blk.getBoundingClientRect();
-        blk.classList.add((e.clientY - rr.top) < rr.height / 2 ? 'drop-bbefore' : 'drop-bafter');
+      // Round 6 item 1: uniform drop zones — ANY part of a .block (body,
+      // link anchor, image, note text), not just the ⠿ handle, shows the
+      // before/after insertion line by pointer half, for all block types.
+      var blkEl = e.target && e.target.closest ? e.target.closest('.block') : null;
+      var tBid = null;
+      if (blkEl) {
+        var hh = blkEl.querySelector('.bhandle');
+        tBid = (hh && hh.dataset.bid) || (blkEl.dataset && blkEl.dataset.block) || null;
+      }
+      if (blkEl && tBid && !(cEl && cEl.dataset.card === dragBlock.card && tBid === dragBlock.block)) {
+        var rr = blkEl.getBoundingClientRect();
+        blkEl.classList.add((e.clientY - rr.top) < rr.height / 2 ? 'drop-bbefore' : 'drop-bafter');
       }
       if (cEl) cEl.classList.add('drop-bhint');
       return;
@@ -706,8 +716,9 @@
   boardEl.addEventListener('drop', function (e) {
     clearDropHints();
     // Round 5 item 2: block move within/across cards, persisted via the
-    // existing card PATCH path (syncCard). Dropping on a block inserts
-    // before/after by pointer half; dropping on card chrome appends.
+    // existing card PATCH path (syncCard). Round 6 item 1: dropping on
+    // ANY part of a block inserts before/after by pointer half, uniformly
+    // for link/note/image; dropping on card chrome appends.
     if (dragBlock) {
       e.preventDefault();
       var src = findCard(dragBlock.card);
@@ -719,15 +730,16 @@
         if ((src.blocks[bi].id || '') === dragBlock.block) { from = bi; break; }
       }
       if (from < 0) { dragBlock = null; return; }
-      var hT = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
-      if (hT && hT.dataset.bcard === src.id && hT.dataset.bid === dragBlock.block) { dragBlock = null; return; }
+      var bT = e.target && e.target.closest ? e.target.closest('.block') : null;
+      var hIn = bT ? bT.querySelector('.bhandle') : null;
+      var hBid = (hIn && hIn.dataset.bid) || (bT && bT.dataset && bT.dataset.block) || null;
+      if (bT && hBid === dragBlock.block) { dragBlock = null; return; }
       var to = dst.blocks.length, bj;
-      if (hT && hT.dataset.bid) {
-        var tb = hT.closest('.block') || hT;
-        var tr = tb.getBoundingClientRect();
+      if (bT && hBid) {
+        var tr = bT.getBoundingClientRect();
         var beforeT = (e.clientY - tr.top) < tr.height / 2;
         for (bj = 0; bj < dst.blocks.length; bj++) {
-          if ((dst.blocks[bj].id || '') === hT.dataset.bid) { to = bj + (beforeT ? 0 : 1); break; }
+          if ((dst.blocks[bj].id || '') === hBid) { to = bj + (beforeT ? 0 : 1); break; }
         }
       }
       var mvb = src.blocks.splice(from, 1)[0];
@@ -861,6 +873,12 @@
         } catch (e) {}
       }
     }
+    // Round 6 item 2: open columns hug content, so the strip background
+    // below a short column pans via the empty-canvas rule above — but a
+    // pointer landing on the column section itself (chrome around the
+    // lane, below the add-card row) pans too, never drags the column.
+    var sec = t.closest && t.closest('[data-col]');
+    if (sec && t === sec) return true;
     return false;
   }
   boardEl.addEventListener('pointerdown', function (e) {

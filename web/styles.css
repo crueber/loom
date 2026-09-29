@@ -131,7 +131,15 @@ body {
 #creator { flex: 0 0 auto; }
 /* Round 3 item 7: single navbar — board controls live at the far right
    of the ONE top bar as compact controls; no second header row. */
-#boards { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+#boards { flex-wrap: nowrap; overflow: visible; min-width: 0; flex: 0 1 auto; scrollbar-width: thin; }
+/* Round 6 item 3: only the tabs scroll — the overflow menu wrap stays a
+   direct (non-scrolling) child of #boards, so the .boardmenu dropdown is
+   never clipped by navbar scrolling. */
+.boardtabs {
+  display: flex; gap: 6px; align-items: center;
+  overflow-x: auto; scrollbar-width: thin;
+  min-width: 0; flex: 0 1 auto;
+}
 .boardctl {
   margin-left: auto; flex: 0 0 auto;
   display: flex; align-items: center; gap: 8px;
@@ -185,6 +193,11 @@ button.primary {
   /* Round 3 item 5: lanes cap at the viewport and scroll internally. */
   max-height: 100%;
   display: flex; flex-direction: column; min-height: 0;
+  /* Round 6 item 2: open columns hug content — no full-height slab below
+     the "+ add card" row. align-self overrides the strip's stretch so a
+     short column ends at its lane; tall lanes still cap at max-height
+     and scroll internally. Collapsed rails keep align-self:stretch. */
+  align-self: flex-start;
 }
 .column.reading { width: min(680px, 92vw); flex: 0 1 680px; margin: 0 auto; }
 /* Round 3 item 3: the header is JOINED to the top color border — no gap
