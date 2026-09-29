@@ -2,7 +2,7 @@
 // Routes (all under /api):
 //
 //	GET    /api/boards            list boards
-//	POST   /api/boards            {title}
+//	POST   /api/boards            {title,background?}
 //	GET    /api/boards/{id}       full tree (board + columns + cards)
 //	PATCH  /api/boards/{id}       {title,background}
 //	DELETE /api/boards/{id}
@@ -121,7 +121,8 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, boards)
 	case http.MethodPost:
 		var body struct {
-			Title string `json:"title"`
+			Title      string `json:"title"`
+			Background string `json:"background"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
@@ -147,6 +148,15 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeErr(w, 500, err.Error())
 			return
+		}
+		// OSS-70: the client (OSS-58) already POSTs the current
+		// background so new boards inherit it; persist it here.
+		// Store interface stays stable: create then UpdateBoard.
+		// Unknown ids fall back to '' (client normBg renders paper).
+		if bg := normalizeBackground(body.Background); bg != "" {
+			if updated, uerr := h.Store.UpdateBoard(b.ID, b.Title, bg); uerr == nil {
+				b = updated
+			}
 		}
 		writeJSON(w, 201, b)
 	default:
@@ -584,6 +594,19 @@ func (h *Handler) serveImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.WriteHeader(200)
 	_, _ = w.Write(blob)
+}
+
+// normalizeBackground validates a board background id against the
+// client SWATCHES ids (web/app.js). ” and 'paper' both render as
+// paper, so they normalize to ” (no persist needed); unknown ids
+// also fall back to ” and are never stored.
+func normalizeBackground(bg string) string {
+	switch strings.TrimSpace(bg) {
+	case "honey", "sage", "sky", "rose", "slate":
+		return strings.TrimSpace(bg)
+	default:
+		return ""
+	}
 }
 
 func itoa(n int) string {
