@@ -351,8 +351,9 @@ button.primary {
 .block-link:hover .rmblock, .block-img:hover .rmblock,
 .block-link:focus-within .rmblock, .block-img:focus-within .rmblock { opacity: 1; }
 .rmblock:hover { color: #c0392b; border-color: #c0392b; }
-.md-h1 { font-size: 19px; margin: 2px 0 8px; letter-spacing: -0.2px; }
-.md-h2 { font-size: 16.5px; margin: 2px 0 8px; }
+.md-h1 { display: block; font-size: 19px; font-weight: 700; margin: 2px 0 8px; letter-spacing: -0.2px; }
+.md-h2 { display: block; font-size: 16.5px; font-weight: 600; margin: 2px 0 8px; }
+.md-h3 { display: block; font-size: 14.5px; font-weight: 600; margin: 2px 0 8px; color: var(--muted, #666); text-transform: uppercase; letter-spacing: 0.3px; }
 .md-list { margin: 4px 0 8px; padding-left: 20px; }
 .md-list li { margin: 2px 0; }
 .card .note[contenteditable="true"], .coltitle[contenteditable="true"], #boards [data-board][contenteditable="true"] {
@@ -433,6 +434,7 @@ button.primary {
 /* Item 12: inline new-column form at the strip end, sized like a column. */
 .inline-col-form {
   flex: 0 0 340px; width: 340px;
+  align-self: flex-start;
   display: flex; gap: 6px; align-items: center;
   background: var(--card); border: 1px solid var(--accent);
   border-radius: 14px; padding: 12px;

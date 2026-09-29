@@ -22,6 +22,7 @@ Pending = requested but not yet built on this branch.
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits.
 - Markdown renders; re-edit shows raw text.
+- Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
 - Card toolbar appears on hover/focus.
 - Compact add: + card per column; + link/note/image per card.
 - Pending: Enter-save + modifier-newline while editing.
