@@ -1,5 +1,5 @@
 /* Loom rebuild app shell cache. Versioned; old caches purged on activate. */
-const CACHE = 'loom-shell-v1';
+const CACHE = 'loom-shell-v2';
 const SHELL = ['/', '/styles.css', '/app.js', '/manifest.json'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -27,7 +27,22 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // Shell + images: cache-first, network fills in behind.
+  // Shell: stale-while-revalidate so deploys self-propagate without an
+  // SW byte-change gate. Images: cache-first with LRU cap (below).
+  if (SHELL.includes(url.pathname)) {
+    e.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(e.request);
+        const fresh = fetch(e.request).then((res) => {
+          if (res.ok) cache.put(e.request, res.clone());
+          return res;
+        }).catch(() => cached);
+        return cached || fresh;
+      })
+    );
+    return;
+  }
+  // Images + other same-origin GETs: cache-first, network fills in behind.
   // Image LRU cap: keep at most ~300 image responses (~50-100MB at
   // thumbnail sizes) so the cache never grows unbounded. Eviction is
   // oldest-first; misses refetch from network. Never blocks first paint.
