@@ -89,7 +89,7 @@
     return html.replace(/(<br>)+$/g, '').replace(/^(<br>)+/g, '') || '';
   }
   function favicon(url) {
-    try { return 'https://icons.duckduckgo.com/ip3/' + new URL(url).hostname + '.ico'; }
+    try { return '/icons/' + new URL(url).hostname.toLowerCase() + '.ico'; }
     catch (e) { return ''; }
   }
   function host(url) { try { return new URL(url).hostname; } catch (e) { return url; } }

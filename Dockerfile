@@ -9,6 +9,10 @@ COPY . .
 RUN CGO_ENABLED=1 go build -trimpath -o /loom ./cmd/loom
 
 FROM debian:bookworm-slim
+# OSS-82: the server fetches link icons upstream over TLS, so the
+# runtime needs CA certificates (bookworm-slim ships none).
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /data /web
 COPY --from=build /loom /loom
 COPY --from=build /src/web /web

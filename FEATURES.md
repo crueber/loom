@@ -21,6 +21,7 @@ Pending = requested but not yet built on this branch.
 
 - Cards hold ordered blocks: link, note (markdown), image.
 - Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace).
+- Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits.
 - Markdown renders; re-edit shows raw text.
