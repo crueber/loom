@@ -12,6 +12,7 @@ Pending = requested but not yet built on this branch.
 - Delete column from its header × (confirm required; removes its cards; hidden on collapsed rails).
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
+- Columns resize by dragging the header handle (widths persist locally); double-click the handle resets to the standard width.
 - Pending: collapsed columns as narrow rails.
 - Collapsed rails: count sits just under the vertical name; name hover shrinks to text; clicking empty rail space expands the column.
 - Board backgrounds + swatch picker; new boards inherit the current board's background (server persists POST background, unknown ids fall back to paper).
