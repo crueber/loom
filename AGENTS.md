@@ -35,6 +35,15 @@ Every feature change updates `FEATURES.md` in the same commit (append/modify one
 - One worktree per concurrent feature under
   `~/dev/git.packden.us/crueber/loom-worktrees/<issue-id>`.
   Never two features sharing one checkout. Remove worktrees when merged.
+- After EVERY merge to `main`, redeploy acceptance before anything else
+  (ephemeral worktree, removed right after the build — never a standing
+  `acceptance` worktree):
+  `git worktree add ~/dev/git.packden.us/crueber/loom-worktrees/acceptance origin/main`
+  then in it `docker build -t loom-rebuild:test .`,
+  `docker stop loom-rebuild-test; docker rm loom-rebuild-test`,
+  `docker run -d --name loom-rebuild-test -p 18083:8080 -v loom-rebuild-test-data:/data loom-rebuild:test`,
+  verify HTTP 200 plus served-asset md5 against the worktree,
+  then `git worktree remove` it. A merge is not done until `:18083` serves it.
 - Docs-only changes must not change behavior:
   `go test` stays green and `scripts/budget-check.sh` stays passing.
 - Preview: run the branch container/image (`docker build -t loom .`
