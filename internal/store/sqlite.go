@@ -37,6 +37,10 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN background TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-todo databases: ignore duplicate-column errors.
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN checked INTEGER NOT NULL DEFAULT 0`)
+	// Migrate pre-auth databases (OSS-50): same ignore-if-exists pattern.
+	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'`)
+	_, _ = db.Exec(`INSERT OR IGNORE INTO auth_settings(id) VALUES(1)`)
 	return &SQLiteStore{db: db}, nil
 }
 
@@ -51,7 +55,7 @@ func parseTS(s string) time.Time {
 }
 
 func (s *SQLiteStore) ListBoards() ([]model.Board, error) {
-	rows, err := s.db.Query(`SELECT id,title,COALESCE(background,''),position,created_at,updated_at FROM boards ORDER BY position`)
+	rows, err := s.db.Query(`SELECT id,title,COALESCE(background,''),position,COALESCE(owner_id,''),COALESCE(visibility,'public'),created_at,updated_at FROM boards ORDER BY position`)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +64,7 @@ func (s *SQLiteStore) ListBoards() ([]model.Board, error) {
 	for rows.Next() {
 		var b model.Board
 		var ca, ua string
-		if err := rows.Scan(&b.ID, &b.Title, &b.Background, &b.Position, &ca, &ua); err != nil {
+		if err := rows.Scan(&b.ID, &b.Title, &b.Background, &b.Position, &b.OwnerID, &b.Visibility, &ca, &ua); err != nil {
 			return nil, err
 		}
 		b.CreatedAt, b.UpdatedAt = parseTS(ca), parseTS(ua)
@@ -78,16 +82,17 @@ func (s *SQLiteStore) CreateBoard(title string) (model.Board, error) {
 		return model.Board{}, err
 	}
 	b := model.NewBoard(title, n)
-	_, err := s.db.Exec(`INSERT INTO boards(id,title,background,position,created_at,updated_at) VALUES(?,?,?,?,?,?)`,
-		b.ID, b.Title, b.Background, b.Position, ts(b.CreatedAt), ts(b.UpdatedAt))
+	b.Visibility = model.VisibilityPublic
+	_, err := s.db.Exec(`INSERT INTO boards(id,title,background,position,owner_id,visibility,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
+		b.ID, b.Title, b.Background, b.Position, b.OwnerID, b.Visibility, ts(b.CreatedAt), ts(b.UpdatedAt))
 	return b, err
 }
 
 func (s *SQLiteStore) getBoard(id string) (model.Board, error) {
 	var b model.Board
 	var ca, ua string
-	err := s.db.QueryRow(`SELECT id,title,COALESCE(background,''),position,created_at,updated_at FROM boards WHERE id=?`, id).
-		Scan(&b.ID, &b.Title, &b.Background, &b.Position, &ca, &ua)
+	err := s.db.QueryRow(`SELECT id,title,COALESCE(background,''),position,COALESCE(owner_id,''),COALESCE(visibility,'public'),created_at,updated_at FROM boards WHERE id=?`, id).
+		Scan(&b.ID, &b.Title, &b.Background, &b.Position, &b.OwnerID, &b.Visibility, &ca, &ua)
 	if err == sql.ErrNoRows {
 		return b, fmt.Errorf("board not found")
 	}
@@ -406,8 +411,11 @@ func (s *SQLiteStore) ImportTree(tree model.BoardTree) (model.BoardTree, error) 
 		return model.BoardTree{}, err
 	}
 	tree.Board.Position = n
-	if _, err := tx.Exec(`INSERT INTO boards(id,title,background,position,created_at,updated_at) VALUES(?,?,?,?,?,?)`,
-		tree.Board.ID, tree.Board.Title, tree.Board.Background, tree.Board.Position, ts(tree.Board.CreatedAt), ts(tree.Board.UpdatedAt)); err != nil {
+	if tree.Board.Visibility == "" {
+		tree.Board.Visibility = model.VisibilityPublic
+	}
+	if _, err := tx.Exec(`INSERT INTO boards(id,title,background,position,owner_id,visibility,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
+		tree.Board.ID, tree.Board.Title, tree.Board.Background, tree.Board.Position, tree.Board.OwnerID, tree.Board.Visibility, ts(tree.Board.CreatedAt), ts(tree.Board.UpdatedAt)); err != nil {
 		return model.BoardTree{}, err
 	}
 	for _, c := range tree.Columns {

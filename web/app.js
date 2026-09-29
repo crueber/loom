@@ -364,6 +364,7 @@
     // here (rename via double-click on the active board tab).
     topbarCtl.innerHTML =
       (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
+      (state.auth.enabled ? '<button class="ghost compact" data-share title="Visibility + members">Share</button>' : '') +
       '<span class="swatches" role="group" aria-label="Board background">' +
       SWATCHES.map(function (s) {
         return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
@@ -1430,6 +1431,8 @@
   // swatches); the EN i18n slot follows in .actions. No board title here.
   topbarCtl.addEventListener('click', function (e) {
     var t = e.target;
+    // OSS-50: board share dialog (visibility + members, owner-managed).
+    if (t.closest && t.closest('[data-share]')) { openShare(); return; }
     // Board background swatches (scoped: body also carries data-bg).
     var sw = t.closest && t.closest('.swatches [data-bg]');
     if (sw) {
@@ -1527,6 +1530,129 @@
     }).catch(function () {});
   }
 
+  // ---- Auth UI (OSS-50): OIDC login/logout, UI settings, board share ----
+  // Secrets stay server-side: settings GET/PUT never carry client_secret
+  // to the browser (empty secret on save keeps the stored one).
+  state.auth = { enabled: false, requireAuth: false, authenticated: false, user: null };
+  var authBtn = document.getElementById('auth-btn');
+  var settingsBtn = document.getElementById('settings-btn');
+  function refreshAuth() {
+    return api('GET', '/api/auth/status').then(function (s) {
+      state.auth = { enabled: !!s.enabled, requireAuth: !!s.require_auth, authenticated: !!s.authenticated, user: s.user || null };
+      paintAuth(); render();
+    }).catch(function () {});
+  }
+  function paintAuth() {
+    if (!authBtn || !settingsBtn) return;
+    var a = state.auth;
+    authBtn.style.display = a.enabled ? '' : 'none';
+    authBtn.textContent = a.authenticated ? ('Logout' + (a.user && a.user.email ? ' (' + a.user.email + ')' : '')) : 'Login';
+  }
+  function openDialog(title, bodyHTML, onMount) {
+    closeDialog();
+    var ov = document.createElement('div');
+    ov.className = 'dlg-ov';
+    ov.innerHTML = '<div class="dlg" role="dialog" aria-label="' + esc(title) + '"><h3>' + esc(title) + '</h3><div class="dlg-body">' + bodyHTML + '</div><div class="dlg-foot"><button data-dlg-close>Close</button></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (e) {
+      if (e.target === ov || (e.target.closest && e.target.closest('[data-dlg-close]'))) closeDialog();
+    });
+    if (onMount) onMount(ov);
+    return ov;
+  }
+  function closeDialog() {
+    var ov = document.querySelector('.dlg-ov');
+    if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+  }
+  function dlgErr(ov, msg) {
+    var el = ov.querySelector('.err');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'err';
+      ov.querySelector('.dlg').appendChild(el);
+    }
+    el.textContent = msg;
+  }
+  function openSettings() {
+    api('GET', '/api/auth/settings').then(function (s) {
+      var ov = openDialog('Settings',
+        '<label>OIDC issuer URL<input type="text" data-s="issuer" value="' + esc(s.issuer || '') + '" placeholder="https://accounts.example.com"></label>' +
+        '<label>Client ID<input type="text" data-s="client_id" value="' + esc(s.client_id || '') + '"></label>' +
+        '<label>Client secret (blank keeps stored' + (s.has_secret ? ' ✓' : '') + ')<input type="password" data-s="client_secret" value="" autocomplete="new-password"></label>' +
+        '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + '> Enable auth (login required, new boards private)</label>' +
+        '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + '> Require login even for public boards</label>' +
+        '<div class="hint">Saved server-side in the database; disabling restores open access.</div>' +
+        '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>',
+        function (ov) {
+          ov.querySelector('[data-save]').addEventListener('click', function () {
+            function val(k) { return ov.querySelector('[data-s="' + k + '"]').value; }
+            function chk(k) { return ov.querySelector('[data-s="' + k + '"]').checked; }
+            api('PUT', '/api/auth/settings', {
+              issuer: val('issuer'), client_id: val('client_id'), client_secret: val('client_secret'),
+              enabled: chk('enabled'), require_auth: chk('require_auth'),
+            }).then(function () { closeDialog(); refreshAuth().then(revalidate); })
+              .catch(function () { dlgErr(ov, 'Save failed (enabling needs issuer + client ID + secret).'); });
+          });
+        });
+    }).catch(function () { alert('Settings need a login once auth is enabled.'); });
+  }
+  function openShare() {
+    var tree = curTree();
+    if (!tree || !state.auth.enabled) return;
+    var bid = tree.board.id;
+    api('GET', '/api/boards/' + bid + '/members').then(function (members) {
+      var vis = tree.board.visibility || 'public';
+      var rows = (members || []).map(function (m) {
+        var who = m.email || m.name || m.user_id;
+        return '<div class="share-row"><span title="' + esc(m.user_id) + '">' + esc(who) + '</span>' +
+          '<select data-mrole="' + m.user_id + '"><option value="viewer"' + (m.role === 'viewer' ? ' selected' : '') + '>viewer</option>' +
+          '<option value="editor"' + (m.role === 'editor' ? ' selected' : '') + '>editor</option></select>' +
+          '<button data-mrm="' + m.user_id + '">Remove</button></div>';
+      }).join('') || '<div class="hint">No members yet — only you (owner) can see this board.</div>';
+      openDialog('Share: ' + tree.board.title,
+        '<label>Visibility<select data-vis><option value="public"' + (vis === 'public' ? ' selected' : '') + '>public — anyone with the link</option>' +
+        '<option value="private"' + (vis === 'private' ? ' selected' : '') + '>private — only you + members</option></select></label>' +
+        '<div data-rows>' + rows + '</div>' +
+        '<label>Invite by email (they log in once first)<input type="text" data-invite placeholder="teammate@example.com"></label>' +
+        '<div style="margin-top:6px;text-align:right"><button data-invite-btn>Invite as viewer</button></div>',
+        function (ov) {
+          ov.querySelector('[data-vis]').addEventListener('change', function (e) {
+            api('PATCH', '/api/boards/' + bid, { visibility: e.target.value }).then(function (b) {
+              tree.board = b; saveCache(); render();
+            }).catch(function () { dlgErr(ov, 'Visibility change failed.'); });
+          });
+          ov.querySelectorAll('[data-mrole]').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+              api('PATCH', '/api/boards/' + bid + '/members/' + sel.dataset.mrole, { role: sel.value })
+                .catch(function () { dlgErr(ov, 'Role change failed.'); });
+            });
+          });
+          ov.querySelectorAll('[data-mrm]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              api('DELETE', '/api/boards/' + bid + '/members/' + btn.dataset.mrm).then(function () {
+                closeDialog(); openShare();
+              }).catch(function () { dlgErr(ov, 'Remove failed.'); });
+            });
+          });
+          ov.querySelector('[data-invite-btn]').addEventListener('click', function () {
+            var email = ov.querySelector('[data-invite]').value.trim();
+            if (!email) return;
+            api('POST', '/api/boards/' + bid + '/members', { email: email, role: 'viewer' }).then(function () {
+              closeDialog(); openShare();
+            }).catch(function () { dlgErr(ov, 'Invite failed (that email has no login yet?).'); });
+          });
+        });
+    }).catch(function () { alert('Share needs board-owner access.'); });
+  }
+  if (authBtn) authBtn.addEventListener('click', function () {
+    if (state.auth.authenticated) {
+      fetch('/api/auth/logout', { method: 'POST' }).then(function () { refreshAuth().then(revalidate); });
+    } else {
+      window.location.href = '/api/auth/login';
+    }
+  });
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+
   // ---- Instant-load boot: cache-first synchronous paint ----
   var boot = window.__BOOTSTRAP_DATA__;
   var cached = loadCache();
@@ -1550,6 +1676,7 @@
     window.__LOOM_FIRST_PAINT_MS = Math.round((performance.now() - t0) * 10) / 10;
   }
   // Background revalidation never blocks first paint.
+  refreshAuth();
   if (window.requestIdleCallback) requestIdleCallback(revalidate);
   else setTimeout(revalidate, 0);
 })();

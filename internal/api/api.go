@@ -22,7 +22,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
+	"github.com/crueber/loom-rebuild/internal/auth"
 	"github.com/crueber/loom-rebuild/internal/images"
 	"github.com/crueber/loom-rebuild/internal/model"
 	"github.com/crueber/loom-rebuild/internal/store"
@@ -38,6 +40,20 @@ type ImageBackend interface {
 // Handler wires the store to HTTP routes on a stdlib mux.
 type Handler struct {
 	Store store.Store
+
+	mu     sync.Mutex
+	logins *auth.Logins
+}
+
+// pending returns the in-flight OIDC login tracker (lazy, mutex-guarded
+// so handlers built as &Handler{Store: st} in tests work unchanged).
+func (h *Handler) pending() *auth.Logins {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.logins == nil {
+		h.logins = auth.NewLogins()
+	}
+	return h.logins
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -69,12 +85,32 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/export", h.export)
 	mux.HandleFunc("/api/images", h.uploadImage)
 	mux.HandleFunc("/images/", h.serveImage)
+	h.authRoutes(mux)
+}
+
+// requireWriteByBoard enforces content-write rights on a board:
+// 404 unknown, 401 anonymous, 403 read-only (viewer / outsider).
+func (h *Handler) requireWriteByBoard(w http.ResponseWriter, boardID string, user *model.User) (model.Board, bool) {
+	board, role, s, err := h.getBoardAuth(boardID, user)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "board not found")
+		return model.Board{}, false
+	}
+	if !canWrite(s, board, user, role) {
+		if user == nil {
+			writeErr(w, http.StatusUnauthorized, "login required")
+		} else {
+			writeErr(w, http.StatusForbidden, "read-only access")
+		}
+		return model.Board{}, false
+	}
+	return board, true
 }
 
 func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		boards, err := h.Store.ListBoards()
+		boards, err := h.visibleBoards(h.CurrentUser(r))
 		if err != nil {
 			writeErr(w, 500, err.Error())
 			return
@@ -94,7 +130,20 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "title is required")
 			return
 		}
-		b, err := h.Store.CreateBoard(body.Title)
+		// New boards are private + owned when auth is on (anonymous
+		// creation would leave an ownerless private board).
+		var b model.Board
+		var err error
+		if s := h.authSettings(); s.Enabled {
+			user := h.CurrentUser(r)
+			if user == nil {
+				writeErr(w, http.StatusUnauthorized, "login required")
+				return
+			}
+			b, err = h.Store.CreateBoardWithOwner(body.Title, user.ID, model.VisibilityPrivate)
+		} else {
+			b, err = h.Store.CreateBoard(body.Title)
+		}
 		if err != nil {
 			writeErr(w, 500, err.Error())
 			return
@@ -105,7 +154,8 @@ func (h *Handler) boards(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// boardSub handles /api/boards/{id} and /api/boards/{id}/columns.
+// boardSub handles /api/boards/{id}, /api/boards/{id}/columns and
+// /api/boards/{id}/members...
 func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
 	rest := strings.TrimPrefix(r.URL.Path, "/api/boards/")
 	id, sub, _ := strings.Cut(rest, "/")
@@ -113,9 +163,16 @@ func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
+	if sub == "members" || strings.HasPrefix(sub, "members/") {
+		h.boardMembers(w, r, id, sub)
+		return
+	}
 	if sub == "columns" {
 		if r.Method != http.MethodPost {
 			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if _, ok := h.requireWriteByBoard(w, id, h.CurrentUser(r)); !ok {
 			return
 		}
 		var body struct {
@@ -137,8 +194,12 @@ func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "not found")
 		return
 	}
+	user := h.CurrentUser(r)
 	switch r.Method {
 	case http.MethodGet:
+		if _, ok := h.requireRead(w, id, user); !ok {
+			return
+		}
 		tree, err := h.Store.GetTree(id)
 		if err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
@@ -149,38 +210,90 @@ func (h *Handler) boardSub(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Title      *string `json:"title"`
 			Background *string `json:"background"`
+			Visibility *string `json:"visibility"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
 		}
-		if body.Title == nil && body.Background == nil {
+		if body.Title == nil && body.Background == nil && body.Visibility == nil {
 			writeErr(w, http.StatusBadRequest, "nothing to update")
 			return
 		}
 		// Merge with stored values so partial patches never wipe fields.
-		cur, err := h.Store.GetTree(id)
+		board, _, s, err := h.getBoardAuth(id, user)
 		if err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
 			return
 		}
-		title, bg := cur.Board.Title, cur.Board.Background
-		if body.Title != nil {
-			title = strings.TrimSpace(*body.Title)
-			if title == "" {
-				writeErr(w, http.StatusBadRequest, "title must not be empty")
+		if body.Visibility != nil {
+			if !canAdmin(s, board, user) {
+				if user == nil {
+					writeErr(w, http.StatusUnauthorized, "login required")
+				} else {
+					writeErr(w, http.StatusForbidden, "only the board owner changes visibility")
+				}
 				return
 			}
+			vis := strings.TrimSpace(*body.Visibility)
+			updated, err := h.Store.SetBoardVisibility(id, vis)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			board = updated
+			// First authenticated setter on a legacy unowned board
+			// becomes its owner, so the board stays manageable.
+			if board.OwnerID == "" && user != nil && s.Enabled {
+				if owned, err := h.Store.SetBoardOwner(id, user.ID); err == nil {
+					board = owned
+				}
+			}
 		}
-		if body.Background != nil {
-			bg = *body.Background
+		if body.Title != nil || body.Background != nil {
+			if _, ok := h.requireWriteByBoard(w, id, user); !ok {
+				return
+			}
+			cur, err := h.Store.GetTree(id)
+			if err != nil {
+				writeErr(w, http.StatusNotFound, err.Error())
+				return
+			}
+			title, bg := cur.Board.Title, cur.Board.Background
+			if body.Title != nil {
+				title = strings.TrimSpace(*body.Title)
+				if title == "" {
+					writeErr(w, http.StatusBadRequest, "title must not be empty")
+					return
+				}
+			}
+			if body.Background != nil {
+				bg = *body.Background
+			}
+			b, err := h.Store.UpdateBoard(id, title, bg)
+			if err != nil {
+				writeErr(w, http.StatusNotFound, err.Error())
+				return
+			}
+			// Preserve the visibility/owner changes above in one reply.
+			b.Visibility, b.OwnerID = board.Visibility, board.OwnerID
+			writeJSON(w, 200, b)
+			return
 		}
-		b, err := h.Store.UpdateBoard(id, title, bg)
+		writeJSON(w, 200, board)
+	case http.MethodDelete:
+		board, _, s, err := h.getBoardAuth(id, user)
 		if err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
 			return
 		}
-		writeJSON(w, 200, b)
-	case http.MethodDelete:
+		if !canAdmin(s, board, user) {
+			if user == nil {
+				writeErr(w, http.StatusUnauthorized, "login required")
+			} else {
+				writeErr(w, http.StatusForbidden, "only the board owner deletes it")
+			}
+			return
+		}
 		if err := h.Store.DeleteBoard(id); err != nil {
 			writeErr(w, http.StatusNotFound, err.Error())
 			return
@@ -204,6 +317,14 @@ func (h *Handler) columnSub(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
 		}
+		boardID, err := h.Store.BoardIDForColumn(id)
+		if err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		if _, ok := h.requireWriteByBoard(w, boardID, h.CurrentUser(r)); !ok {
+			return
+		}
 		var body struct {
 			Blocks []model.Block `json:"blocks"`
 		}
@@ -220,6 +341,14 @@ func (h *Handler) columnSub(w http.ResponseWriter, r *http.Request) {
 	}
 	if sub != "" {
 		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	boardID, err := h.Store.BoardIDForColumn(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if _, ok := h.requireWriteByBoard(w, boardID, h.CurrentUser(r)); !ok {
 		return
 	}
 	switch r.Method {
@@ -252,6 +381,14 @@ func (h *Handler) cardSub(w http.ResponseWriter, r *http.Request) {
 	id, sub, _ := strings.Cut(rest, "/")
 	if id == "" {
 		writeErr(w, http.StatusNotFound, "not found")
+		return
+	}
+	boardID, err := h.Store.BoardIDForCard(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if _, ok := h.requireWriteByBoard(w, boardID, h.CurrentUser(r)); !ok {
 		return
 	}
 	if sub == "move" {
@@ -318,6 +455,16 @@ func (h *Handler) importV1(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	// Imports land private + owned when auth is on, like new boards.
+	if s := h.authSettings(); s.Enabled {
+		user := h.CurrentUser(r)
+		if user == nil {
+			writeErr(w, http.StatusUnauthorized, "login required")
+			return
+		}
+		tree.Board.OwnerID = user.ID
+		tree.Board.Visibility = model.VisibilityPrivate
+	}
 	stored, err := h.Store.ImportTree(tree)
 	if err != nil {
 		writeErr(w, 500, err.Error())
@@ -331,7 +478,7 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	boards, err := h.Store.ListBoards()
+	boards, err := h.visibleBoards(h.CurrentUser(r))
 	if err != nil {
 		writeErr(w, 500, err.Error())
 		return
@@ -357,6 +504,12 @@ func (h *Handler) export(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) uploadImage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	// Uploads attach to cards later, so they need a session when auth
+	// is on; serving stays open (image ids are unguessable).
+	if s := h.authSettings(); s.Enabled && h.CurrentUser(r) == nil {
+		writeErr(w, http.StatusUnauthorized, "login required")
 		return
 	}
 	backend, ok := h.Store.(ImageBackend)

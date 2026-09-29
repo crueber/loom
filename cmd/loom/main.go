@@ -70,7 +70,9 @@ func main() {
 		log.Fatalf("read index.html: %v", err)
 	}
 
-	// App shell with bootstrap: inline the first board tree.
+	// App shell with bootstrap: inline the first board tree visible to
+	// the requester (nil for anonymous users when nothing is public,
+	// so private boards never leak into the app shell).
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			// Static assets, contained in webDir (no ../ escapes).
@@ -87,10 +89,8 @@ func main() {
 			return
 		}
 		tree := map[string]any{"board": nil}
-		if bs, err := st.ListBoards(); err == nil && len(bs) > 0 {
-			if t, err := st.GetTree(bs[0].ID); err == nil {
-				tree["board"] = t
-			}
+		if t := h.BootstrapBoard(r); t != nil {
+			tree["board"] = *t
 		}
 		boot, _ := json.Marshal(tree["board"])
 		page := strings.Replace(string(indexTmpl), "/*__BOOTSTRAP_DATA__*/null", string(boot), 1)

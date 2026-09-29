@@ -55,9 +55,20 @@ one `Start here` column and a welcome card, so a new tab is never empty.
   and `GET /images/{id}/thumb` with immutable long-cache headers.
   Image upload/serving requires the SQLite backend; the JSON-file
   backend answers `501`.
-- **Auth status**: there is none — single-user, no-auth server
-  (no auth/OIDC/login code anywhere in `cmd/`, `internal/`, or
-  `web/`). Auth/OIDC is explicitly pending future work.
+- **Auth status**: optional OIDC login (Authorization Code + PKCE,
+  stdlib-only: provider discovery + JWKS RS256 verify with
+  `crypto/rsa`, no new Go deps). Configured entirely from the
+  **Settings dialog in the UI** (issuer, client ID, secret, enable +
+  require-login toggles) — no flags, env vars, or config files; the
+  secret stays server-side and settings persist in the database
+  (SQLite `auth_settings` row / JSON-file `auth` block). OFF by
+  default = open single-user mode, no login. ON = new boards private
+  by default (existing boards stay public), per-board public/private
+  switch + viewer/editor invites via the **Share dialog**, server-side
+  sessions in an HttpOnly SameSite cookie. Code: `internal/auth`
+  (OIDC), `internal/api/auth.go` (routes + permission scoping),
+  `internal/store` (`users`, `auth_settings`, `board_members`,
+  `sessions` tables / JSON blocks, `boards.owner_id` + `visibility`).
 - **Frontend** (`web/`, vanilla JS, no framework): cache-first render
   from `localStorage` (key `loom.cache.v2`, migrated from
   `loom.cache.v1`; column widths in `loom.colwidths.v1`),
@@ -68,12 +79,16 @@ one `Start here` column and a welcome card, so a new tab is never empty.
   reads stale-while-revalidate), lazy images, HTML5 drag-and-drop
   for cards (within/across columns) and column reorder, inline
   editing.
-- **Full route list** lives in `internal/api/api.go` (`Handler.Register`):
-  `GET/POST /api/boards`, `GET/PATCH/DELETE /api/boards/{id}`,
+- **Full route list** lives in `internal/api/api.go` (`Handler.Register`)
+  plus `internal/api/auth.go`: `GET/POST /api/boards`, `GET/PATCH/DELETE /api/boards/{id}`,
   `POST /api/boards/{id}/columns`, `PATCH/DELETE /api/columns/{id}`,
   `POST /api/columns/{id}/cards`, `PATCH/DELETE /api/cards/{id}`,
   `POST /api/cards/{id}/move`, `POST /api/import/v1`,
-  `GET /api/export`, `POST /api/images`, `GET /images/…`.
+  `GET /api/export`, `POST /api/images`, `GET /images/…`,
+  `GET /api/auth/status`, `GET/PUT /api/auth/settings`,
+  `GET /api/me`, `GET /api/auth/login`, `GET /api/auth/callback`,
+  `POST /api/auth/logout`, `GET/POST /api/boards/{id}/members`,
+  `PATCH/DELETE /api/boards/{id}/members/{user_id}`.
 
 ## Checks
 

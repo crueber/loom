@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/crueber/loom-rebuild/internal/model"
 )
@@ -37,12 +38,39 @@ type Store interface {
 
 	// ImportTree stores a full board tree (used by v1 import).
 	ImportTree(tree model.BoardTree) (model.BoardTree, error)
+
+	// Auth + board permissions (OSS-50, UI-configured OIDC). Additive:
+	// when auth is disabled the board methods below behave like their
+	// legacy counterparts.
+	GetAuthSettings() (model.AuthSettings, error)
+	UpdateAuthSettings(s model.AuthSettings) (model.AuthSettings, error)
+	UpsertUserBySubject(issuer, subject, email, name string) (model.User, error)
+	GetUser(id string) (model.User, error)
+	GetUserByEmail(email string) (model.User, error)
+	CreateBoardWithOwner(title, ownerID, visibility string) (model.Board, error)
+	SetBoardVisibility(id, visibility string) (model.Board, error)
+	SetBoardOwner(id, ownerID string) (model.Board, error)
+	ListBoardMembers(boardID string) ([]model.BoardMember, error)
+	SetBoardMember(boardID, userID, role string) (model.BoardMember, error)
+	RemoveBoardMember(boardID, userID string) error
+	GetBoardMember(boardID, userID string) (model.BoardMember, error)
+	CreateSession(userID, tokenHash string, expires time.Time) (model.Session, error)
+	GetSession(tokenHash string) (model.Session, error)
+	DeleteSession(tokenHash string) error
+	BoardIDForColumn(columnID string) (string, error)
+	BoardIDForCard(cardID string) (string, error)
 }
 
 type snapshot struct {
 	Boards  []model.Board           `json:"boards"`
 	Columns []model.Column          `json:"columns"`
 	Cards   map[string][]model.Card `json:"cards"`
+	// Auth state (OSS-50). Absent in legacy files -> zero values:
+	// auth disabled, boards public/unowned.
+	Auth     model.AuthSettings  `json:"auth"`
+	Users    []model.User        `json:"users"`
+	Members  []model.BoardMember `json:"members"`
+	Sessions []model.Session     `json:"sessions"`
 }
 
 // FileStore is a JSON-file-backed Store. Suitable for single-user
@@ -107,6 +135,7 @@ func (s *FileStore) CreateBoard(title string) (model.Board, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	b := model.NewBoard(title, len(s.snap.Boards))
+	b.Visibility = model.VisibilityPublic
 	s.snap.Boards = append(s.snap.Boards, b)
 	return b, s.persistLocked()
 }

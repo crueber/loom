@@ -49,3 +49,8 @@ Pending = requested but not yet built on this branch.
 - Cache-first instant load: localStorage paint, bootstrap seed, background revalidate.
 - Offline app-shell via service worker; lazy images.
 - JS budget ≤50KB gzip (now ~3.5KB); first-paint probe `__LOOM_FIRST_PAINT_MS`.
+
+## Access & auth
+
+- Optional OIDC login (Authorization Code + PKCE, stdlib-only), configured from the UI Settings dialog; off by default = open single-user mode.
+- Boards are public or private (new boards private when auth is on); per-board share dialog with viewer/editor invites + roles.

@@ -61,3 +61,40 @@ CREATE TABLE IF NOT EXISTS images (
   thumb_blob BLOB NOT NULL,
   created_at TEXT NOT NULL
 );
+
+-- Auth + board permissions (OSS-50, UI-configured OIDC). Additive:
+-- legacy databases gain these via CREATE TABLE IF NOT EXISTS plus
+-- ALTER TABLE boards in OpenSQLite; existing boards stay public/unowned.
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  issuer TEXT NOT NULL DEFAULT '',
+  subject TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_issuer_subject ON users(issuer, subject);
+
+-- Single-row OIDC settings (id always 1).
+CREATE TABLE IF NOT EXISTS auth_settings (
+  id INTEGER PRIMARY KEY CHECK(id = 1),
+  issuer TEXT NOT NULL DEFAULT '',
+  client_id TEXT NOT NULL DEFAULT '',
+  client_secret TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 0,
+  require_auth INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS board_members (
+  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'viewer',
+  PRIMARY KEY (board_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL DEFAULT ''
+);
