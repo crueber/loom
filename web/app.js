@@ -530,8 +530,38 @@
     saveCache();
     return api('PATCH', '/api/cards/' + card.id, card).then(function (fresh) {
       Object.assign(card, fresh);
-      saveCache(); render();
+      saveCache(); renderPreservingTodoFocus();
     }).catch(function () { /* stays local; revalidates next load */ });
+  }
+
+  // Re-render without dropping an in-progress todo edit: a PATCH
+  // resolving after Enter-chained focus would otherwise rebuild the DOM
+  // and leave the new row unfocused. Captures the focused row by id and
+  // restores the caret to the end of the same row after render.
+  function renderPreservingTodoFocus() {
+    var a = document.activeElement;
+    var memo = null;
+    if (a && a.isContentEditable && a.isConnected && a.classList &&
+        a.classList.contains('todo-text') && a.dataset && a.dataset.todo) {
+      var ce = a.closest && a.closest('[data-card]');
+      if (ce && ce.dataset.card) {
+        memo = { cardId: ce.dataset.card, list: a.dataset.todolist || '', item: a.dataset.todo };
+      }
+    }
+    render();
+    if (!memo) return;
+    var cardEl = boardEl.querySelector('[data-card="' + memo.cardId + '"]');
+    if (!cardEl) return;
+    var spans = cardEl.querySelectorAll('.todo-text');
+    for (var i = 0; i < spans.length; i++) {
+      if ((spans[i].dataset.todo || '') === memo.item &&
+          (spans[i].dataset.todolist || '') === memo.list) {
+        var c = findCard(memo.cardId);
+        var loc = c ? todoLoc(c, memo.list, memo.item) : null;
+        if (loc && loc.item) editTodoRaw(spans[i], loc.item, false);
+        return;
+      }
+    }
   }
 
   // If a card holds only a fresh empty note, a new link/image block
@@ -690,9 +720,12 @@
     card.blocks.forEach(function (b, i) { b.position = i; });
   }
 
+  // The Todo… placeholder is render-only markup, never model content:
+  // always reset the span to the raw item text (empty string for a new
+  // row) before editing, so the placeholder can never become typed text.
   function editTodoRaw(spanEl, item, selectAll) {
-    if (spanEl && item && typeof item.content === 'string') {
-      spanEl.textContent = item.content;
+    if (spanEl) {
+      spanEl.textContent = (item && typeof item.content === 'string') ? item.content : '';
     }
     startEdit(spanEl, selectAll);
   }
@@ -1250,13 +1283,17 @@
       return;
     }
     // Todo text edits inline like notes (raw source, no markdown).
+    // A row whose item is gone from the model is stale DOM (e.g. a
+    // background sync replaced it): re-render instead of editing the
+    // placeholder markup as if it were text.
     var todo = t.closest && t.closest('.todo-text[data-todo]');
     if (todo && !todo.isContentEditable) {
       var cardElT = todo.closest('[data-card]');
       var cardT = cardElT && findCard(cardElT.dataset.card);
       if (cardT) {
         var locT = todoLoc(cardT, todo.dataset.todolist, todo.dataset.todo);
-        editTodoRaw(todo, locT && locT.item, false);
+        if (locT && locT.item) editTodoRaw(todo, locT.item, false);
+        else render();
       }
       return;
     }
@@ -1432,6 +1469,12 @@
   document.addEventListener('focusout', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
+    // OSS-64: a programmatic render() (e.g. Enter creating the next todo
+    // row) detaches the focused node; its trailing blur must not commit
+    // stale text and re-render again, which would steal the new row's
+    // focus. Every render caller persists the model first, so a detached
+    // node has nothing left to commit.
+    if (!t.isConnected) return;
     t.contentEditable = 'false';
     t.classList.remove('editing');
     try { window.getSelection().removeAllRanges(); } catch (err) {}
