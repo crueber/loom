@@ -46,6 +46,13 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE auth_settings ADD COLUMN oidc_backfill_done INTEGER NOT NULL DEFAULT 0`)
 	// Migrate pre-checklist databases: todo items live as JSON here.
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
+	// Migrate pre-icon-cache databases (OSS-82 child scope).
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS icons (
+  host TEXT PRIMARY KEY,
+  content_type TEXT NOT NULL DEFAULT '',
+  blob BLOB NOT NULL,
+  fetched_at TEXT NOT NULL
+)`)
 	return &SQLiteStore{db: db}, nil
 }
 

@@ -100,3 +100,11 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL DEFAULT ''
 );
+
+-- Server-cached link icons (OSS-82 child scope, 7-day TTL).
+CREATE TABLE IF NOT EXISTS icons (
+  host TEXT PRIMARY KEY,
+  content_type TEXT NOT NULL DEFAULT '',
+  blob BLOB NOT NULL,
+  fetched_at TEXT NOT NULL
+);
