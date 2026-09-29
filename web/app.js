@@ -270,7 +270,11 @@
   ];
 
   function render() {
-    // Round 4 item 2 (two-zone navbar): left zone = wordmark + board tabs
+    // OSS-43: mutating column buttons all end in render(), which rebuilds
+    // boardEl.innerHTML including the .cols strip — destroying the scroller
+    // resets scrollLeft to 0. Capture/restore here so every caller is covered.
+    var prevStrip = boardEl.querySelector('.cols');
+    var savedScroll = prevStrip ? prevStrip.scrollLeft : 0;
     // (static HTML holds the wordmark; tabs render here). Right zone =
     // #boardctl (expand/collapse + theme) followed by .actions (EN + Import)
     // clustered far-right via a single margin-left:auto — no board-name
@@ -349,6 +353,12 @@
         // Item 10: explicit "+ add card" text label, not a bare +.
         '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+ add card</button></div></section>';
     }).join('') + '<button class="add-col-rail" data-newcol title="Add column"><span aria-hidden="true">+</span><span class="rail-label">add column</span></button></div>';
+    // OSS-43: restore synchronously in the same task — no flicker, and this
+    // runs outside any pointer-pan gesture so it never fights panState.strip.
+    if (savedScroll) {
+      var strip = boardEl.querySelector('.cols');
+      if (strip) strip.scrollLeft = savedScroll;
+    }
   }
 
   function findCard(id) {
