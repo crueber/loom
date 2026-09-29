@@ -337,8 +337,11 @@
       // accent border in CSS); keeps working in light/dark via color-mix.
       var style = '--colc:' + esc(col.color || '#c9c4b6') + ';' +
         ((w && !col.collapsed) ? 'width:' + w + 'px;flex-basis:' + w + 'px;' : '');
-      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" draggable="true" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
-        '<h2><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
+      // OSS-40: only the header is draggable — the section keeps
+      // data-coldrag as a drop target, but native drag never starts from
+      // lane background / section chrome, so pointer pan survives.
+      return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
+        '<h2 draggable="true"><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
         '<button class="cdot" data-coldot="' + col.id + '" style="background:' + esc(col.color || '#c9c4b6') + '" title="Column color" aria-label="Column color"></button>' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="Click to rename">' + esc(col.title) + '</span>' +
         '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
@@ -646,12 +649,19 @@
       try { e.dataTransfer.setData('text/plain', 'card:' + dragCard); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
       return;
     }
-    var colEl = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
-    if (colEl && (e.target === colEl || (e.target.closest && e.target.closest('h2')))) {
+    // OSS-40: column reorder starts ONLY from the header (h2[draggable]).
+    // Any stray section-level dragstart (lane background / section chrome)
+    // is cancelled so the native drag lifecycle never fires pointercancel
+    // and kill the pointer pan.
+    var colHead = e.target && e.target.closest ? e.target.closest('h2[data-coldrag]') : null;
+    if (colHead) {
       if (e.target.isContentEditable || (e.target.closest && e.target.closest('button,input,label'))) return;
-      dragCol = colEl.dataset.coldrag;
+      dragCol = colHead.dataset.coldrag;
       try { e.dataTransfer.setData('text/plain', 'col:' + dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+      return;
     }
+    var strayCol = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
+    if (strayCol && !cardEl && !bh) { try { e.preventDefault(); } catch (err) {} }
   });
   document.addEventListener('dragend', function () { dragCard = null; dragCol = null; dragBlock = null; clearDropHints(); });
   // Item 13: visible drop zones — insertion line/highlight in lanes and

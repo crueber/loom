@@ -463,8 +463,8 @@ button.primary {
    color-mix keeps it tasteful in light and dark modes. Round 3 item 3:
    the h2 joinery (flush wash, joined corners) lives with the h2 rule. */
 .column { border-top: 3px solid var(--colc, transparent); border-radius: 0 0 12px 12px; }
-.column[draggable="true"], .card[draggable="true"] { cursor: grab; }
-.column[draggable="true"]:active, .card[draggable="true"]:active { cursor: grabbing; }
+.column > h2[draggable="true"], .card[draggable="true"] { cursor: grab; }
+.column > h2[draggable="true"]:active, .card[draggable="true"]:active { cursor: grabbing; }
 .emptyboard {
   max-width: 560px; margin: 8vh auto; text-align: center;
   color: var(--muted);
