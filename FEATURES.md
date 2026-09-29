@@ -12,7 +12,7 @@ Pending = requested but not yet built on this branch.
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
 - Pending: collapsed columns as narrow rails.
-- Collapsed rails: count sits just under the vertical name; name hover shrinks to text.
+- Collapsed rails: count sits just under the vertical name; name hover shrinks to text; clicking empty rail space expands the column.
 - Board backgrounds + swatch picker; new boards inherit the current board's background (server persists POST background, unknown ids fall back to paper).
 - Pending: column themes.
 - Pending: board-overflow dropdown.

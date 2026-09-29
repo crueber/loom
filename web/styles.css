@@ -284,6 +284,8 @@ button.primary {
 .column.collapsed .cards { display: none; }
 .column.collapsed > h2 {
   flex-direction: column; align-items: center; gap: 10px;
+  /* OSS-88: empty rail space click expands — signal clickability. */
+  cursor: pointer;
   /* Round 4 item 5: header fills the rail (full height) but muted —
      transparent wash, no tinted edge; name/dot/count below re-assert
      their own color. */
