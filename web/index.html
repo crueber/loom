@@ -10,13 +10,17 @@
 </head>
 <body>
 <header id="topbar">
+  <button id="nav-left" class="navtoggle" aria-label="Boards menu" aria-expanded="false" title="Boards">☰</button>
   <div class="brand">loom</div>
   <nav id="boards" aria-label="Boards"></nav>
+  <div class="rightzone" id="rightzone">
   <div class="boardctl" id="boardctl"></div>
   <div class="actions">
     <button id="auth-btn" title="Log in / out via OIDC" style="display:none">Login</button>
     <button id="settings-btn" title="Settings (language, import, OIDC provider, auth toggles)">Settings</button>
   </div>
+  </div>
+  <button id="nav-right" class="navtoggle" aria-label="Board controls menu" aria-expanded="false" title="Menu">☰</button>
 </header>
 <div id="creator"></div>
 <main id="board"></main>

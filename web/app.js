@@ -275,6 +275,37 @@
     }).catch(function () { alert('Delete failed — nothing was removed.'); });
   }
   var boardMenuOpen = false;
+  // OSS-85: mobile dual-hamburger nav — left opens the board list, right
+  // opens board controls + Settings. State lives on body dataset so CSS
+  // panels show/hide without re-render (render() rebuilds tabs only).
+  // Desktop (>700px) keeps the inline navbar; toggles are display:none.
+  var navLeft = document.getElementById('nav-left');
+  var navRight = document.getElementById('nav-right');
+  function navOpen() { return document.body.dataset.leftopen === '1' || document.body.dataset.rightopen === '1'; }
+  function setNav(which, open) {
+    if (which === 'left') {
+      if (open) delete document.body.dataset.rightopen;
+      if (open) document.body.dataset.leftopen = '1'; else delete document.body.dataset.leftopen;
+    } else {
+      if (open) delete document.body.dataset.leftopen;
+      if (open) document.body.dataset.rightopen = '1'; else delete document.body.dataset.rightopen;
+    }
+    if (navLeft) navLeft.setAttribute('aria-expanded', document.body.dataset.leftopen === '1' ? 'true' : 'false');
+    if (navRight) navRight.setAttribute('aria-expanded', document.body.dataset.rightopen === '1' ? 'true' : 'false');
+  }
+  function closeNav() { setNav('left', false); setNav('right', false); }
+  if (navLeft) navLeft.addEventListener('click', function () {
+    setNav('left', document.body.dataset.leftopen !== '1');
+  });
+  if (navRight) navRight.addEventListener('click', function () {
+    setNav('right', document.body.dataset.rightopen !== '1');
+  });
+  // Leaving mobile width never strands an open panel.
+  if (window.matchMedia) {
+    try {
+      window.matchMedia('(min-width: 701px)').addEventListener('change', function (e) { if (e.matches) closeNav(); });
+    } catch (err) {}
+  }
 
   // Inline Iconify-style icons (item 5): hand-picked 16px outline SVGs in
   // the spirit of the Iconify "link" sets (tabler/mdi lineage), inlined so
@@ -1457,9 +1488,12 @@
     if (colPop && !(e.target.closest && (e.target.closest('.colpop') || e.target.closest('[data-coldot]')))) closeColPop();
     // Round 4 item 6: dismiss the board overflow menu on outside press.
     if (boardMenuOpen && !(e.target.closest && e.target.closest('.boardmenu-wrap'))) { boardMenuOpen = false; render(); }
+    // OSS-85: dismiss mobile nav panels on outside press (toggles live in
+    // #topbar alongside the panels, so inside-topbar presses stay open).
+    if (navOpen() && !(e.target.closest && e.target.closest('#topbar'))) { closeNav(); }
   }, true);
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeColPop(); if (boardMenuOpen) { boardMenuOpen = false; render(); } }
+    if (e.key === 'Escape') { closeColPop(); if (boardMenuOpen) { boardMenuOpen = false; render(); } if (navOpen()) { closeNav(); } }
   });
 
   // Commit inline edits on focus loss (blur doesn't bubble; focusout does).
@@ -1617,6 +1651,7 @@
     var b = e.target.closest && e.target.closest('[data-board]');
     if (b) {
       if (boardMenuOpen) boardMenuOpen = false;
+      closeNav(); // OSS-85: collapse the mobile board panel on select.
       selectBoard(b.dataset.board);
     }
   });
