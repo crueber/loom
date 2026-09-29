@@ -16,10 +16,15 @@ const (
 
 // Board is a top-level page of columns.
 type Board struct {
-	ID         string    `json:"id"`
-	Title      string    `json:"title"`
-	Background string    `json:"background,omitempty"`
-	Position   int       `json:"position"`
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Background string `json:"background,omitempty"`
+	Position   int    `json:"position"`
+	// OwnerID is the user that owns the board ("" = legacy/unowned,
+	// treated as public). Visibility is "public" or "private"
+	// ("" = legacy, treated as public).
+	OwnerID    string    `json:"owner_id,omitempty"`
+	Visibility string    `json:"visibility,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
