@@ -35,6 +35,8 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	}
 	// Migrate pre-background databases: ignore duplicate-column errors.
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN background TEXT NOT NULL DEFAULT ''`)
+	// Migrate pre-todo databases: ignore duplicate-column errors.
+	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN checked INTEGER NOT NULL DEFAULT 0`)
 	return &SQLiteStore{db: db}, nil
 }
 
@@ -145,7 +147,7 @@ func (s *SQLiteStore) listCards(columnID string) ([]model.Card, error) {
 }
 
 func (s *SQLiteStore) listBlocks(cardID string) ([]model.Block, error) {
-	rows, err := s.db.Query(`SELECT id,type,position,url,title,content,image_url,thumb_url,alt FROM blocks WHERE card_id=? ORDER BY position`, cardID)
+	rows, err := s.db.Query(`SELECT id,type,position,url,title,content,image_url,thumb_url,alt,COALESCE(checked,0) FROM blocks WHERE card_id=? ORDER BY position`, cardID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,9 +155,11 @@ func (s *SQLiteStore) listBlocks(cardID string) ([]model.Block, error) {
 	var out []model.Block
 	for rows.Next() {
 		var b model.Block
-		if err := rows.Scan(&b.ID, &b.Type, &b.Position, &b.URL, &b.Title, &b.Content, &b.ImageURL, &b.ThumbURL, &b.Alt); err != nil {
+		var checked int
+		if err := rows.Scan(&b.ID, &b.Type, &b.Position, &b.URL, &b.Title, &b.Content, &b.ImageURL, &b.ThumbURL, &b.Alt, &checked); err != nil {
 			return nil, err
 		}
+		b.Checked = checked != 0
 		out = append(out, b)
 	}
 	if out == nil {
@@ -261,8 +265,8 @@ func insertBlock(tx *sql.Tx, cardID string, b model.Block, pos int) error {
 	if b.ID == "" {
 		b.ID = model.NewID()
 	}
-	_, err := tx.Exec(`INSERT INTO blocks(id,card_id,type,position,url,title,content,image_url,thumb_url,alt) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-		b.ID, cardID, b.Type, pos, b.URL, b.Title, b.Content, b.ImageURL, b.ThumbURL, b.Alt)
+	_, err := tx.Exec(`INSERT INTO blocks(id,card_id,type,position,url,title,content,image_url,thumb_url,alt,checked) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		b.ID, cardID, b.Type, pos, b.URL, b.Title, b.Content, b.ImageURL, b.ThumbURL, b.Alt, boolInt(b.Checked))
 	return err
 }
 

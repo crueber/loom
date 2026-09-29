@@ -11,6 +11,7 @@ const (
 	BlockLink  = "link"
 	BlockNote  = "note"
 	BlockImage = "image"
+	BlockTodo  = "todo"
 )
 
 // Board is a top-level page of columns.
@@ -46,18 +47,21 @@ type Card struct {
 }
 
 // Block is one ordered unit inside a card: a link, a markdown note,
-// or an image.
+// an image, or a todo-list row.
 type Block struct {
 	ID       string `json:"id"`
-	Type     string `json:"type"` // link | note | image
+	Type     string `json:"type"` // link | note | image | todo
 	Position int    `json:"position"`
 
 	// Link fields.
 	URL   string `json:"url,omitempty"`
 	Title string `json:"title,omitempty"`
 
-	// Note field (markdown).
+	// Note field (markdown). Todo rows reuse Content for the row text.
 	Content string `json:"content,omitempty"`
+
+	// Todo field.
+	Checked bool `json:"checked,omitempty"`
 
 	// Image fields. ImageURL is a remote URL or a /images/… path for
 	// server-stored uploads; ThumbURL is the server thumbnail.
@@ -123,4 +127,9 @@ func NewNoteBlock(content string) Block {
 // NewImageBlock builds an image block.
 func NewImageBlock(imageURL, alt string) Block {
 	return Block{ID: NewID(), Type: BlockImage, ImageURL: imageURL, Alt: alt}
+}
+
+// NewTodoBlock builds a todo-list row block.
+func NewTodoBlock(content string) Block {
+	return Block{ID: NewID(), Type: BlockTodo, Content: content}
 }
