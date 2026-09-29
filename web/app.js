@@ -249,6 +249,31 @@
     setBoardOrder(ids);
     saveCache(); render();
   }
+  // OSS-68: delete the current board behind an explicit confirm() —
+  // a single click must never delete. Cancel changes nothing (no
+  // network call). Confirm drops the board from client state without
+  // a full reload and selects a remaining board (or empty state).
+  function deleteBoard(id) {
+    if (!id) return;
+    var target = null;
+    state.boards.forEach(function (b) { if (b.id === id) target = b; });
+    var title = target ? target.title : id;
+    if (!window.confirm('Delete board "' + title + '"? Its columns and cards go too. This cannot be undone.')) return;
+    api('DELETE', '/api/boards/' + id).then(function () {
+      state.boards = state.boards.filter(function (b) { return b.id !== id; });
+      delete state.trees[id];
+      try { setBoardOrder(getBoardOrder().filter(function (x) { return x !== id; })); } catch (e) {}
+      if (state.boardId !== id) { saveCache(); render(); return; }
+      var rest = orderedBoards();
+      if (!rest.length) {
+        state.boardId = null;
+        try { history.pushState(null, '', location.pathname); } catch (e) {}
+        saveCache(); render();
+        return;
+      }
+      selectBoard(rest[0].id);
+    }).catch(function () { alert('Delete failed — nothing was removed.'); });
+  }
   var boardMenuOpen = false;
 
   // Inline Iconify-style icons (item 5): hand-picked 16px outline SVGs in
@@ -395,7 +420,12 @@
               '<button class="mv" data-boarddown="' + b.id + '" title="Move down" aria-label="Move ' + esc(b.title) + ' down">↓</button></div>';
           }).join('') + '</div>' : '') + '</span>'
         : '') +
-      '<button class="add-inline" data-newboard title="New board">+ </button>';
+      '<button class="add-inline" data-newboard title="New board">+ </button>' +
+      // OSS-68: delete affordance for the current board, next to +.
+      // Confirm-gated in deleteBoard(); hidden with no selection.
+      (state.boardId
+        ? '<button class="del-board" data-delboard="' + state.boardId + '" title="Delete this board" aria-label="Delete this board">×</button>'
+        : '');
     var tree = curTree();
     if (!tree) {
       document.body.dataset.bg = BG_DEFAULT;
@@ -1530,6 +1560,10 @@
   boardsEl.addEventListener('click', function (e) {
     var nb = e.target.closest && e.target.closest('[data-newboard]');
     if (nb) { openCreator('board'); return; }
+    // OSS-68: confirm-gated board delete (cancel = no state change,
+    // no network DELETE).
+    var del = e.target.closest && e.target.closest('[data-delboard]');
+    if (del) { e.stopPropagation(); deleteBoard(del.dataset.delboard); return; }
     // Round 4 item 6: overflow menu toggle + reorder controls.
     var menu = e.target.closest && e.target.closest('[data-boardmenu]');
     if (menu) { boardMenuOpen = !boardMenuOpen; render(); return; }

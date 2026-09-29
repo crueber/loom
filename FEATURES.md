@@ -8,6 +8,7 @@ Pending = requested but not yet built on this branch.
 - Boards hold ordered columns; navbar switcher.
 - Columns hold ordered cards; per-column collapse toggle.
 - Add board / add column from navbar (appends at end).
+- Delete board from navbar (confirm required; removes its columns/cards).
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
 - Pending: collapsed columns as narrow rails.
