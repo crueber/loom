@@ -1865,6 +1865,24 @@
         insertNewline(t);
         return;
       }
+      // OSS-114 (re-land of OSS-79 c133df7, never merged): ArrowUp/
+      // ArrowDown move between todo textboxes in the same card (global
+      // ordinal order, across blocks). No-op at the first/last item.
+      // Caret lands at the end; plain arrows only so Ctrl/Cmd/Alt
+      // combinations stay untouched.
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        var cardElA = t.closest && t.closest('[data-card]');
+        var cardA = cardElA && findCard(cardElA.dataset.card);
+        if (!cardA) return;
+        var ordA = todoOrdinal(cardA, t.dataset.todolist, t.dataset.todo);
+        var totalA = countTodoItems(cardA);
+        var nextA = e.key === 'ArrowUp' ? ordA - 1 : ordA + 1;
+        if (nextA < 0 || nextA >= totalA) return;
+        commitTodo(t);
+        focusTodoAt(cardA.id, nextA, false);
+        return;
+      }
       if (e.key === 'Enter') {
         e.preventDefault();
         var cardElE = t.closest && t.closest('[data-card]');
