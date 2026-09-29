@@ -32,7 +32,7 @@ Pending = requested but not yet built on this branch.
 - Block drop zones cover the whole block: hovering any part shows the before/after line (handle stays the drag source).
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller, so navbar scrolling never clips it.
-- Todo-list blocks: consecutive rows render as one checklist; checkbox toggles and Enter/Escape inline edits persist via card PATCH.
+- Todo-list blocks: one block = one checklist (items array); Enter adds items in-list, Escape exits, checkbox toggles via card PATCH.
 - Pending: reading mode.
 
 ## Navigation & chrome

@@ -160,6 +160,9 @@ func (s *FileStore) GetTree(boardID string) (model.BoardTree, error) {
 			if cards == nil {
 				cards = []model.Card{}
 			}
+			for i := range cards {
+				cards[i].Blocks = model.NormalizeTodoBlocks(cards[i].Blocks)
+			}
 			tree.Cards[c.ID] = cards
 		}
 		return tree, nil
@@ -249,6 +252,7 @@ func (s *FileStore) DeleteColumn(id string) error {
 func (s *FileStore) CreateCard(columnID string, blocks []model.Block) (model.Card, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	blocks = model.NormalizeTodoBlocks(blocks)
 	card := model.NewCard(columnID, len(s.snap.Cards[columnID]), blocks)
 	s.snap.Cards[columnID] = append(s.snap.Cards[columnID], card)
 	return card, s.persistLocked()
@@ -261,6 +265,7 @@ func (s *FileStore) UpdateCard(card model.Card) (model.Card, error) {
 	for i, c := range cards {
 		if c.ID == card.ID {
 			card.CreatedAt = c.CreatedAt
+			card.Blocks = model.NormalizeTodoBlocks(card.Blocks)
 			for j := range card.Blocks {
 				if card.Blocks[j].ID == "" {
 					card.Blocks[j].ID = model.NewID()

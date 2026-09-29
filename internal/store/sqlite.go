@@ -6,6 +6,7 @@ package store
 import (
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -41,6 +42,8 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'`)
 	_, _ = db.Exec(`INSERT OR IGNORE INTO auth_settings(id) VALUES(1)`)
+	// Migrate pre-checklist databases: todo items live as JSON here.
+	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
 	return &SQLiteStore{db: db}, nil
 }
 
@@ -152,7 +155,7 @@ func (s *SQLiteStore) listCards(columnID string) ([]model.Card, error) {
 }
 
 func (s *SQLiteStore) listBlocks(cardID string) ([]model.Block, error) {
-	rows, err := s.db.Query(`SELECT id,type,position,url,title,content,image_url,thumb_url,alt,COALESCE(checked,0) FROM blocks WHERE card_id=? ORDER BY position`, cardID)
+	rows, err := s.db.Query(`SELECT id,type,position,url,title,content,image_url,thumb_url,alt,COALESCE(checked,0),COALESCE(items,'') FROM blocks WHERE card_id=? ORDER BY position`, cardID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,15 +164,21 @@ func (s *SQLiteStore) listBlocks(cardID string) ([]model.Block, error) {
 	for rows.Next() {
 		var b model.Block
 		var checked int
-		if err := rows.Scan(&b.ID, &b.Type, &b.Position, &b.URL, &b.Title, &b.Content, &b.ImageURL, &b.ThumbURL, &b.Alt, &checked); err != nil {
+		var itemsRaw string
+		if err := rows.Scan(&b.ID, &b.Type, &b.Position, &b.URL, &b.Title, &b.Content, &b.ImageURL, &b.ThumbURL, &b.Alt, &checked, &itemsRaw); err != nil {
 			return nil, err
 		}
 		b.Checked = checked != 0
+		if itemsRaw != "" {
+			_ = json.Unmarshal([]byte(itemsRaw), &b.Items)
+		}
 		out = append(out, b)
 	}
 	if out == nil {
 		out = []model.Block{}
 	}
+	// Migrate consecutive legacy todo rows into single checklist blocks.
+	out = model.NormalizeTodoBlocks(out)
 	return out, rows.Err()
 }
 
@@ -270,8 +279,16 @@ func insertBlock(tx *sql.Tx, cardID string, b model.Block, pos int) error {
 	if b.ID == "" {
 		b.ID = model.NewID()
 	}
-	_, err := tx.Exec(`INSERT INTO blocks(id,card_id,type,position,url,title,content,image_url,thumb_url,alt,checked) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
-		b.ID, cardID, b.Type, pos, b.URL, b.Title, b.Content, b.ImageURL, b.ThumbURL, b.Alt, boolInt(b.Checked))
+	var itemsRaw string
+	if len(b.Items) > 0 {
+		raw, err := json.Marshal(b.Items)
+		if err != nil {
+			return err
+		}
+		itemsRaw = string(raw)
+	}
+	_, err := tx.Exec(`INSERT INTO blocks(id,card_id,type,position,url,title,content,image_url,thumb_url,alt,checked,items) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+		b.ID, cardID, b.Type, pos, b.URL, b.Title, b.Content, b.ImageURL, b.ThumbURL, b.Alt, boolInt(b.Checked), itemsRaw)
 	return err
 }
 
@@ -280,6 +297,7 @@ func (s *SQLiteStore) CreateCard(columnID string, blocks []model.Block) (model.C
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM cards WHERE column_id=?`, columnID).Scan(&n); err != nil {
 		return model.Card{}, err
 	}
+	blocks = model.NormalizeTodoBlocks(blocks)
 	card := model.NewCard(columnID, n, blocks)
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -316,6 +334,7 @@ func (s *SQLiteStore) UpdateCard(card model.Card) (model.Card, error) {
 	if _, err := tx.Exec(`DELETE FROM blocks WHERE card_id=?`, card.ID); err != nil {
 		return model.Card{}, err
 	}
+	card.Blocks = model.NormalizeTodoBlocks(card.Blocks)
 	for i := range card.Blocks {
 		if card.Blocks[i].ID == "" {
 			card.Blocks[i].ID = model.NewID()
