@@ -1,10 +1,10 @@
 name: Build & push container
 
-# Automated container builds for crueber/loom (mirrors push.sh):
+# Automated container builds for crueber/loom:
 # on push to main, build ./Dockerfile for linux/amd64,linux/arm64 and
-# push git.packden.us/crueber/loom:latest + sha-<short-SHA>.
+# push ghcr.io/crueber/loom:latest + sha-<short-SHA>.
 # On pull_request, build only (no push). Auth uses the built-in
-# Forgejo token only; no extra secrets.
+# GITHUB_TOKEN only; no extra secrets.
 on:
   push:
     branches: [main]
@@ -31,11 +31,11 @@ jobs:
       - name: Short SHA
         run: echo "SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)" >> "$GITHUB_ENV"
 
-      - name: Log in to Forgejo registry
+      - name: Log in to GHCR
         if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
-          registry: git.packden.us
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -47,5 +47,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' }}
           tags: |
-            git.packden.us/crueber/loom:latest
-            git.packden.us/crueber/loom:sha-${{ env.SHORT_SHA }}
+            ghcr.io/crueber/loom:latest
+            ghcr.io/crueber/loom:sha-${{ env.SHORT_SHA }}
