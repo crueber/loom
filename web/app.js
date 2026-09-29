@@ -362,9 +362,11 @@
   }
 
   // Optimistic PATCH with background sync; server is source of truth.
+  // Returns the sync promise so dependent writes (block cross-card
+  // moves) can chain in server-safe order.
   function syncCard(card) {
     saveCache();
-    api('PATCH', '/api/cards/' + card.id, card).then(function (fresh) {
+    return api('PATCH', '/api/cards/' + card.id, card).then(function (fresh) {
       Object.assign(card, fresh);
       saveCache(); render();
     }).catch(function () { /* stays local; revalidates next load */ });
@@ -737,8 +739,14 @@
       dst.blocks.splice(to, 0, mvb);
       src.blocks.forEach(function (b, i) { b.position = i; });
       if (src !== dst) dst.blocks.forEach(function (b, i) { b.position = i; });
-      if (src !== dst) syncCard(src);
-      syncCard(dst); render();
+      // Cross-card moves chain src-then-dst: the block row must leave
+      // the source before joining the destination (UNIQUE blocks.id).
+      if (src !== dst) {
+        syncCard(src).then(function () { syncCard(dst); });
+      } else {
+        syncCard(dst);
+      }
+      render();
       dragBlock = null;
       return;
     }
