@@ -106,6 +106,16 @@
       localStorage.setItem(LS_WIDTHS, JSON.stringify(w));
     } catch (e) {}
   }
+  // OSS-105: double-clicking the resize handle resets to the standard
+  // column width (340px CSS default) — drop the stored override so the
+  // default applies again.
+  function clearWidth(id) {
+    try {
+      var w = getWidths();
+      delete w[id];
+      localStorage.setItem(LS_WIDTHS, JSON.stringify(w));
+    } catch (e) {}
+  }
 
   function normalizeTree(tree) {    if (!tree) return null;
     if (!tree.columns) tree.columns = [];
@@ -531,7 +541,7 @@
         // OSS-96: delete affordance for the column, confirm-gated in
         // deleteColumn(). Hidden on collapsed rails (CSS) to keep rails clean.
         '<button class="del-col" data-delcol="' + col.id + '" title="Delete this column" aria-label="Delete column ' + esc(col.title) + '">×</button>' +
-        '<span class="resize" data-resize="' + col.id + '" title="Resize column"></span></h2>' +
+        '<span class="resize" data-resize="' + col.id + '" title="Drag to resize; double-click to reset"></span></h2>' +
         // Item 10: explicit "+ add card" text label, not a bare +.
         '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+ add card</button></div></section>';
     }).join('') + '<button class="add-col-rail" data-newcol title="Add column"><span aria-hidden="true">+</span><span class="rail-label">add column</span></button></div>';
@@ -1388,6 +1398,18 @@
     }
     document.addEventListener('pointermove', mv);
     document.addEventListener('pointerup', up);
+  });
+  // OSS-105: double-click the resize handle resets the column to the
+  // standard width (clears the stored override + inline style).
+  boardEl.addEventListener('dblclick', function (e) {
+    var h = e.target && e.target.closest ? e.target.closest('[data-resize]') : null;
+    if (!h) return;
+    var id = h.dataset.resize;
+    var sec = boardEl.querySelector('[data-col="' + id + '"]');
+    if (!sec) return;
+    clearWidth(id);
+    sec.style.width = '';
+    sec.style.flexBasis = '';
   });
 
   // ---- Drag-to-scroll: pointer-drag on empty canvas pans horizontally ----
