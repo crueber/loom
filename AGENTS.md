@@ -1,4 +1,4 @@
-# AGENTS.md — working conventions for Loom (`rebuild/columns-ux`)
+# AGENTS.md — working conventions for Loom (`main`, Forgejo)
 
 ## Commands
 
@@ -15,7 +15,7 @@ Run the full line (`gofmt` + `go vet` + `go build` + `go test` +
 `budget-check`) before pushing. Prefer the smallest relevant test
 (`go test ./internal/store/…`) during iteration, full suite at the end.
 
-Rebuild branch: single Go binary (`cmd/loom`) + vanilla JS (`web/`).
+Layout: single Go binary (`cmd/loom`) + vanilla JS (`web/`).
 
 - Edit `web/app.js`, not build output (no bundler; budget gate `sh scripts/budget-check.sh`).
 - Backend: `internal/model`, `internal/store` (`Store` interface; SQLite/file), `internal/api`.
@@ -26,11 +26,16 @@ Every feature change updates `FEATURES.md` in the same commit (append/modify one
 
 ## Branch / PR / preview conventions
 
-- Active branch: `rebuild/columns-ux`. Base new work on latest
-  `origin` head of that branch.
-- PR: [crueber/loom#3](https://github.com/crueber/loom/pull/3).
-  **Do not merge it** — review belongs to [OSS-12](/OSS/issues/OSS-12).
-- Docs-only rounds (like this one) must not change behavior:
+- Canonical remote: Forgejo `git.packden.us/crueber/loom`
+  (local clone `~/dev/git.packden.us/crueber/loom`). GitHub is legacy —
+  do not branch from or open PRs against `github.com/crueber/loom`.
+- Active branch: `main`. Base new work on latest `origin/main`.
+- One PR per feature set via Forgejo (`tea` CLI, authed as `crueber`);
+  merge each PR as soon as it is green and reviewed, no holding.
+- One worktree per concurrent feature under
+  `~/dev/git.packden.us/crueber/loom-worktrees/<issue-id>`.
+  Never two features sharing one checkout. Remove worktrees when merged.
+- Docs-only changes must not change behavior:
   `go test` stays green and `scripts/budget-check.sh` stays passing.
 - Preview: run the branch container/image (`docker build -t loom .`
   per `Dockerfile`) against a scratch `/data` volume — never the
@@ -46,8 +51,6 @@ Every feature change updates `FEATURES.md` in the same commit (append/modify one
 - **Single binary**: stdlib HTTP + embedded/static web assets only;
   cgo SQLite (`mattn/go-sqlite3`) is the only native dependency.
 - **Clean tree**: `gofmt`/`go vet`/`go test` clean on every push.
-- **No-merge rule**: never merge `rebuild/columns-ux` (PR #3) —
-  that decision belongs to the OSS-12 review.
 
 ## Claim verification
 
