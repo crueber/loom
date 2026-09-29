@@ -627,7 +627,7 @@
   document.addEventListener('dragstart', function (e) {
     // Round 5 item 2: the block handle is checked FIRST so a block drag
     // never starts a card drag (distinct handle zone, no gesture conflict).
-    var bh = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+    var bh = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
     if (bh && bh.dataset.bid) {
       dragBlock = { card: bh.dataset.bcard, block: bh.dataset.bid };
       try { e.dataTransfer.setData('text/plain', 'block:' + dragBlock.card + ':' + dragBlock.block); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
@@ -665,7 +665,7 @@
     try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
     clearDropHints();
     if (dragBlock) {
-      var hEl = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+      var hEl = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
       var cEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
       if (hEl && !(hEl.dataset.bcard === dragBlock.card && hEl.dataset.bid === dragBlock.block)) {
         var blk = hEl.closest('.block') || hEl;
@@ -717,7 +717,7 @@
         if ((src.blocks[bi].id || '') === dragBlock.block) { from = bi; break; }
       }
       if (from < 0) { dragBlock = null; return; }
-      var hT = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+      var hT = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
       if (hT && hT.dataset.bcard === src.id && hT.dataset.bid === dragBlock.block) { dragBlock = null; return; }
       var to = dst.blocks.length, bj;
       if (hT && hT.dataset.bid) {
@@ -887,7 +887,7 @@
     if (panMovedAt && Date.now() - panMovedAt < 350) return;
     // Round 5 item 2: the block drag handle is a drag-only zone — its
     // click (no movement) must not start note editing or any action.
-    if (t.closest && t.closest('[data-bhandle]')) return;
+    if (t.closest && t.closest('.bhandle')) return;
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
     if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
     // Column color dot opens the presets + custom popover (item 4).
