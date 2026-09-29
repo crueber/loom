@@ -89,7 +89,7 @@
     return html.replace(/(<br>)+$/g, '').replace(/^(<br>)+/g, '') || '';
   }
   function favicon(url) {
-    try { return 'https://www.google.com/s2/favicons?domain=' + new URL(url).hostname + '&sz=64'; }
+    try { return 'https://icons.duckduckgo.com/ip3/' + new URL(url).hostname + '.ico'; }
     catch (e) { return ''; }
   }
   function host(url) { try { return new URL(url).hostname; } catch (e) { return url; } }
@@ -223,9 +223,11 @@
     }
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
+      var h = host(b.url);
+      var letter = esc((h.charAt(0) || '?').toUpperCase());
       // Item 7: small remove affordance on link blocks, persisted via card PATCH.
       return '<div class="block block-link">' + bhandleHTML(cardId, b.id) + '<a class="link" href="' + esc(b.url) + '">' +
-        (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22">' : '') +
+        (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22" data-letter="' + letter + '">' : '') +
         '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove link" aria-label="Remove link">&times;</button></div>';
     }
@@ -401,6 +403,26 @@
       var strip = boardEl.querySelector('.cols');
       if (strip) strip.scrollLeft = savedScroll;
     }
+    wireFavFallbacks();
+  }
+
+  // Favicon fallback: a failed link-icon <img> swaps itself for a letter
+  // tile, so a missing icon never shows a broken-image glyph. Wired per
+  // element in render() plus a document capture listener as backup.
+  // data-letter is only set on link favicon imgs, so photo blocks are
+  // unaffected. Re-wired on every render since innerHTML replaces nodes.
+  function favFallback(img) {
+    if (!img || img.tagName !== 'IMG' || !img.dataset || !img.dataset.letter || !img.isConnected) return;
+    var s = document.createElement('span');
+    s.className = 'fav-fallback';
+    s.textContent = img.dataset.letter;
+    img.replaceWith(s);
+  }
+  document.addEventListener('error', function (e) { favFallback(e.target); }, true);
+  function wireFavFallbacks() {
+    boardEl.querySelectorAll('img[data-letter]').forEach(function (img) {
+      img.addEventListener('error', function () { favFallback(img); });
+    });
   }
 
   function findCard(id) {
