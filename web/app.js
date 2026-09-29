@@ -1228,6 +1228,18 @@
       api('PATCH', '/api/columns/' + colId, target).catch(function () {});
       return;
     }
+    // OSS-88: clicking empty rail space on a collapsed column expands it.
+    // Fold/dot/title keep their own behavior above; any other click inside
+    // a collapsed section (count badge, header padding, rail) expands.
+    var collapsedSec = t.closest && t.closest('section.column.collapsed');
+    if (collapsedSec) {
+      var expCol = findCol(collapsedSec.dataset.col);
+      if (!expCol) return;
+      expCol.collapsed = false;
+      saveCache(); render();
+      api('PATCH', '/api/columns/' + collapsedSec.dataset.col, expCol).catch(function () {});
+      return;
+    }
     if (t.dataset && t.dataset.add) {
       var addCol = t.dataset.add;
       api('POST', '/api/columns/' + addCol + '/cards', { blocks: [{ type: 'note', content: '' }] })
