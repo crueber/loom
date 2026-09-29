@@ -36,14 +36,15 @@ CREATE INDEX IF NOT EXISTS idx_cards_column ON cards(column_id, position);
 CREATE TABLE IF NOT EXISTS blocks (
   id TEXT PRIMARY KEY,
   card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-  type TEXT NOT NULL, -- link | note | image
+  type TEXT NOT NULL, -- link | note | image | todo
   position INTEGER NOT NULL DEFAULT 0,
   url TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL DEFAULT '',
   content TEXT NOT NULL DEFAULT '',
   image_url TEXT NOT NULL DEFAULT '',
   thumb_url TEXT NOT NULL DEFAULT '',
-  alt TEXT NOT NULL DEFAULT ''
+  alt TEXT NOT NULL DEFAULT '',
+  checked INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_blocks_card ON blocks(card_id, position);
 

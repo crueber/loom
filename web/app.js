@@ -198,7 +198,8 @@
     note: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
     img: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg>',
     globe: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
-    del: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+    del: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    todo: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>'
   };
 
   // Round 5 item 2: block drag handle — the ONLY block-drag zone
@@ -211,6 +212,11 @@
   }
 
   function blockHTML(b, cardId) {
+    // Todo rows render grouped as one checklist via blocksHTML below;
+    // this single-row fallback keeps blockHTML total (drag/drop, tests).
+    if (b.type === 'todo') {
+      return '<ul class="todo-list">' + todoItemHTML(b, cardId) + '</ul>';
+    }
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
       // Item 7: small remove affordance on link blocks, persisted via card PATCH.
@@ -241,11 +247,41 @@
     return '';
   }
 
+  // Todo-list blocks: each row is one {type:'todo'} block; consecutive
+  // rows render as one checklist <ul>. The checkbox toggles checked via
+  // card PATCH without entering edit mode; the text span edits inline.
+  function todoItemHTML(b, cardId) {
+    var label = b.content ? esc(b.content) : '<span class="todo-empty">Todo…</span>';
+    return '<li class="block todo' + (b.checked ? ' done' : '') + '" data-block="' + esc(b.id || '') + '">' +
+      bhandleHTML(cardId, b.id) +
+      '<input type="checkbox" data-todotoggle="' + esc(b.id || '') + '"' + (b.checked ? ' checked' : '') + ' aria-label="Toggle todo">' +
+      '<span class="todo-text" data-todo="' + esc(b.id || '') + '" title="Click to edit">' + label + '</span>' +
+      '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove todo" aria-label="Remove todo">&times;</button></li>';
+  }
+
+  // Group consecutive todo blocks into single <ul> checklists; other
+  // blocks render via blockHTML as before.
+  function blocksHTML(card) {
+    var out = [];
+    var run = [];
+    function flush() {
+      if (!run.length) return;
+      out.push('<ul class="todo-list">' + run.map(function (b) { return todoItemHTML(b, card.id); }).join('') + '</ul>');
+      run = [];
+    }
+    card.blocks.forEach(function (b) {
+      if (b.type === 'todo') run.push(b);
+      else { flush(); out.push(blockHTML(b, card.id)); }
+    });
+    flush();
+    return out.join('');
+  }
+
   function cardHTML(card) {
     // Item 1: a card with zero blocks (or blocks rendering to '') gets a
     // zero-layout add-text affordance, never an empty note div. Tabindex
     // makes first-tap reveal the hover toolbar on touch (item 2).
-    var inner = card.blocks.map(function (b) { return blockHTML(b, card.id); }).join('') ||
+    var inner = blocksHTML(card) ||
       '<button class="note-add" data-block="" title="Add text">+ add text</button>';
     // Item 2: floating overlay toolbar (CSS absolute, no layout shift),
     // revealed on hover / focus-within / first tap (.showbar). Item 5:
@@ -255,6 +291,7 @@
       '<div class="cardbar" role="toolbar" aria-label="Card actions">' +
       '<button data-act="addlink" title="Add link" aria-label="Add link">' + ICONS.link + '</button>' +
       '<button data-act="addnote" title="Add note" aria-label="Add note">' + ICONS.note + '</button>' +
+      '<button data-act="addtodo" title="Add todo" aria-label="Add todo">' + ICONS.todo + '</button>' +
       '<button data-act="addimg" title="Upload image" aria-label="Upload image">' + ICONS.img + '</button>' +
       '<button data-act="addimgurl" title="Add image URL" aria-label="Add image URL">' + ICONS.globe + '</button>' +
       '<button data-act="del" class="del" title="Delete card" aria-label="Delete card">' + ICONS.del + '</button></div></article>';
@@ -491,6 +528,73 @@
     }
     var c = findCard(cardId);
     editNoteRaw(target, c && blockById(c, target.dataset.block), selectAll !== false);
+  }
+
+  // Todo inline edit: the text span edits raw content like notes. Blur
+  // commits; committing empty text deletes that row only, keeping the rest.
+  function todoBlockOf(card, todoId) {
+    if (!card) return null;
+    for (var i = 0; i < card.blocks.length; i++) {
+      var x = card.blocks[i];
+      if (x.type === 'todo' && (x.id || '') === (todoId || '')) return x;
+    }
+    if ((todoId || '') === '') {
+      for (var j = card.blocks.length - 1; j >= 0; j--) {
+        if (card.blocks[j].type === 'todo' && !card.blocks[j].content) return card.blocks[j];
+      }
+    }
+    return null;
+  }
+
+  function editTodoRaw(spanEl, blk, selectAll) {
+    if (spanEl && blk && typeof blk.content === 'string') {
+      spanEl.textContent = blk.content;
+    }
+    startEdit(spanEl, selectAll);
+  }
+
+  function commitTodo(el) {
+    var cardEl = el.closest && el.closest('[data-card]');
+    if (!cardEl) return;
+    var card = findCard(cardEl.dataset.card);
+    if (!card) return;
+    var text = el.innerText.replace(/\n+$/, '');
+    var blk = todoBlockOf(card, el.dataset.todo);
+    if (!blk) { render(); return; }
+    if (!text) {
+      // Empty todo commits as a delete of that row only.
+      card.blocks = card.blocks.filter(function (x) { return x !== blk; });
+      card.blocks.forEach(function (b, i) { b.position = i; });
+      syncCard(card); render();
+      return;
+    }
+    if ((blk.content || '') !== text) {
+      blk.content = text;
+      syncCard(card);
+    }
+    render();
+  }
+
+  // Focus the todo text at block index right after a render commit.
+  // Index-based (not id-based) so Enter-chained empty rows focus exactly.
+  function focusTodoAt(cardId, index, selectAll) {
+    var cardEl = boardEl.querySelector('[data-card="' + cardId + '"]');
+    if (!cardEl) return;
+    var spans = cardEl.querySelectorAll('.todo-text');
+    var target = spans.length ? spans[Math.max(0, Math.min(index, spans.length - 1))] : null;
+    if (!target) { cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+    var c = findCard(cardId);
+    var blk = null;
+    if (c) {
+      var seen = -1;
+      for (var i = 0; i < c.blocks.length; i++) {
+        if (c.blocks[i].type !== 'todo') continue;
+        seen++;
+        if (seen === index) { blk = c.blocks[i]; break; }
+      }
+      if (!blk) blk = todoBlockOf(c, target.dataset.todo);
+    }
+    editTodoRaw(target, blk, selectAll !== false);
   }
 
   // Inline single-line composer inside a card (replaces prompt()).
@@ -1007,6 +1111,14 @@
       }
       return;
     }
+    // Todo text edits inline like notes (raw source, no markdown).
+    var todo = t.closest && t.closest('.todo-text[data-todo]');
+    if (todo && !todo.isContentEditable) {
+      var cardElT = todo.closest('[data-card]');
+      var cardT = cardElT && findCard(cardElT.dataset.card);
+      if (cardT) editTodoRaw(todo, todoBlockOf(cardT, todo.dataset.todo), false);
+      return;
+    }
     // Item 7: remove an image/link block via its × affordance (card PATCH).
     var rm = t.closest && t.closest('[data-rmblock]');
     if (rm) {
@@ -1051,6 +1163,12 @@
       card.blocks.push({ id: '', type: 'note', content: '', position: card.blocks.length });
       saveCache(); render();
       focusNote(card.id, '', true);
+    } else if (act === 'addtodo') {
+      // Same render-first pattern as addnote; blur commits the row.
+      card.blocks.push({ id: '', type: 'todo', content: '', checked: false, position: card.blocks.length });
+      saveCache(); render();
+      var ti = card.blocks.filter(function (b) { return b.type === 'todo'; }).length - 1;
+      focusTodoAt(card.id, ti, true);
     } else if (act === 'addimg') {
       // Local upload: hidden file picker -> POST /api/images -> image block.
       var input = document.createElement('input');
@@ -1076,6 +1194,19 @@
         syncCard(card); render();
       });
     }
+  });
+
+  // Todo checkbox toggles persist via card PATCH without edit mode.
+  boardEl.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.dataset || t.dataset.todotoggle === undefined) return;
+    var cardEl = t.closest && t.closest('[data-card]');
+    var card = cardEl && findCard(cardEl.dataset.card);
+    if (!card) return;
+    var blk = todoBlockOf(card, t.dataset.todotoggle);
+    if (!blk || blk.checked === t.checked) return;
+    blk.checked = t.checked;
+    syncCard(card);
   });
 
   // Column color presets + custom color (round 3 item 4). The header
@@ -1177,6 +1308,26 @@
       return;
     }
     if (t.classList && t.classList.contains('note')) commitNote(t);
+    // Todo rows commit via commitTodo; Escape sets a cancel flag in the
+    // keydown handler so uncommitted keystrokes are discarded instead.
+    if (t.classList && t.classList.contains('todo-text')) {
+      if (t.dataset.cancel) {
+        delete t.dataset.cancel;
+        var cardElC = t.closest && t.closest('[data-card]');
+        var cardC = cardElC && findCard(cardElC.dataset.card);
+        if (cardC) {
+          var blkC = todoBlockOf(cardC, t.dataset.todo);
+          if (blkC && !blkC.content) {
+            cardC.blocks = cardC.blocks.filter(function (x) { return x !== blkC; });
+            cardC.blocks.forEach(function (b, i) { b.position = i; });
+            saveCache();
+          }
+        }
+        render();
+        return;
+      }
+      commitTodo(t);
+    }
   });
   // Enter commits an inline edit and exits edit mode; Shift+Enter,
   // Ctrl+Enter, AND Cmd/Meta+Enter all insert a newline (item 4 — all
@@ -1202,6 +1353,39 @@
   document.addEventListener('keydown', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
+    // Todo rows: Enter commits + inserts the next row (each Enter saves);
+    // Escape stops editing, discarding keystrokes. Note behavior below
+    // is unchanged.
+    if (t.classList && t.classList.contains('todo-text')) {
+      if (e.key === 'Escape') { e.preventDefault(); t.dataset.cancel = '1'; t.blur(); return; }
+      if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        insertNewline(t);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var cardElE = t.closest && t.closest('[data-card]');
+        var cardE = cardElE && findCard(cardElE.dataset.card);
+        if (!cardE) { t.blur(); return; }
+        var textE = t.innerText.replace(/\n+$/, '');
+        var blkE = todoBlockOf(cardE, t.dataset.todo);
+        if (!blkE) { t.blur(); render(); return; }
+        var at = cardE.blocks.indexOf(blkE);
+        if (textE) blkE.content = textE;
+        else cardE.blocks.splice(at, 1);
+        if (at < 0) at = cardE.blocks.length;
+        var atNew = at + (textE ? 1 : 0);
+        cardE.blocks.splice(atNew, 0, { id: '', type: 'todo', content: '', checked: false, position: 0 });
+        cardE.blocks.forEach(function (b, i) { b.position = i; });
+        var ord = 0;
+        for (var k = 0; k < atNew; k++) if (cardE.blocks[k].type === 'todo') ord++;
+        saveCache(); syncCard(cardE); render();
+        focusTodoAt(cardE.id, ord, true);
+        return;
+      }
+      return;
+    }
     if (e.key === 'Escape') { e.preventDefault(); t.blur(); render(); }
     else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
       e.preventDefault();

@@ -332,6 +332,25 @@ button.primary {
 .card a.link .u { color: var(--muted); font-size: 12.5px; }
 .card .note { white-space: pre-wrap; word-wrap: break-word; border-radius: 6px; }
 .card .note:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+/* Todo-list blocks: consecutive rows render as one checklist. */
+.todo-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.card .block.todo-list:last-child { margin-bottom: 0; }
+.todo {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 0; padding: 3px 26px 3px 22px; font-size: 14.5px;
+  border-radius: 6px; list-style: none;
+}
+.todo:hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.todo input[type="checkbox"] {
+  flex: 0 0 auto; width: 16px; height: 16px; margin-top: 3px;
+  accent-color: var(--accent); cursor: pointer;
+}
+.todo-text { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; word-wrap: break-word; cursor: text; border-radius: 6px; }
+.todo.done .todo-text { text-decoration: line-through; color: var(--muted); }
+.todo-empty { color: var(--muted); }
+.todo-text[contenteditable="true"] { outline: 2px solid var(--accent); outline-offset: 2px; background: var(--card); cursor: text; }
+.todo-list .rmblock { top: 4px; }
+.todo:hover .rmblock, .todo:focus-within .rmblock { opacity: 1; }
 /* Item 1: zero-layout add-text affordance — inline, muted, no block space. */
 .note-add {
   border: none; background: transparent; padding: 0; margin: 0;
