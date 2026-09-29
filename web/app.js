@@ -652,16 +652,17 @@
     // OSS-40: column reorder starts ONLY from the header (h2[draggable]).
     // Any stray section-level dragstart (lane background / section chrome)
     // is cancelled so the native drag lifecycle never fires pointercancel
-    // and kill the pointer pan.
-    var colHead = e.target && e.target.closest ? e.target.closest('h2[data-coldrag]') : null;
-    if (colHead) {
+    // and kill the pointer pan. The section keeps data-coldrag as the sole
+    // drop target so dragover/drop hints still land on the full column.
+    var colHead = e.target && e.target.closest ? e.target.closest('h2') : null;
+    var colSec = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
+    if (colHead && colSec && colHead.closest('[data-coldrag]') === colSec) {
       if (e.target.isContentEditable || (e.target.closest && e.target.closest('button,input,label'))) return;
-      dragCol = colHead.dataset.coldrag;
+      dragCol = colSec.dataset.coldrag;
       try { e.dataTransfer.setData('text/plain', 'col:' + dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
       return;
     }
-    var strayCol = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
-    if (strayCol && !cardEl && !bh) { try { e.preventDefault(); } catch (err) {} }
+    if (colSec && !cardEl && !bh) { try { e.preventDefault(); } catch (err) {} }
   });
   document.addEventListener('dragend', function () { dragCard = null; dragCol = null; dragBlock = null; clearDropHints(); });
   // Item 13: visible drop zones — insertion line/highlight in lanes and
