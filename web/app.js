@@ -47,7 +47,7 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
-  // Minimal markdown: "# H1", "## H2", "**bold**", "*italic*", "`code`",
+  // Minimal markdown: "# H1", "## H2", "### H3", "**bold**", "*italic*", "`code`",
   // "[text](url)", "- list". No deps. Headings/lists are line-based;
   // inline marks apply within each line.
   function inlineFmt(h) {
@@ -62,12 +62,16 @@
     var out = [];
     var inList = false;
     lines.forEach(function (line) {
+      var m3 = line.match(/^###\s+(.*)/);
       var m2 = line.match(/^##\s+(.*)/);
       var m1 = line.match(/^#\s+(.*)/);
       var ml = line.match(/^-\s+(.*)/);
-      if (m2) {
+      if (m3) {
         if (inList) { out.push('</ul>'); inList = false; }
-        out.push('<h1 class="md-h2">' + inlineFmt(m2[1]) + '</h1>');
+        out.push('<h3 class="md-h3">' + inlineFmt(m3[1]) + '</h3>');
+      } else if (m2) {
+        if (inList) { out.push('</ul>'); inList = false; }
+        out.push('<h2 class="md-h2">' + inlineFmt(m2[1]) + '</h2>');
       } else if (m1) {
         if (inList) { out.push('</ul>'); inList = false; }
         out.push('<h1 class="md-h1">' + inlineFmt(m1[1]) + '</h1>');
