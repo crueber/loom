@@ -201,11 +201,20 @@
     del: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
   };
 
-  function blockHTML(b) {
+  // Round 5 item 2: block drag handle — the ONLY block-drag zone
+  // (card body drags the card, empty lane pans). Rendered only for
+  // server-persisted blocks (non-empty id) so drag state always keys
+  // on a real block id.
+  function bhandleHTML(cardId, blockId) {
+    if (!blockId) return '';
+    return '<span class="bhandle" draggable="true" data-bcard="' + esc(cardId) + '" data-bid="' + esc(blockId) + '" title="Drag to move">⠿</span>';
+  }
+
+  function blockHTML(b, cardId) {
     if (b.type === 'link' && b.url) {
       var fav = favicon(b.url);
       // Item 7: small remove affordance on link blocks, persisted via card PATCH.
-      return '<div class="block block-link"><a class="link" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
+      return '<div class="block block-link">' + bhandleHTML(cardId, b.id) + '<a class="link" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
         (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22">' : '') +
         '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove link" aria-label="Remove link">&times;</button></div>';
@@ -214,7 +223,7 @@
       var src = b.thumb_url || b.image_url;
       var full = b.image_url || b.thumb_url;
       // Item 7: small remove affordance on image blocks, persisted via card PATCH.
-      return '<div class="block block-img"><a href="' + esc(full) + '" target="_blank" rel="noopener">' +
+      return '<div class="block block-img">' + bhandleHTML(cardId, b.id) + '<a href="' + esc(full) + '" target="_blank" rel="noopener">' +
         '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove image" aria-label="Remove image">&times;</button></div>';
     }
@@ -227,7 +236,7 @@
         return '<button class="note-add" data-block="' + esc(b.id || '') + '" title="Add text">+ add text</button>';
       }
       return '<div class="block note" data-block="' + esc(b.id || '') + '"' +
-        ' title="Click to edit">' + md(b.content) + '</div>';
+        ' title="Click to edit">' + bhandleHTML(cardId, b.id) + md(b.content) + '</div>';
     }
     return '';
   }
@@ -236,7 +245,7 @@
     // Item 1: a card with zero blocks (or blocks rendering to '') gets a
     // zero-layout add-text affordance, never an empty note div. Tabindex
     // makes first-tap reveal the hover toolbar on touch (item 2).
-    var inner = card.blocks.map(blockHTML).join('') ||
+    var inner = card.blocks.map(function (b) { return blockHTML(b, card.id); }).join('') ||
       '<button class="note-add" data-block="" title="Add text">+ add text</button>';
     // Item 2: floating overlay toolbar (CSS absolute, no layout shift),
     // revealed on hover / focus-within / first tap (.showbar). Item 5:
@@ -612,9 +621,18 @@
     if (id && id !== state.boardId && state.boards.some(function (b) { return b.id === id; })) selectBoard(id, true);
   });
 
-  // ---- HTML5 drag-drop: cards within/across columns, columns reorder ----
-  var dragCard = null, dragCol = null;
+  // ---- HTML5 drag-drop: cards within/across columns, columns reorder,
+  // ---- blocks within/across cards (Round 5 item 2) ----
+  var dragCard = null, dragCol = null, dragBlock = null;
   document.addEventListener('dragstart', function (e) {
+    // Round 5 item 2: the block handle is checked FIRST so a block drag
+    // never starts a card drag (distinct handle zone, no gesture conflict).
+    var bh = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+    if (bh && bh.dataset.bid) {
+      dragBlock = { card: bh.dataset.bcard, block: bh.dataset.bid };
+      try { e.dataTransfer.setData('text/plain', 'block:' + dragBlock.card + ':' + dragBlock.block); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+      return;
+    }
     var cardEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
     if (cardEl && !dragCol) {
       // Avoid starting a card drag from an active inline editor.
@@ -630,20 +648,33 @@
       try { e.dataTransfer.setData('text/plain', 'col:' + dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
     }
   });
-  document.addEventListener('dragend', function () { dragCard = null; dragCol = null; clearDropHints(); });
+  document.addEventListener('dragend', function () { dragCard = null; dragCol = null; dragBlock = null; clearDropHints(); });
   // Item 13: visible drop zones — insertion line/highlight in lanes and
   // between columns during the drag, via native drag events. Hints clear
   // on every dragover reset, drop, and dragend; no silent reordering.
+  // Round 5 item 2 adds block insertion lines (.drop-bbefore/.drop-bafter)
+  // plus a dashed outline on the hovered card (.drop-bhint).
   function clearDropHints() {
-    boardEl.querySelectorAll('.drop-hint,.drop-before,.drop-col-before,.drop-col-after').forEach(function (el) {
-      el.classList.remove('drop-hint', 'drop-before', 'drop-col-before', 'drop-col-after');
+    boardEl.querySelectorAll('.drop-hint,.drop-before,.drop-col-before,.drop-col-after,.drop-bbefore,.drop-bafter,.drop-bhint').forEach(function (el) {
+      el.classList.remove('drop-hint', 'drop-before', 'drop-col-before', 'drop-col-after', 'drop-bbefore', 'drop-bafter', 'drop-bhint');
     });
   }
   boardEl.addEventListener('dragover', function (e) {
-    if (!dragCard && !dragCol) return;
+    if (!dragCard && !dragCol && !dragBlock) return;
     e.preventDefault();
     try { e.dataTransfer.dropEffect = 'move'; } catch (err) {}
     clearDropHints();
+    if (dragBlock) {
+      var hEl = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+      var cEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
+      if (hEl && !(hEl.dataset.bcard === dragBlock.card && hEl.dataset.bid === dragBlock.block)) {
+        var blk = hEl.closest('.block') || hEl;
+        var rr = blk.getBoundingClientRect();
+        blk.classList.add((e.clientY - rr.top) < rr.height / 2 ? 'drop-bbefore' : 'drop-bafter');
+      }
+      if (cEl) cEl.classList.add('drop-bhint');
+      return;
+    }
     if (dragCard) {
       var onCard = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
       var lane = e.target && e.target.closest ? e.target.closest('[data-cards]') : null;
@@ -672,6 +703,45 @@
   });
   boardEl.addEventListener('drop', function (e) {
     clearDropHints();
+    // Round 5 item 2: block move within/across cards, persisted via the
+    // existing card PATCH path (syncCard). Dropping on a block inserts
+    // before/after by pointer half; dropping on card chrome appends.
+    if (dragBlock) {
+      e.preventDefault();
+      var src = findCard(dragBlock.card);
+      var dstEl = e.target && e.target.closest ? e.target.closest('[data-card]') : null;
+      var dst = dstEl ? findCard(dstEl.dataset.card) : null;
+      if (!src || !dst) { dragBlock = null; return; }
+      var from = -1, bi;
+      for (bi = 0; bi < src.blocks.length; bi++) {
+        if ((src.blocks[bi].id || '') === dragBlock.block) { from = bi; break; }
+      }
+      if (from < 0) { dragBlock = null; return; }
+      var hT = e.target && e.target.closest ? e.target.closest('[data-bhandle]') : null;
+      if (hT && hT.dataset.bcard === src.id && hT.dataset.bid === dragBlock.block) { dragBlock = null; return; }
+      var to = dst.blocks.length, bj;
+      if (hT && hT.dataset.bid) {
+        var tb = hT.closest('.block') || hT;
+        var tr = tb.getBoundingClientRect();
+        var beforeT = (e.clientY - tr.top) < tr.height / 2;
+        for (bj = 0; bj < dst.blocks.length; bj++) {
+          if ((dst.blocks[bj].id || '') === hT.dataset.bid) { to = bj + (beforeT ? 0 : 1); break; }
+        }
+      }
+      var mvb = src.blocks.splice(from, 1)[0];
+      if (src === dst) {
+        if (to === from || to === from + 1) { src.blocks.splice(from, 0, mvb); dragBlock = null; return; }
+        if (to > from) to--;
+      }
+      if (to < 0 || to > dst.blocks.length) to = dst.blocks.length;
+      dst.blocks.splice(to, 0, mvb);
+      src.blocks.forEach(function (b, i) { b.position = i; });
+      if (src !== dst) dst.blocks.forEach(function (b, i) { b.position = i; });
+      if (src !== dst) syncCard(src);
+      syncCard(dst); render();
+      dragBlock = null;
+      return;
+    }
     if (dragCol) {
       e.preventDefault();
       var over = e.target && e.target.closest ? e.target.closest('[data-coldrag]') : null;
@@ -815,6 +885,9 @@
     var t = e.target;
     // Swallow the click that lands right after a canvas pan (item 6).
     if (panMovedAt && Date.now() - panMovedAt < 350) return;
+    // Round 5 item 2: the block drag handle is a drag-only zone — its
+    // click (no movement) must not start note editing or any action.
+    if (t.closest && t.closest('[data-bhandle]')) return;
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
     if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
     // Column color dot opens the presets + custom popover (item 4).

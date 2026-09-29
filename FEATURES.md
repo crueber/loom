@@ -11,6 +11,7 @@ Pending = requested but not yet built on this branch.
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
 - Pending: collapsed columns as narrow rails.
+- Collapsed rails: count sits just under the vertical name; name hover shrinks to text.
 - Pending: board/column themes + 12-swatch picker.
 - Pending: board-overflow dropdown.
 
@@ -25,6 +26,7 @@ Pending = requested but not yet built on this branch.
 - Compact add: + card per column; + link/note/image per card.
 - Pending: Enter-save + modifier-newline while editing.
 - Pending: drag cards within/across columns with drop hints (move API exists).
+- Blocks drag via handle to reorder within/across cards (card PATCH persists).
 - Pending: reading mode.
 
 ## Navigation & chrome
@@ -38,6 +40,7 @@ Pending = requested but not yet built on this branch.
 
 - SQLite for .db/.sqlite/.sqlite3; JSON file otherwise; empty = in-memory.
 - v1 legacy JSON importer.
+- v1 import dedupes links on normalized URL (first wins, order kept).
 - Cache-first instant load: localStorage paint, bootstrap seed, background revalidate.
 - Offline app-shell via service worker; lazy images.
 - JS budget ≤50KB gzip (now ~3.5KB); first-paint probe `__LOOM_FIRST_PAINT_MS`.

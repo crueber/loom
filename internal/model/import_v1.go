@@ -2,6 +2,8 @@ package model
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -54,9 +56,29 @@ func strVal(s *string) string {
 	return *s
 }
 
+// normalizeLinkURL canonicalizes a link URL for import dedupe: trim
+// surrounding space, case-fold the host, drop the fragment, and strip a
+// single trailing slash (a bare "/" path counts as empty). The query is
+// preserved. Unparseable input falls back to the trimmed raw string so
+// the normalizer never drops a link by itself.
+func normalizeLinkURL(raw string) string {
+	s := strings.TrimSpace(raw)
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" {
+		return s
+	}
+	u.Host = strings.ToLower(u.Host)
+	u.Fragment = ""
+	u.Path = strings.TrimSuffix(u.Path, "/")
+	return u.String()
+}
+
 // ImportV1 migrates a v1 export payload into a single board tree.
 // Each v1 list becomes a column (color/collapse/position preserved);
 // each v1 item becomes a card holding one block.
+// Links dedupe per list on normalized URL (v1 exports carry the same
+// link in both "bookmarks" and "items"): first occurrence wins, order
+// preserved. Empty URLs are never deduped.
 func ImportV1(data []byte) (BoardTree, error) {
 	var v1 v1Export
 	if err := jsonUnmarshal(data, &v1); err != nil {
@@ -75,7 +97,17 @@ func ImportV1(data []byte) (BoardTree, error) {
 		}
 		tree.Columns = append(tree.Columns, col)
 		var cards []Card
+		seenLink := map[string]bool{}
 		add := func(pos int, b Block) {
+			if b.Type == BlockLink {
+				if key := normalizeLinkURL(b.URL); key == "" {
+					// Degenerate: keep, never dedupe empties.
+				} else if seenLink[key] {
+					return // dual-imported link: keep first, preserve order
+				} else {
+					seenLink[key] = true
+				}
+			}
 			b.Position = 0
 			cards = append(cards, NewCard(col.ID, pos, []Block{b}))
 		}

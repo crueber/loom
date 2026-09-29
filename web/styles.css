@@ -276,6 +276,12 @@ button.primary {
   writing-mode: vertical-rl; text-orientation: mixed;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-height: 40vh; margin: 0; padding: 6px 1px;
+  /* Round 5 item 3: never grow in the vertical header — the base
+     flex:1 would stretch the name the full rail height, parking the
+     count mid-rail and painting a long hover strip. Shrink-to-text
+     keeps the count just beneath the name and the hover/click area
+     on the name itself. */
+  flex: 0 0 auto;
 }
 .column.collapsed .colcount { padding: 0 6px; }
 /* Round 3 item 5: lanes scroll internally, capped at the viewport —
@@ -340,6 +346,27 @@ button.primary {
   outline: 2px solid var(--accent); outline-offset: 2px; background: var(--card); cursor: text;
 }
 .card .note.editing { min-height: 1.4em; }
+/* Round 5 item 2: block drag handles + drop hints. The handle overlays
+   the block's top-left on hover only (zero layout shift, like .rmblock)
+   and is the sole block-drag zone — card body drags the card, empty
+   lane pans. Insertion lines mark before/after; the hovered card gets
+   a dashed outline. */
+.card .block { position: relative; }
+.bhandle {
+  position: absolute; left: 2px; top: 2px; z-index: 3;
+  width: 20px; height: 22px; line-height: 22px; text-align: center;
+  font-size: 12px; color: var(--muted); cursor: grab;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid transparent; border-radius: 6px;
+  opacity: 0; pointer-events: none; touch-action: none;
+  user-select: none; -webkit-user-select: none;
+}
+.block:hover > .bhandle, .block:focus-within > .bhandle { opacity: .8; pointer-events: auto; }
+.bhandle:hover { color: var(--ink); border-color: var(--line); opacity: 1; }
+.bhandle:active { cursor: grabbing; }
+.block.drop-bbefore { box-shadow: 0 -3px 0 var(--accent); }
+.block.drop-bafter { box-shadow: 0 3px 0 var(--accent); }
+.card.drop-bhint { outline: 2px dashed color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: 2px; }
 .card img.photo { width: 100%; border-radius: 10px; display: block; background: var(--line); }
 .card code { background: color-mix(in srgb, var(--ink) 8%, transparent); border-radius: 5px; padding: 0 5px; font-size: 13px; }
 /* Item 2: floating overlay toolbar — absolute, never shifts layout. */
