@@ -37,6 +37,7 @@ Pending = requested but not yet built on this branch.
 ## Navigation & chrome
 
 - Single navbar: brand, boards, + board, + column.
+- Settings dialog holds language (EN placeholder) + v1 import; topbar keeps auth + Settings only.
 - Board scrolls horizontally; near-full-width columns under 700px.
 - Pending: window-level + skinny scrollbars.
 - Pending: drag-pan board.

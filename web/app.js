@@ -317,9 +317,9 @@
     var prevStrip = boardEl.querySelector('.cols');
     var savedScroll = prevStrip ? prevStrip.scrollLeft : 0;
     // (static HTML holds the wordmark; tabs render here). Right zone =
-    // #boardctl (expand/collapse + theme) followed by .actions (EN + Import)
-    // clustered far-right via a single margin-left:auto — no board-name
-    // repeat, no centered cluster.
+    // #boardctl (expand/collapse + theme) followed by .actions (auth +
+    // Settings) clustered far-right via a single margin-left:auto — no
+    // board-name repeat, no centered cluster.
     // Round 4 item 6: with >3 boards show the first three in creation
     // order plus a dropdown next to the third listing ALL boards with
     // reorder controls (localStorage order; see LS_BOARDORDER).
@@ -359,8 +359,8 @@
     var focus = open.length === 1 && cols.length > 1;
     var allFolded = cols.length > 0 && open.length === 0;
     // Round 4 item 2: right zone order = expand-all/collapse-all, then
-    // theme switcher (background swatches), then EN i18n slot lives in
-    // .actions right after #boardctl. The board title is NOT repeated
+    // theme switcher (background swatches). Language (EN slot) and the v1
+    // importer live in Settings (OSS-57). The board title is NOT repeated
     // here (rename via double-click on the active board tab).
     topbarCtl.innerHTML =
       (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
@@ -1428,7 +1428,8 @@
 
   // Round 4 item 2: the single navbar owns the right-zone controls —
   // expand-all/collapse-all first, then the theme switcher (background
-  // swatches); the EN i18n slot follows in .actions. No board title here.
+  // swatches). Settings (language + import) lives in .actions.
+  // No board title here.
   topbarCtl.addEventListener('click', function (e) {
     var t = e.target;
     // OSS-50: board share dialog (visibility + members, owner-managed).
@@ -1459,11 +1460,12 @@
     }
   });
 
-  // Legacy importer (round 3 item 1): file picker reads an OLD-style Loom
-  // v1 export JSON and POSTs it raw to /api/import/v1, which creates new
-  // boards additively (never overwrites/deletes). The new board is
-  // selected after revalidation so the import is immediately visible.
-  document.getElementById('import-v1').addEventListener('click', function () {
+  // Legacy importer (round 3 item 1; OSS-57: lives in Settings): file
+  // picker reads an OLD-style Loom v1 export JSON and POSTs it raw to
+  // /api/import/v1, which creates new boards additively (never
+  // overwrites/deletes). The new board is selected after revalidation
+  // so the import is immediately visible.
+  function doImportV1() {
     var input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json,.json';
@@ -1491,7 +1493,7 @@
       rd.readAsText(input.files[0]);
     };
     input.click();
-  });
+  }
 
   function selectBoard(id, fromNav) {
     if (!id) return;
@@ -1582,8 +1584,14 @@
         '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + '> Enable auth (login required, new boards private)</label>' +
         '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + '> Require login even for public boards</label>' +
         '<div class="hint">Saved server-side in the database; disabling restores open access.</div>' +
-        '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>',
+        '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>' +
+        '<hr><h4>Language</h4>' +
+        '<div><button class="i18n-slot" disabled title="Language picker (coming soon)">EN</button> <span class="hint">More languages coming soon.</span></div>' +
+        '<hr><h4>Import</h4>' +
+        '<div><button id="import-v1" title="Import a Loom v1 export file (adds new boards, never deletes)">Import v1 file…</button> <span class="hint">Adds new boards, never deletes.</span></div>',
         function (ov) {
+          var imp = ov.querySelector('#import-v1');
+          if (imp) imp.addEventListener('click', doImportV1);
           ov.querySelector('[data-save]').addEventListener('click', function () {
             function val(k) { return ov.querySelector('[data-s="' + k + '"]').value; }
             function chk(k) { return ov.querySelector('[data-s="' + k + '"]').checked; }
