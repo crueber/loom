@@ -211,6 +211,9 @@
   function api(method, path, body) {
     return fetch(path, {
       method: method,
+      // OSS-123: never serve API reads from the browser HTTP cache —
+      // the SW is network-first too, so first reload paints server truth.
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     }).then(function (r) {

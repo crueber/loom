@@ -1,5 +1,5 @@
 /* Loom rebuild app shell cache. Versioned; old caches purged on activate. */
-const CACHE = 'loom-shell-v2';
+const CACHE = 'loom-shell-v3';
 const SHELL = ['/', '/styles.css', '/app.js', '/manifest.json'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -13,16 +13,24 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  // API reads: stale-while-revalidate. Mutations always hit network.
+  // API reads: network-first, cache fallback offline (OSS-123). The old
+  // cached||fresh order painted stale truth on first reload: revalidate()
+  // applied the pre-mutation cached GET as state and never re-rendered
+  // when the background fresh fetch landed. Network-first serves fresh
+  // truth immediately; offline still falls back to the last good cache.
+  // Mutations always hit network.
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(
       caches.open(CACHE).then(async (cache) => {
-        const cached = await cache.match(e.request);
-        const fresh = fetch(e.request).then((res) => {
+        try {
+          const res = await fetch(e.request);
           if (res.ok) cache.put(e.request, res.clone());
           return res;
-        }).catch(() => cached);
-        return cached || fresh;
+        } catch (err) {
+          const cached = await cache.match(e.request);
+          if (cached) return cached;
+          throw err;
+        }
       })
     );
     return;
