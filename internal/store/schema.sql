@@ -83,7 +83,8 @@ CREATE TABLE IF NOT EXISTS auth_settings (
   client_id TEXT NOT NULL DEFAULT '',
   client_secret TEXT NOT NULL DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 0,
-  require_auth INTEGER NOT NULL DEFAULT 0
+  require_auth INTEGER NOT NULL DEFAULT 0,
+  oidc_backfill_done INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS board_members (

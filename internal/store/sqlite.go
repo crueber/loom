@@ -42,6 +42,8 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE boards ADD COLUMN visibility TEXT NOT NULL DEFAULT 'public'`)
 	_, _ = db.Exec(`INSERT OR IGNORE INTO auth_settings(id) VALUES(1)`)
+	// Migrate pre-backfill databases (OSS-71): first-sign-in claim flag.
+	_, _ = db.Exec(`ALTER TABLE auth_settings ADD COLUMN oidc_backfill_done INTEGER NOT NULL DEFAULT 0`)
 	// Migrate pre-checklist databases: todo items live as JSON here.
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
 	return &SQLiteStore{db: db}, nil

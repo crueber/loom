@@ -232,5 +232,28 @@ func (s *FileStore) BoardIDForCard(cardID string) (string, error) {
 	return "", fmt.Errorf("card not found")
 }
 
+// ClaimUnownedBoards assigns every board with an empty owner to userID
+// on the first call and records the backfill flag; later calls are a
+// no-op. Boards that already have an owner are never touched.
+func (s *FileStore) ClaimUnownedBoards(userID string) (int, error) {
+	if userID == "" {
+		return 0, fmt.Errorf("user id required")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.snap.Auth.OIDCBackfillDone {
+		return 0, nil
+	}
+	n := 0
+	for i, b := range s.snap.Boards {
+		if b.OwnerID == "" {
+			s.snap.Boards[i].OwnerID = userID
+			n++
+		}
+	}
+	s.snap.Auth.OIDCBackfillDone = true
+	return n, s.persistLocked()
+}
+
 // FileStore satisfies the extended Store interface.
 var _ Store = (*FileStore)(nil)

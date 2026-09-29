@@ -22,20 +22,20 @@ func scanUser(row *sql.Row) (model.User, error) {
 
 func (s *SQLiteStore) GetAuthSettings() (model.AuthSettings, error) {
 	var a model.AuthSettings
-	var enabled, requireAuth int
-	err := s.db.QueryRow(`SELECT COALESCE(issuer,''),COALESCE(client_id,''),COALESCE(client_secret,''),enabled,require_auth FROM auth_settings WHERE id=1`).
-		Scan(&a.Issuer, &a.ClientID, &a.ClientSecret, &enabled, &requireAuth)
+	var enabled, requireAuth, backfillDone int
+	err := s.db.QueryRow(`SELECT COALESCE(issuer,''),COALESCE(client_id,''),COALESCE(client_secret,''),enabled,require_auth,COALESCE(oidc_backfill_done,0) FROM auth_settings WHERE id=1`).
+		Scan(&a.Issuer, &a.ClientID, &a.ClientSecret, &enabled, &requireAuth, &backfillDone)
 	if err == sql.ErrNoRows {
 		return model.AuthSettings{}, nil
 	}
-	a.Enabled, a.RequireAuth = enabled != 0, requireAuth != 0
+	a.Enabled, a.RequireAuth, a.OIDCBackfillDone = enabled != 0, requireAuth != 0, backfillDone != 0
 	return a, err
 }
 
 func (s *SQLiteStore) UpdateAuthSettings(a model.AuthSettings) (model.AuthSettings, error) {
-	_, err := s.db.Exec(`INSERT INTO auth_settings(id,issuer,client_id,client_secret,enabled,require_auth) VALUES(1,?,?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET issuer=excluded.issuer,client_id=excluded.client_id,client_secret=excluded.client_secret,enabled=excluded.enabled,require_auth=excluded.require_auth`,
-		a.Issuer, a.ClientID, a.ClientSecret, boolInt(a.Enabled), boolInt(a.RequireAuth))
+	_, err := s.db.Exec(`INSERT INTO auth_settings(id,issuer,client_id,client_secret,enabled,require_auth,oidc_backfill_done) VALUES(1,?,?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET issuer=excluded.issuer,client_id=excluded.client_id,client_secret=excluded.client_secret,enabled=excluded.enabled,require_auth=excluded.require_auth,oidc_backfill_done=excluded.oidc_backfill_done`,
+		a.Issuer, a.ClientID, a.ClientSecret, boolInt(a.Enabled), boolInt(a.RequireAuth), boolInt(a.OIDCBackfillDone))
 	if err != nil {
 		return model.AuthSettings{}, err
 	}
@@ -189,6 +189,39 @@ func (s *SQLiteStore) GetSession(tokenHash string) (model.Session, error) {
 func (s *SQLiteStore) DeleteSession(tokenHash string) error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE token_hash=?`, tokenHash)
 	return err
+}
+
+// ClaimUnownedBoards assigns every board with an empty owner to userID
+// on the first call and records the backfill flag; later calls are a
+// no-op. Boards that already have an owner are never touched.
+func (s *SQLiteStore) ClaimUnownedBoards(userID string) (int, error) {
+	if userID == "" {
+		return 0, fmt.Errorf("user id required")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var done int
+	if err := tx.QueryRow(`SELECT COALESCE(oidc_backfill_done,0) FROM auth_settings WHERE id=1`).Scan(&done); err != nil {
+		return 0, err
+	}
+	if done != 0 {
+		return 0, nil
+	}
+	res, err := tx.Exec(`UPDATE boards SET owner_id=?, updated_at=? WHERE COALESCE(owner_id,'')=''`, userID, ts(time.Now().UTC()))
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if _, err := tx.Exec(`UPDATE auth_settings SET oidc_backfill_done=1 WHERE id=1`); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return int(n), nil
 }
 
 func (s *SQLiteStore) BoardIDForColumn(columnID string) (string, error) {
