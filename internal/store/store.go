@@ -59,6 +59,14 @@ type Store interface {
 	DeleteSession(tokenHash string) error
 	BoardIDForColumn(columnID string) (string, error)
 	BoardIDForCard(cardID string) (string, error)
+
+	// ClaimUnownedBoards assigns every board with an empty owner to
+	// userID on the first call and records the backfill flag; later
+	// calls are a no-op. Boards that already have an owner are never
+	// touched. The future OIDC callback calls this once per sign-in
+	// (OSS-71); with auth disabled there is no caller, so no behavior
+	// change. Returns the number of boards claimed by this call.
+	ClaimUnownedBoards(userID string) (int, error)
 }
 
 type snapshot struct {

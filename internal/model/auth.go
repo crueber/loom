@@ -39,12 +39,16 @@ type User struct {
 
 // AuthSettings is the single-row OIDC configuration edited via the UI.
 // ClientSecret never leaves the server (sanitized view below).
+// OIDCBackfillDone records that the first-sign-in backfill ran
+// (OSS-71): legacy unowned boards were claimed once, later sign-ins
+// are a no-op. Managed by Store.ClaimUnownedBoards, never by the UI.
 type AuthSettings struct {
-	Issuer       string `json:"issuer"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret,omitempty"`
-	Enabled      bool   `json:"enabled"`
-	RequireAuth  bool   `json:"require_auth"`
+	Issuer           string `json:"issuer"`
+	ClientID         string `json:"client_id"`
+	ClientSecret     string `json:"client_secret,omitempty"`
+	Enabled          bool   `json:"enabled"`
+	RequireAuth      bool   `json:"require_auth"`
+	OIDCBackfillDone bool   `json:"oidc_backfill_done,omitempty"`
 }
 
 // PublicSettings is the browser-safe view (secret replaced by a flag).
