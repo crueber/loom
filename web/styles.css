@@ -371,13 +371,6 @@ button.primary {
 .todo-text[contenteditable="true"] { outline: 2px solid var(--accent); outline-offset: 2px; background: var(--card); cursor: text; }
 .todo-list .rmblock { top: 4px; }
 .todo:hover .rmblock, .todo:focus-within .rmblock { opacity: 1; }
-/* Item 1: zero-layout add-text affordance — inline, muted, no block space. */
-.note-add {
-  border: none; background: transparent; padding: 0; margin: 0;
-  color: var(--muted); font: inherit; font-size: 12.5px; cursor: text;
-  display: inline; text-align: left; line-height: 1.4;
-}
-.note-add:hover { color: var(--ink); text-decoration: underline; }
 /* Item 7: remove affordance on image/link blocks. */
 .block-link, .block-img { position: relative; }
 .rmblock {

@@ -389,13 +389,10 @@
         '<img class="photo" src="' + esc(src) + '" alt="' + esc(b.alt || '') + '" loading="lazy" decoding="async"></a>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove image" aria-label="Remove image">&times;</button></div>';
     }
-    // Item 1 (empty-note whitespace): empty notes render as a zero-layout
-    // inline affordance, not an empty block. Link-only cards carry no note
-    // block at all, so nothing renders until click-to-add-text.
-    // No validation requires note content anywhere (client or server).
+    // Empty notes render nothing (no placeholder affordance).
     if (b.type === 'note' || b.content) {
       if (!b.content) {
-        return '<button class="note-add" data-block="' + esc(b.id || '') + '" title="Add text">+ add text</button>';
+        return '';
       }
       return '<div class="block note" data-block="' + esc(b.id || '') + '"' +
         ' title="Click to edit">' + bhandleHTML(cardId, b.id) + md(b.content) + '</div>';
@@ -429,11 +426,9 @@
   }
 
   function cardHTML(card) {
-    // Item 1: a card with zero blocks (or blocks rendering to '') gets a
-    // zero-layout add-text affordance, never an empty note div. Tabindex
-    // makes first-tap reveal the hover toolbar on touch (item 2).
-    var inner = blocksHTML(card) ||
-      '<button class="note-add" data-block="" title="Add text">+ add text</button>';
+    // A card with zero blocks (or blocks rendering to '') renders no
+    // placeholder UI. Empty notes are created + focused via the toolbar.
+    var inner = blocksHTML(card) || '';
     // Item 2: floating overlay toolbar (CSS absolute, no layout shift),
     // revealed on hover / focus-within / first tap (.showbar). Item 5:
     // Iconify-style inline SVG icons. Item 6: delete X far right with
@@ -736,29 +731,30 @@
     if (!cardEl) return;
     var target = blockId ? cardEl.querySelector('[data-block="' + blockId + '"]') : null;
     if (!target) {
-      var notes = cardEl.querySelectorAll('.note,.note-add');
+      var notes = cardEl.querySelectorAll('.note');
       target = notes.length ? notes[notes.length - 1] : null;
     }
-    if (!target) { cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
-    // Item 1: the zero-layout affordance is a <button>; convert to an
-    // editable note div in place, then edit raw source (item 3).
-    if (target.classList.contains('note-add')) {
-      var card = findCard(cardId);
-      var blk = card && blockById(card, target.dataset.block);
-      if (!blk && card) {
-        blk = { id: target.dataset.block || '', type: 'note', content: '', position: card.blocks.length };
-        card.blocks.push(blk);
-        saveCache(); render();
-        focusNote(cardId, blk.id, selectAll);
-        return;
+    if (!target) {
+      // No placeholder UI: toolbar Add-note / add-card flows model an
+      // empty note with zero rendered DOM, so materialize an editable
+      // note div from the model and focus it.
+      var fcard = findCard(cardId);
+      var fblk = (fcard && blockId) ? blockById(fcard, blockId) : null;
+      if (!fblk && fcard) {
+        for (var fi = fcard.blocks.length - 1; fi >= 0; fi--) {
+          if (fcard.blocks[fi].type === 'note' && !fcard.blocks[fi].content) { fblk = fcard.blocks[fi]; break; }
+        }
       }
-      var div = document.createElement('div');
-      div.className = 'block note editing';
-      div.dataset.block = target.dataset.block || '';
-      div.title = 'Click to edit';
-      div.textContent = (blk && blk.content) || '';
-      target.replaceWith(div);
-      startEdit(div, selectAll !== false);
+      if (!fblk) { cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+      var fdiv = document.createElement('div');
+      fdiv.className = 'block note editing';
+      fdiv.dataset.block = fblk.id || '';
+      fdiv.title = 'Click to edit';
+      fdiv.textContent = fblk.content || '';
+      var fbar = cardEl.querySelector('.cardbar');
+      if (fbar) cardEl.insertBefore(fdiv, fbar);
+      else cardEl.appendChild(fdiv);
+      startEdit(fdiv, selectAll !== false);
       return;
     }
     var c = findCard(cardId);
@@ -1557,34 +1553,9 @@
       return;
     }
     // Click any note text to edit its RAW source directly (item 3; links
-    // still navigate). The zero-layout "+ add text" affordance (item 1)
-    // converts to an editable note in place with zero prior layout cost.
-    var addText = t.closest && t.closest('.note-add[data-block]');
-    if (addText) {
-      var cardElA = addText.closest('[data-card]');
-      var cardA = cardElA && findCard(cardElA.dataset.card);
-      if (cardA) {
-        var blkA = blockById(cardA, addText.dataset.block);
-        if (!blkA) {
-          blkA = { id: addText.dataset.block || '', type: 'note', content: '', position: cardA.blocks.length };
-          cardA.blocks.push(blkA);
-          saveCache(); render();
-          focusNote(cardA.id, blkA.id, true);
-        } else {
-          var divA = document.createElement('div');
-          divA.className = 'block note editing';
-          divA.dataset.block = addText.dataset.block || '';
-          divA.title = 'Click to edit';
-          divA.textContent = blkA.content || '';
-          addText.replaceWith(divA);
-          startEdit(divA, true);
-        }
-      }
-      return;
-    }
+    // still navigate).
     var note = t.closest && t.closest('.note[data-block]');
     if (note && !note.isContentEditable && !(t.tagName === 'A')) {
-      // Empty-card placeholder also lands here via .note-add[data-block=""].
       var cardEl0 = note.closest('[data-card]');
       var card0 = cardEl0 && findCard(cardEl0.dataset.card);
       if (card0) {

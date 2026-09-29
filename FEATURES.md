@@ -26,6 +26,7 @@ Pending = requested but not yet built on this branch.
 - Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits.
+- Empty notes render nothing (no "+ add text" placeholder); toolbar Add-note focuses a fresh editable note.
 - Markdown renders; re-edit shows raw text.
 - Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
 - Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing).
