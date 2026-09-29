@@ -286,13 +286,13 @@ button.primary {
 .column.collapsed .colcount { padding: 0 6px; }
 /* Round 3 item 5: lanes scroll internally, capped at the viewport —
    the page itself never scrolls. Round 4 item 3: skinny lane scrollbars
-   — thin styled, with a ~3px gap between cards and scrollbar via right
+   — thin styled, with a 3px gap between cards and scrollbar via right
    padding (never overlay). */
 .cards {
   flex: 1 1 auto; min-height: 0;
   overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
-  padding: 2px 5px 14px 2px;
+  padding: 2px 3px 14px 2px;
   border-radius: 8px;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
