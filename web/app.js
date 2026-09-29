@@ -662,7 +662,10 @@
       box.remove();
       if (!commit || !val) return;
       if (kind === 'board') {
-        api('POST', '/api/boards', { title: val }).then(function (nb) {
+        // New boards inherit the current board's background (OSS-58).
+        var tree0 = curTree();
+        var bg0 = (tree0 && tree0.board && tree0.board.background) || undefined;
+        api('POST', '/api/boards', bg0 ? { title: val, background: bg0 } : { title: val }).then(function (nb) {
           state.boards.push(nb);
           state.trees[nb.id] = normalizeTree({ board: nb, columns: [], cards: {} });
           selectBoard(nb.id);

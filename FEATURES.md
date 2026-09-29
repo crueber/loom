@@ -12,7 +12,8 @@ Pending = requested but not yet built on this branch.
 - Pending: resizable / reorderable columns with drop hints.
 - Pending: collapsed columns as narrow rails.
 - Collapsed rails: count sits just under the vertical name; name hover shrinks to text.
-- Pending: board/column themes + 12-swatch picker.
+- Board backgrounds + swatch picker; new boards inherit the current board's background.
+- Pending: column themes.
 - Pending: board-overflow dropdown.
 
 ## Cards & blocks
