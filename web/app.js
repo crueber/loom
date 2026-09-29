@@ -457,7 +457,32 @@
     { id: 'slate', name: 'Ink' },
   ];
 
+  // OSS-111 (consolidated todo end-to-end; cf. OSS-95): render()
+  // re-entrancy guard. Setting boardEl.innerHTML while a todo editor is
+  // focused fires focusout synchronously mid-mutation (the node still
+  // reads connected, so the OSS-64 !isConnected guard misses it), and
+  // the document focusout handler runs commitTodo -> render()
+  // re-entrantly — the outer innerHTML setter then throws before the
+  // Enter chain reaches focusTodoAt, leaving focus on BODY and the new
+  // row unfocused. While rendering, focusout commits are skipped (every
+  // render caller persists the model first), and the active editor is
+  // blurred BEFORE rebuilding so no focusout can fire mid-mutation.
+  var rendering = false;
   function render() {
+    if (rendering) return;
+    rendering = true;
+    try {
+      var ae = document.activeElement;
+      if (ae && ae.isContentEditable && ae.blur) {
+        try { ae.blur(); } catch (blurErr) {}
+      }
+      renderInner();
+    } finally {
+      rendering = false;
+    }
+  }
+
+  function renderInner() {
     // OSS-43: mutating column buttons all end in render(), which rebuilds
     // boardEl.innerHTML including the .cols strip — destroying the scroller
     // resets scrollLeft to 0. Capture/restore here so every caller is covered.
@@ -1768,6 +1793,10 @@
   document.addEventListener('focusout', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
+    // OSS-111: skip commits fired by render()'s pre-rebuild blur or by a
+    // mid-mutation focusout — the model is already persisted by then, and
+    // committing here would render() re-entrantly and throw.
+    if (rendering) return;
     // OSS-64: a programmatic render() (e.g. Enter creating the next todo
     // row) detaches the focused node; its trailing blur must not commit
     // stale text and re-render again, which would steal the new row's
