@@ -44,7 +44,10 @@ body {
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--line);
 }
-#topbar .actions { margin-left: auto; display: flex; gap: 6px; }
+#topbar .actions { margin-left: 0; display: flex; gap: 6px; flex: 0 0 auto; }
+/* Round 4 item 2: two-zone navbar — left zone (brand + board tabs) and ONE
+   right zone (.boardctl + .actions clustered at the far right via the
+   single margin-left:auto on .boardctl). No centered cluster. */
 #topbar .actions button {
   border: 1px solid var(--line); background: transparent; color: var(--muted);
   border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 13.5px;
@@ -61,6 +64,42 @@ body {
 #boards button.add-inline {
   border-style: dashed; font-weight: 700; padding: 4px 9px; line-height: 1;
 }
+/* Round 4 item 6: board overflow — dropdown next to the third tab when
+   >3 boards exist, listing ALL boards with reorder controls. */
+.boardmenu-wrap { position: relative; flex: 0 0 auto; }
+.boardmenu-btn {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  border-radius: 8px; padding: 4px 10px; cursor: pointer; font-size: 14px;
+}
+.boardmenu-btn:hover { color: var(--ink); border-color: var(--muted); }
+.boardmenu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  min-width: 240px; max-height: 50vh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 6px;
+}
+.boardmenu-row {
+  display: flex; align-items: center; gap: 4px;
+  border-radius: 8px; padding: 2px 4px;
+}
+.boardmenu-row:hover { background: color-mix(in srgb, var(--ink) 5%, transparent); }
+.boardmenu-row.current { outline: 1px solid var(--line); }
+.boardmenu-go {
+  flex: 1 1 auto; min-width: 0; border: none; background: transparent;
+  color: var(--ink); cursor: pointer; font-size: 14px; text-align: left;
+  border-radius: 6px; padding: 6px 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.boardmenu-row button.mv {
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  border-radius: 6px; cursor: pointer; font-size: 13px; padding: 2px 7px; line-height: 1.4;
+}
+.boardmenu-row button.mv:hover { color: var(--ink); border-color: var(--line); }
+/* Round 4 item 5: collapsed rails — fold chevron and resize handle stay
+   muted; the resize handle hides on rails (nothing to resize). */
+.column.collapsed .fold { color: var(--muted); }
+.column.collapsed .resize { display: none; }
 #creator { padding: 0 20px; }
 .creatorform {
   display: flex; gap: 8px; align-items: center;
@@ -82,7 +121,10 @@ body {
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column;
   overflow: hidden;
-  padding: 10px 20px 0;
+  /* Round 4 item 4: no side padding here — .cols spans the full window
+     width so the strip scrollbar runs edge to edge; side insets live on
+     .cols content padding instead. */
+  padding: 10px 0 0;
 }
 #creator { flex: 0 0 auto; }
 /* Round 3 item 7: single navbar — board controls live at the far right
@@ -92,12 +134,9 @@ body {
   margin-left: auto; flex: 0 0 auto;
   display: flex; align-items: center; gap: 8px;
 }
-.boardtitle {
-  font-size: 15px; font-weight: 600; letter-spacing: -0.2px; white-space: nowrap;
-  max-width: 28vw; overflow: hidden; text-overflow: ellipsis;
-  cursor: text; border-radius: 8px; padding: 3px 8px;
-}
-.boardtitle:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+/* Round 4 item 2: no board-title element — the right zone holds only
+   expand/collapse + theme swatches (#boardctl) and EN/Import (.actions).
+   Board rename lives on the tabs (double-click). */
 .swatches { display: flex; gap: 4px; align-items: center; }
 .swatches button {
   border: 2px solid transparent; background: transparent; cursor: pointer;
@@ -129,7 +168,9 @@ button.primary {
   flex: 1 1 auto; min-height: 0;
   display: flex; gap: 20px; align-items: stretch;
   overflow-x: auto; overflow-y: hidden;
-  padding-bottom: 12px;
+  /* Round 4 item 4: side insets here (not on #board) keep content padded
+     while the scrollbar spans the whole window width. */
+  padding: 0 20px 12px;
   /* Round 3 item 6: horizontal pans are handled via pointer events;
      keep native vertical gestures off the strip so touch drags pan. */
   touch-action: pan-y;
@@ -202,9 +243,33 @@ button.primary {
   border-radius: 10px; padding: 0 8px; font-weight: 600;
 }
 /* Collapsed columns become slim rails; a lone open column reads narrow. */
-.column.collapsed { width: 48px; flex: 0 0 48px; }
+.column.collapsed {
+  width: 48px; flex: 0 0 48px;
+  /* Round 4 item 5: rails span the full container height with muted
+     chrome — neutral background, no color wash; only the name, color
+     dot, and card count carry color (rules below). */
+  align-self: stretch;
+  background: color-mix(in srgb, var(--bg-soft) 55%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+/* Round 4 item 5: 1px vertical separator divides adjacent collapsed
+   rails — the negative margin cancels the strip gap so the rails sit
+   adjacent with the border as the divider. */
+.column.collapsed + .column.collapsed { margin-left: -20px; border-left: 1px solid var(--muted); }
 .column.collapsed .cards { display: none; }
-.column.collapsed > h2 { flex-direction: column; align-items: center; gap: 10px; }
+.column.collapsed > h2 {
+  flex-direction: column; align-items: center; gap: 10px;
+  /* Round 4 item 5: header fills the rail (full height) but muted —
+     transparent wash, no tinted edge; name/dot/count below re-assert
+     their own color. */
+  flex: 1 1 auto;
+  background: transparent;
+  border-bottom: none;
+  color: var(--muted);
+  padding: 10px 4px;
+  margin: 0;
+}
 .column.collapsed .coltitle {
   writing-mode: vertical-rl; text-orientation: mixed;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -212,13 +277,23 @@ button.primary {
 }
 .column.collapsed .colcount { padding: 0 6px; }
 /* Round 3 item 5: lanes scroll internally, capped at the viewport —
-   the page itself never scrolls. */
+   the page itself never scrolls. Round 4 item 3: skinny lane scrollbars
+   — thin styled, with a ~3px gap between cards and scrollbar via right
+   padding (never overlay). */
 .cards {
   flex: 1 1 auto; min-height: 0;
   overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
-  padding: 2px 2px 14px;
+  padding: 2px 5px 14px 2px;
   border-radius: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+}
+.cards::-webkit-scrollbar { width: 6px; }
+.cards::-webkit-scrollbar-track { background: transparent; }
+.cards::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  border-radius: 4px;
 }
 .card {
   background: var(--card);
@@ -259,7 +334,7 @@ button.primary {
 .md-h2 { font-size: 16.5px; margin: 2px 0 8px; }
 .md-list { margin: 4px 0 8px; padding-left: 20px; }
 .md-list li { margin: 2px 0; }
-.card .note[contenteditable="true"], .boardtitle[contenteditable="true"], .coltitle[contenteditable="true"] {
+.card .note[contenteditable="true"], .coltitle[contenteditable="true"], #boards [data-board][contenteditable="true"] {
   outline: 2px solid var(--accent); outline-offset: 2px; background: var(--card); cursor: text;
 }
 .card .note.editing { min-height: 1.4em; }
@@ -358,7 +433,6 @@ button.primary {
   .column.reading { width: 94vw; flex-basis: 94vw; }
   .column.collapsed { width: 44px; flex-basis: 44px; }
   #topbar { overflow-x: auto; }
-  .boardtitle { max-width: 34vw; }
 }
 @media (prefers-color-scheme: dark) {
   body:not([data-bg="paper"]):not([data-bg="honey"]):not([data-bg="sage"]):not([data-bg="sky"]):not([data-bg="rose"]):not([data-bg="slate"]) {

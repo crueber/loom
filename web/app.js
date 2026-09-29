@@ -5,8 +5,9 @@
  * (window.__BOOTSTRAP_DATA__) seeds the cache on cold starts.
  * Writes are optimistic-local first, synced behind, server = truth.
  *
- * UX model (Columns.app feel): everything edits inline — click board
- * title, column titles, or any note to edit in place (no Edit buttons).
+ * UX model (Columns.app feel): everything edits inline — double-click a
+ * board tab, or click column titles or any note, to edit in place (no
+ * Edit buttons).
  * Enter commits an edit; Shift/Ctrl/Cmd+Enter inserts a newline. New notes and
  * new column titles focus immediately. Column dots recolor, swatches theme
  * the board, collapsing columns folds them into slim rails (one open
@@ -23,6 +24,12 @@
   var LS_KEY = 'loom.cache.v2';
   var LS_OLD = 'loom.cache.v1';
   var LS_WIDTHS = 'loom.colwidths.v1'; // colId -> px; see header comment.
+  // Round 4 item 6: board tab order override (array of board ids).
+  // No server board-order path exists (PATCH /api/boards/{id} accepts
+  // only {title,background}; ListBoards orders by position), so tab
+  // order persists in localStorage only. Boards missing from the stored
+  // array keep server order after the stored ones.
+  var LS_BOARDORDER = 'loom.boardorder.v1';
   var boardEl = document.getElementById('board');
   var boardsEl = document.getElementById('boards');
   var creatorEl = document.getElementById('creator');
@@ -148,6 +155,39 @@
   }
 
   function curTree() { return state.boardId ? state.trees[state.boardId] : null; }
+  // Round 4 item 6: ordered boards — server order (creation/position)
+  // with the localStorage override applied. No server reorder path, so
+  // this is the single source of tab order; see LS_BOARDORDER comment.
+  function getBoardOrder() {
+    try { var a = JSON.parse(localStorage.getItem(LS_BOARDORDER) || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function setBoardOrder(ids) {
+    try { localStorage.setItem(LS_BOARDORDER, JSON.stringify(ids)); } catch (e) {}
+  }
+  function orderedBoards() {
+    var order = getBoardOrder();
+    var pos = {};
+    order.forEach(function (id, i) { pos[id] = i; });
+    return state.boards.slice().sort(function (a, b) {
+      var pa = (a.id in pos) ? pos[a.id] : 1e9;
+      var pb = (b.id in pos) ? pos[b.id] : 1e9;
+      return pa - pb;
+    });
+  }
+  function moveBoard(id, dir) {
+    // Reorder within the full ordered list, then persist the full id
+    // array so the override stays total (new boards append at the end).
+    var ids = orderedBoards().map(function (b) { return b.id; });
+    var i = ids.indexOf(id);
+    var j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    ids.splice(i, 1);
+    ids.splice(j, 0, id);
+    setBoardOrder(ids);
+    saveCache(); render();
+  }
+  var boardMenuOpen = false;
 
   // Inline Iconify-style icons (item 5): hand-picked 16px outline SVGs in
   // the spirit of the Iconify "link" sets (tabler/mdi lineage), inlined so
@@ -221,10 +261,30 @@
   ];
 
   function render() {
-    // Board switcher with inline [+ board] chip after the last tab.
-    boardsEl.innerHTML = state.boards.map(function (b) {
-      return '<button data-board="' + b.id + '"' + (b.id === state.boardId ? ' class="active"' : '') + '>' + esc(b.title) + '</button>';
-    }).join('') + '<button class="add-inline" data-newboard title="New board">+ </button>';
+    // Round 4 item 2 (two-zone navbar): left zone = wordmark + board tabs
+    // (static HTML holds the wordmark; tabs render here). Right zone =
+    // #boardctl (expand/collapse + theme) followed by .actions (EN + Import)
+    // clustered far-right via a single margin-left:auto — no board-name
+    // repeat, no centered cluster.
+    // Round 4 item 6: with >3 boards show the first three in creation
+    // order plus a dropdown next to the third listing ALL boards with
+    // reorder controls (localStorage order; see LS_BOARDORDER).
+    var ordered = orderedBoards();
+    var visible = ordered.length > 3 ? ordered.slice(0, 3) : ordered;
+    boardsEl.innerHTML = visible.map(function (b) {
+      return '<button data-board="' + b.id + '"' + (b.id === state.boardId ? ' class="active"' : '') +
+        ' title="Open board (double-click to rename)">' + esc(b.title) + '</button>';
+    }).join('') +
+      (ordered.length > 3
+        ? '<span class="boardmenu-wrap"><button class="boardmenu-btn" data-boardmenu aria-haspopup="true" title="All boards">▾</button>' +
+          (boardMenuOpen ? '<div class="boardmenu" role="menu">' + ordered.map(function (b) {
+            return '<div class="boardmenu-row' + (b.id === state.boardId ? ' current' : '') + '">' +
+              '<button class="boardmenu-go" data-board="' + b.id + '" role="menuitem">' + esc(b.title) + '</button>' +
+              '<button class="mv" data-boardup="' + b.id + '" title="Move up" aria-label="Move ' + esc(b.title) + ' up">↑</button>' +
+              '<button class="mv" data-boarddown="' + b.id + '" title="Move down" aria-label="Move ' + esc(b.title) + ' down">↓</button></div>';
+          }).join('') + '</div>' : '') + '</span>'
+        : '') +
+      '<button class="add-inline" data-newboard title="New board">+ </button>';
     var tree = curTree();
     if (!tree) {
       document.body.dataset.bg = BG_DEFAULT;
@@ -241,16 +301,17 @@
     var open = cols.filter(function (c) { return !c.collapsed; });
     var focus = open.length === 1 && cols.length > 1;
     var allFolded = cols.length > 0 && open.length === 0;
-    // Round 3 item 7: single navbar — board rename, theme picker, and
-    // collapse-all live at the far right of the ONE top bar (rendered
-    // into #boardctl), never as a second header row over the canvas.
-    topbarCtl.innerHTML = '<span class="boardtitle" id="boardtitle" title="Click to rename">' +
-      esc(tree.board.title) + '</span><span class="swatches" role="group" aria-label="Board background">' +
+    // Round 4 item 2: right zone order = expand-all/collapse-all, then
+    // theme switcher (background swatches), then EN i18n slot lives in
+    // .actions right after #boardctl. The board title is NOT repeated
+    // here (rename via double-click on the active board tab).
+    topbarCtl.innerHTML =
+      (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
+      '<span class="swatches" role="group" aria-label="Board background">' +
       SWATCHES.map(function (s) {
         return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
           ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + s.id + '"></i></button>';
-      }).join('') + '</span>' +
-      (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '');
+      }).join('') + '</span>';
     if (!cols.length) {
       boardEl.innerHTML = '<div class="emptyboard"><p>This board has no columns yet.</p><button class="primary" data-newcol>Add your first column</button></div>';
       return;
@@ -447,10 +508,6 @@
           state.boards.push(nb);
           state.trees[nb.id] = normalizeTree({ board: nb, columns: [], cards: {} });
           selectBoard(nb.id);
-          setTimeout(function () {
-            var bt = document.getElementById('boardtitle');
-            if (bt) startEdit(bt, true);
-          }, 0);
         });
       } else if (state.boardId) {
         api('POST', '/api/boards/' + state.boardId + '/columns', { title: val, color: '#4c8dff' }).then(function (col) {
@@ -704,16 +761,34 @@
   // never on columns, cards, or any control — so it coexists with
   // card/column HTML5 drag and the resize handle. A click landing right
   // after a pan is swallowed so it never triggers a board action.
+  // Round 4 item 1: the column-drag handle zone ends at the "+ add card"
+  // row — empty lane area BELOW that row pans the strip horizontally
+  // (existing pan behavior), never drags the column. Column HTML5 drag
+  // itself starts only from the header (h2), so this is purely a pan
+  // targeting rule: pointer events below the add-button's bottom edge
+  // inside an open lane count as empty canvas.
   var panState = null, panMovedAt = 0;
-  function panEmptyTarget(t) {
+  function panEmptyTarget(t, clientY) {
     if (!t || !t.closest) return false;
     if (!t.closest('.cols')) return t === boardEl;
-    return !t.closest('.column,.card,button,input,a,select,textarea,.inline-col-form,.composer');
+    if (!t.closest('.column,.card,button,input,a,select,textarea,.inline-col-form,.composer')) return true;
+    // Round 4 item 1: inside a lane but below the "+ add card" row, on
+    // the lane background itself (not on a card/control), pans.
+    var lane = t.closest && t.closest('[data-cards]');
+    if (lane && t === lane) {
+      var add = lane.querySelector('[data-add]');
+      if (add && clientY !== undefined) {
+        try {
+          if (clientY > add.getBoundingClientRect().bottom) return true;
+        } catch (e) {}
+      }
+    }
+    return false;
   }
   boardEl.addEventListener('pointerdown', function (e) {
     if (e.isPrimary === false) return;
     if (e.button !== undefined && e.button !== 0) return;
-    if (!panEmptyTarget(e.target)) return;
+    if (!panEmptyTarget(e.target, e.clientY)) return;
     var strip = (e.target.closest && e.target.closest('.cols')) || boardEl.querySelector('.cols');
     panState = { strip: strip, x: e.clientX, active: false };
   });
@@ -934,29 +1009,40 @@
   }
   document.addEventListener('pointerdown', function (e) {
     if (colPop && !(e.target.closest && (e.target.closest('.colpop') || e.target.closest('[data-coldot]')))) closeColPop();
+    // Round 4 item 6: dismiss the board overflow menu on outside press.
+    if (boardMenuOpen && !(e.target.closest && e.target.closest('.boardmenu-wrap'))) { boardMenuOpen = false; render(); }
   }, true);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeColPop(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeColPop(); if (boardMenuOpen) { boardMenuOpen = false; render(); } }
+  });
 
   // Commit inline edits on focus loss (blur doesn't bubble; focusout does).
-  // Document-level: the board title lives in the single navbar (item 7),
-  // column titles and notes live on the canvas — one listener covers all.
+  // Document-level: board tabs rename on double-click (round 4 item 2 —
+  // no board-name repeat in the right zone), column titles and notes
+  // live on the canvas — one listener covers all.
   document.addEventListener('focusout', function (e) {
     var t = e.target;
     if (!t || !t.isContentEditable) return;
     t.contentEditable = 'false';
     t.classList.remove('editing');
     try { window.getSelection().removeAllRanges(); } catch (err) {}
-    if (t.id === 'boardtitle') {
-      var tree = curTree();
-      if (!tree) return;
+    if (t.dataset && t.dataset.boardrename) {
+      var bid = t.dataset.boardrename;
+      delete t.dataset.boardrename;
       var title = t.innerText.trim();
       if (!title) { render(); return; }
-      if (title === tree.board.title) { render(); return; }
-      tree.board.title = title;
-      state.boards.forEach(function (b) { if (b.id === tree.board.id) b.title = title; });
+      var known = null;
+      state.boards.forEach(function (b) { if (b.id === bid) known = b; });
+      if (!known || title === known.title) { render(); return; }
+      known.title = title;
+      var tr0 = state.trees[bid];
+      if (tr0 && tr0.board) tr0.board.title = title;
       saveCache(); render();
-      api('PATCH', '/api/boards/' + tree.board.id, { title: title }).then(function (b) {
-        tree.board = b; saveCache(); render();
+      api('PATCH', '/api/boards/' + bid, { title: title }).then(function (b) {
+        state.boards.forEach(function (x, i) { if (x.id === b.id) state.boards[i] = b; });
+        var tr1 = state.trees[b.id];
+        if (tr1) tr1.board = b;
+        saveCache(); render();
       }).catch(function () {});
       return;
     }
@@ -1009,12 +1095,31 @@
   boardsEl.addEventListener('click', function (e) {
     var nb = e.target.closest && e.target.closest('[data-newboard]');
     if (nb) { openCreator('board'); return; }
+    // Round 4 item 6: overflow menu toggle + reorder controls.
+    var menu = e.target.closest && e.target.closest('[data-boardmenu]');
+    if (menu) { boardMenuOpen = !boardMenuOpen; render(); return; }
+    var up = e.target.closest && e.target.closest('[data-boardup]');
+    if (up) { e.stopPropagation(); moveBoard(up.dataset.boardup, -1); return; }
+    var down = e.target.closest && e.target.closest('[data-boarddown]');
+    if (down) { e.stopPropagation(); moveBoard(down.dataset.boarddown, 1); return; }
     var b = e.target.closest && e.target.closest('[data-board]');
-    if (b) selectBoard(b.dataset.board);
+    if (b) {
+      if (boardMenuOpen) boardMenuOpen = false;
+      selectBoard(b.dataset.board);
+    }
+  });
+  // Round 4 item 2: board rename lives on the tabs (no repeated board
+  // name in the right zone) — double-click the active tab to edit inline.
+  boardsEl.addEventListener('dblclick', function (e) {
+    var b = e.target.closest && e.target.closest('[data-board]');
+    if (!b) return;
+    b.dataset.boardrename = b.dataset.board;
+    startEdit(b, true);
   });
 
-  // Round 3 item 7: the single navbar owns the board controls (they
-  // moved out of the removed second header row into #boardctl).
+  // Round 4 item 2: the single navbar owns the right-zone controls —
+  // expand-all/collapse-all first, then the theme switcher (background
+  // swatches); the EN i18n slot follows in .actions. No board title here.
   topbarCtl.addEventListener('click', function (e) {
     var t = e.target;
     // Board background swatches (scoped: body also carries data-bg).
@@ -1040,11 +1145,6 @@
       });
       saveCache(); render();
       return;
-    }
-    // Board title rename (inline; no Edit button).
-    if (t.closest && t.closest('#boardtitle')) {
-      var bt = document.getElementById('boardtitle');
-      startEdit(bt, true);
     }
   });
 
