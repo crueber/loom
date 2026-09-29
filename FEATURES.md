@@ -60,6 +60,7 @@ Pending = requested but not yet built on this branch.
 - v1 import dedupes links on normalized URL (first wins, order kept).
 - Cache-first instant load: localStorage paint, bootstrap seed, background revalidate.
 - Offline app-shell via service worker; lazy images.
+- API reads are network-first (SW cache is offline fallback only) so first reload paints server truth.
 - JS budget ≤50KB gzip (now ~3.5KB); first-paint probe `__LOOM_FIRST_PAINT_MS`.
 
 ## Access & auth
