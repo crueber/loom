@@ -85,6 +85,9 @@ type snapshot struct {
 	Sessions []model.Session     `json:"sessions"`
 	// Per-user preferences (OSS-83). Absent key -> defaults.
 	Prefs map[string]model.UserPrefs `json:"prefs,omitempty"`
+	// Server-cached link icons (OSS-82 child scope): host -> record,
+	// same 7-day TTL semantics as the SQLite icons table.
+	Icons map[string]IconRecord `json:"icons"`
 }
 
 // FileStore is a JSON-file-backed Store. Suitable for single-user
@@ -115,6 +118,9 @@ func OpenFile(path string) (*FileStore, error) {
 	}
 	if fs.snap.Cards == nil {
 		fs.snap.Cards = map[string][]model.Card{}
+	}
+	if fs.snap.Icons == nil {
+		fs.snap.Icons = map[string]IconRecord{}
 	}
 	return fs, nil
 }

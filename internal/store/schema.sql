@@ -107,3 +107,11 @@ CREATE TABLE IF NOT EXISTS user_prefs (
   theme TEXT NOT NULL DEFAULT 'paper',
   language TEXT NOT NULL DEFAULT 'en'
 );
+
+-- Server-cached link icons (OSS-82 child scope, 7-day TTL).
+CREATE TABLE IF NOT EXISTS icons (
+  host TEXT PRIMARY KEY,
+  content_type TEXT NOT NULL DEFAULT '',
+  blob BLOB NOT NULL,
+  fetched_at TEXT NOT NULL
+);

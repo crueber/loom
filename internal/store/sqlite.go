@@ -48,6 +48,13 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-prefs databases (OSS-83): per-user preferences.
 	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS user_prefs (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, theme TEXT NOT NULL DEFAULT 'paper', language TEXT NOT NULL DEFAULT 'en')`)
+	// Migrate pre-icon-cache databases (OSS-82 child scope).
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS icons (
+  host TEXT PRIMARY KEY,
+  content_type TEXT NOT NULL DEFAULT '',
+  blob BLOB NOT NULL,
+  fetched_at TEXT NOT NULL
+)`)
 	return &SQLiteStore{db: db}, nil
 }
 
