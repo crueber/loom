@@ -41,6 +41,7 @@ Pending = requested but not yet built on this branch.
 
 - Single navbar: brand, boards, + board, + column.
 - Settings dialog holds language (EN placeholder) + v1 import; topbar keeps auth + Settings only.
+- Settings General renames the current board (empty/unchanged is a no-op; disabled with a hint when no board is open).
 - Settings opens as a sidebar modal (General/Data/Account/Admin); theme + language persist locally and sync via GET/PUT /api/me/prefs when signed in.
 - Board scrolls horizontally; near-full-width columns under 700px.
 - Pending: window-level + skinny scrollbars.
