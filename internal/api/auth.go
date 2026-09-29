@@ -141,6 +141,7 @@ func (h *Handler) authRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/auth/status", h.authStatus)
 	mux.HandleFunc("/api/auth/settings", h.authSettingsRoute)
 	mux.HandleFunc("/api/me", h.me)
+	mux.HandleFunc("/api/me/prefs", h.mePrefs)
 	mux.HandleFunc("/api/auth/login", h.login)
 	mux.HandleFunc("/api/auth/callback", h.callback)
 	mux.HandleFunc("/api/auth/logout", h.logout)
@@ -175,6 +176,54 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, user)
+}
+
+// mePrefs serves per-user preferences (OSS-83). Auth required: anonymous
+// callers get 401 and must use the localStorage cache instead. GET returns
+// stored prefs (or defaults); PUT merges a partial {theme?,language?},
+// normalizes, stores and returns the stored value.
+func (h *Handler) mePrefs(w http.ResponseWriter, r *http.Request) {
+	user := h.CurrentUser(r)
+	if user == nil {
+		writeErr(w, http.StatusUnauthorized, "login required")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		p, err := h.Store.GetUserPrefs(user.ID)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, p)
+	case http.MethodPut:
+		var body struct {
+			Theme    *string `json:"theme"`
+			Language *string `json:"language"`
+		}
+		if !decodeJSON(w, r, &body) {
+			return
+		}
+		cur, err := h.Store.GetUserPrefs(user.ID)
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		if body.Theme != nil {
+			cur.Theme = *body.Theme
+		}
+		if body.Language != nil {
+			cur.Language = *body.Language
+		}
+		stored, err := h.Store.UpdateUserPrefs(user.ID, cur.Normalize())
+		if err != nil {
+			writeErr(w, 500, err.Error())
+			return
+		}
+		writeJSON(w, 200, stored)
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
 }
 
 // settingsGate allows open editing while auth is disabled (so the admin

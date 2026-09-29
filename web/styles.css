@@ -511,6 +511,19 @@ button.primary {
   }
 }
 
+/* OSS-83 settings sidebar: 640px flex modal (sidebar + pane), stacked on mobile. */
+.dlg.settings-wide { width: min(640px, 94vw); }
+.set-wrap { display: flex; gap: 14px; }
+.set-side { display: flex; flex-direction: column; gap: 2px; flex: 0 0 150px; }
+.set-side button { text-align: left; background: none; border: none; border-radius: 6px; padding: 7px 10px; font: inherit; color: var(--muted); cursor: pointer; }
+.set-side button.on { background: var(--bg); color: var(--ink); font-weight: 600; }
+.set-body { flex: 1; min-width: 0; }
+.set-body [data-pane][hidden] { display: none; }
+@media (max-width: 560px) {
+  .set-wrap { flex-direction: column; }
+  .set-side { flex: none; flex-direction: row; flex-wrap: wrap; }
+}
+
 /* OSS-50 auth dialogs: settings + share. Minimal overlay reusing theme vars. */
 .dlg-ov { position: fixed; inset: 0; background: rgba(30,28,22,.38); display: flex; align-items: center; justify-content: center; z-index: 60; }
 .dlg { background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); width: min(440px, 92vw); max-height: 84vh; overflow: auto; padding: 16px 18px; }

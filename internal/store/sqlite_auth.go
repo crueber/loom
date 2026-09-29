@@ -224,6 +224,35 @@ func (s *SQLiteStore) ClaimUnownedBoards(userID string) (int, error) {
 	return int(n), nil
 }
 
+// GetUserPrefs returns stored prefs or defaults when absent (OSS-83).
+func (s *SQLiteStore) GetUserPrefs(userID string) (model.UserPrefs, error) {
+	var p model.UserPrefs
+	err := s.db.QueryRow(`SELECT COALESCE(theme,'paper'),COALESCE(language,'en') FROM user_prefs WHERE user_id=?`, userID).
+		Scan(&p.Theme, &p.Language)
+	if err == sql.ErrNoRows {
+		return model.DefaultUserPrefs(), nil
+	}
+	if err != nil {
+		return model.UserPrefs{}, err
+	}
+	return p.Normalize(), nil
+}
+
+// UpdateUserPrefs normalizes, upserts and returns stored prefs (OSS-83).
+func (s *SQLiteStore) UpdateUserPrefs(userID string, prefs model.UserPrefs) (model.UserPrefs, error) {
+	if userID == "" {
+		return model.UserPrefs{}, fmt.Errorf("user id required")
+	}
+	prefs = prefs.Normalize()
+	_, err := s.db.Exec(`INSERT INTO user_prefs(user_id,theme,language) VALUES(?,?,?)
+		ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme,language=excluded.language`,
+		userID, prefs.Theme, prefs.Language)
+	if err != nil {
+		return model.UserPrefs{}, err
+	}
+	return prefs, nil
+}
+
 func (s *SQLiteStore) BoardIDForColumn(columnID string) (string, error) {
 	var boardID string
 	err := s.db.QueryRow(`SELECT board_id FROM columns WHERE id=?`, columnID).Scan(&boardID)

@@ -101,6 +101,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL DEFAULT ''
 );
 
+-- Per-user preferences (OSS-83). Absent row -> defaults.
+CREATE TABLE IF NOT EXISTS user_prefs (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  theme TEXT NOT NULL DEFAULT 'paper',
+  language TEXT NOT NULL DEFAULT 'en'
+);
+
 -- Server-cached link icons (OSS-82 child scope, 7-day TTL).
 CREATE TABLE IF NOT EXISTS icons (
   host TEXT PRIMARY KEY,
