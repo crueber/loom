@@ -18,7 +18,7 @@ Pending = requested but not yet built on this branch.
 ## Cards & blocks
 
 - Cards hold ordered blocks: link, note (markdown), image.
-- Link blocks show favicon + host; card links open in same tab (workspace).
+- Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits.
 - Markdown renders; re-edit shows raw text.
