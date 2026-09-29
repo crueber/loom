@@ -54,6 +54,11 @@ body {
 }
 #topbar .actions button:hover { color: var(--ink); border-color: var(--muted); }
 .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
+/* OSS-85: mobile hamburger toggles — hidden on desktop. The .rightzone
+   wrapper is layout-transparent on desktop (display:contents) so the
+   two-zone navbar is unchanged; on mobile it becomes the right dropdown. */
+.navtoggle { display: none; }
+.rightzone { display: contents; }
 #boards { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 #boards button {
   border: 1px solid transparent; background: transparent; color: var(--muted);
@@ -500,7 +505,42 @@ button.primary {
   .column { width: 86vw; flex-basis: 86vw; }
   .column.reading { width: 94vw; flex-basis: 94vw; }
   .column.collapsed { width: 44px; flex-basis: 44px; }
-  #topbar { overflow-x: auto; }
+  /* OSS-85: dual hamburger navbar — the inline board strip is unusable
+     narrow, so the topbar shows edge toggles instead. Left opens the
+     board list, right opens board controls + Settings. Panels are
+     absolute so they never clip; overflow-x:auto would clip them. */
+  #topbar { overflow: visible; position: relative; gap: 8px; }
+  .navtoggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: 0 0 auto; width: 34px; height: 32px;
+    border: 1px solid var(--line); background: transparent; color: var(--muted);
+    border-radius: 8px; cursor: pointer; font-size: 16px; line-height: 1;
+  }
+  .navtoggle:hover { color: var(--ink); border-color: var(--muted); }
+  .navtoggle[aria-expanded="true"] { color: var(--ink); border-color: var(--muted); background: var(--card); }
+  .brand { flex: 1 1 auto; }
+  #boards { display: none; }
+  body[data-leftopen="1"] #boards {
+    display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+    position: absolute; top: calc(100% + 6px); left: 8px; z-index: 70;
+    width: max-content; max-width: min(320px, 86vw); max-height: 60vh; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 8px;
+  }
+  body[data-leftopen="1"] #boards .boardtabs {
+    flex-direction: column; align-items: stretch; overflow: visible;
+  }
+  body[data-leftopen="1"] #boards .boardtabs button { text-align: left; }
+  .rightzone { display: none; }
+  body[data-rightopen="1"] .rightzone {
+    display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+    position: absolute; top: calc(100% + 6px); right: 8px; z-index: 70;
+    width: max-content; max-width: min(320px, 86vw); max-height: 60vh; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 10px;
+  }
+  body[data-rightopen="1"] .boardctl { margin-left: 0; flex-wrap: wrap; }
+  body[data-rightopen="1"] #topbar .actions { flex-wrap: wrap; }
 }
 @media (prefers-color-scheme: dark) {
   body:not([data-bg="paper"]):not([data-bg="honey"]):not([data-bg="sage"]):not([data-bg="sky"]):not([data-bg="rose"]):not([data-bg="slate"]) {
