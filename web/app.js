@@ -1116,6 +1116,197 @@
     }
   });
 
+  // ---- OSS-81: navbar drop copy/move modal (frontend-only composition) ----
+  // Drop target: navbar board strip (#boards) accepts card, block (handle
+  // drag), and column (h2 drag) drops during active drags. Reuses the
+  // dragstart state above; board canvas dragover/drop behavior unchanged.
+  // Execution uses existing endpoints only, create-then-delete order (never
+  // delete before the copy is confirmed). 403s surface in the modal.
+  function freshBlocks(blocks) {
+    var out;
+    try { out = JSON.parse(JSON.stringify(blocks || [])); } catch (e) { out = []; }
+    out.forEach(function (b, i) {
+      b.id = '';
+      b.position = i;
+      if (Array.isArray(b.items)) b.items.forEach(function (it) { it.id = ''; });
+    });
+    return out;
+  }
+  function sortedColsOf(tree) {
+    return ((tree && tree.columns) || []).slice().sort(function (a, b) {
+      return (a.position || 0) - (b.position || 0);
+    });
+  }
+  function sortedCardsOf(tree, colId) {
+    return ((tree && tree.cards && tree.cards[colId]) || []).slice().sort(function (a, b) {
+      return (a.position || 0) - (b.position || 0);
+    });
+  }
+  // Resolve the target column (lowest position) of a board tree, creating
+  // an Inbox column when the board has none. Returns a promise of {tree,col}.
+  function ensureTargetCol(targetId) {
+    return api('GET', '/api/boards/' + targetId).then(function (tree) {
+      var cols = sortedColsOf(tree);
+      if (cols.length) return { tree: tree, col: cols[0] };
+      return api('POST', '/api/boards/' + targetId + '/columns', { title: 'Inbox' }).then(function (col) {
+        tree.columns = [col];
+        tree.cards[col.id] = [];
+        return { tree: tree, col: col };
+      });
+    });
+  }
+  // Resolve the destination card (first card of first column) for a block,
+  // creating Inbox column + card when missing. Returns {tree,col,card}.
+  function ensureTargetCard(targetId) {
+    return ensureTargetCol(targetId).then(function (res) {
+      var cards = sortedCardsOf(res.tree, res.col.id);
+      if (cards.length) return { tree: res.tree, col: res.col, card: cards[0] };
+      return api('POST', '/api/columns/' + res.col.id + '/cards', { blocks: [{ type: 'note', content: '' }] }).then(function (card) {
+        return { tree: res.tree, col: res.col, card: card };
+      });
+    });
+  }
+  function execCopyMoveCard(mode, cardId, targetId) {
+    var src = findCard(cardId);
+    if (!src) return Promise.reject(new Error('Source card is gone.'));
+    var payload = freshBlocks(src.blocks);
+    return ensureTargetCol(targetId).then(function (res) {
+      return api('POST', '/api/columns/' + res.col.id + '/cards', { blocks: payload });
+    }).then(function (created) {
+      if (mode !== 'move') return created;
+      return api('DELETE', '/api/cards/' + cardId).then(function () { return created; });
+    }).then(function (created) { return revalidate().then(function () { return created; }); });
+  }
+  function execCopyMoveColumn(mode, colId, targetId) {
+    var srcCol = findCol(colId);
+    if (!srcCol) return Promise.reject(new Error('Source column is gone.'));
+    var tree = curTree();
+    var srcCards = sortedCardsOf(tree, colId);
+    var payloads = srcCards.map(function (c) { return freshBlocks(c.blocks); });
+    var newColId = null;
+    return api('POST', '/api/boards/' + targetId + '/columns', { title: srcCol.title, color: srcCol.color || '#c9c4b6' }).then(function (nc) {
+      newColId = nc.id;
+      var chain = Promise.resolve();
+      payloads.forEach(function (blocks) {
+        chain = chain.then(function () { return api('POST', '/api/columns/' + newColId + '/cards', { blocks: blocks }); });
+      });
+      return chain;
+    }).then(function () {
+      if (mode !== 'move') return null;
+      return api('DELETE', '/api/columns/' + colId);
+    }).then(function () { return revalidate(); });
+  }
+  function execCopyMoveBlock(mode, snap, targetId) {
+    var srcCard = findCard(snap.card);
+    if (!srcCard) return Promise.reject(new Error('Source card is gone.'));
+    var srcBlock = null;
+    srcCard.blocks.forEach(function (b) { if ((b.id || '') === snap.block) srcBlock = b; });
+    if (!srcBlock) return Promise.reject(new Error('Source block is gone.'));
+    var fresh = freshBlocks([srcBlock])[0];
+    return ensureTargetCard(targetId).then(function (res) {
+      var dstCard = res.card;
+      // Same-card copy (copy within the source board landing on its own
+      // card): single PATCH appending the clone. dstCard.blocks comes
+      // from the freshly fetched target tree (tree.cards is keyed by
+      // column id, so the card object itself is the fresh base).
+      var sameCard = dstCard.id === srcCard.id;
+      var dstBlocks = (dstCard.blocks || []).concat([fresh]);
+      dstBlocks.forEach(function (b, i) { b.position = i; });
+      var dstBody = { id: dstCard.id, column_id: dstCard.column_id || res.col.id, position: dstCard.position || 0, blocks: dstBlocks };
+      return api('PATCH', '/api/cards/' + dstCard.id, dstBody).then(function () {
+        if (mode !== 'move' || sameCard) return null;
+        var remaining = srcCard.blocks.filter(function (b) { return (b.id || '') !== snap.block; });
+        remaining.forEach(function (b, i) { b.position = i; });
+        var srcBody = { id: srcCard.id, column_id: srcCard.column_id, position: srcCard.position || 0, blocks: remaining };
+        return api('PATCH', '/api/cards/' + srcCard.id, srcBody);
+      });
+    }).then(function () { return revalidate(); });
+  }
+  function openCopyMoveModal(kind, snap, srcBoardId) {
+    var srcLabel = kind;
+    try {
+      if (kind === 'card' && findCard(snap)) srcLabel = 'card';
+      if (kind === 'column' && findCol(snap)) srcLabel = 'column "' + findCol(snap).title + '"';
+      if (kind === 'block') srcLabel = 'block';
+    } catch (e) {}
+    var op = 'move';
+    function eligibleBoards() {
+      return state.boards.filter(function (b) { return op !== 'move' || b.id !== srcBoardId; });
+    }
+    function boardRadios() {
+      var list = eligibleBoards();
+      if (!list.length) return '<div class="hint">No eligible boards.</div>';
+      return list.map(function (b, i) {
+        return '<label class="chk"><input type="radio" name="xboard" value="' + esc(b.id) + '"' + (i === 0 ? ' checked' : '') + '> ' + esc(b.title) + '</label>';
+      }).join('');
+    }
+    var ov = openDialog('Copy/move to board',
+      '<div class="hint">Move or copy this ' + esc(srcLabel) + ' to another board.</div>' +
+      '<div style="margin:8px 0"><label class="chk"><input type="radio" name="xop" value="move" checked> Move</label> ' +
+      '<label class="chk"><input type="radio" name="xop" value="copy"> Copy</label></div>' +
+      '<div data-boards>' + boardRadios() + '</div>' +
+      '<div style="margin-top:10px;text-align:right"><button class="primary" data-confirm>Confirm</button> ' +
+      '<button data-cancel>Cancel</button></div>',
+      function (ov) {
+        var boardsBox = ov.querySelector('[data-boards]');
+        ov.querySelectorAll('input[name="xop"]').forEach(function (r) {
+          r.addEventListener('change', function () {
+            op = ov.querySelector('input[name="xop"]:checked').value;
+            boardsBox.innerHTML = boardRadios();
+          });
+        });
+        ov.querySelector('[data-cancel]').addEventListener('click', function () { closeDialog(); });
+        ov.querySelector('[data-confirm]').addEventListener('click', function () {
+          var sel = ov.querySelector('input[name="xboard"]:checked');
+          op = (ov.querySelector('input[name="xop"]:checked') || {}).value || 'move';
+          if (!sel) { dlgErr(ov, 'Pick a target board.'); return; }
+          var btn = ov.querySelector('[data-confirm]');
+          btn.disabled = true;
+          btn.textContent = 'Working…';
+          var p;
+          if (kind === 'card') p = execCopyMoveCard(op, snap, sel.value);
+          else if (kind === 'column') p = execCopyMoveColumn(op, snap, sel.value);
+          else p = execCopyMoveBlock(op, snap, sel.value);
+          p.then(function () { closeDialog(); render(); })
+            .catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = 'Confirm';
+              dlgErr(ov, 'Failed (' + (err && err.message ? err.message : 'network error') + ') — nothing was deleted.');
+            });
+        });
+      });
+    return ov;
+  }
+  function navHint(on) {
+    try {
+      boardsEl.style.outline = on ? '2px dashed var(--accent)' : '';
+      boardsEl.style.outlineOffset = on ? '2px' : '';
+    } catch (e) {}
+  }
+  boardsEl.addEventListener('dragover', function (e) {
+    if (!dragCard && !dragCol && !dragBlock) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (err) {}
+    navHint(true);
+  });
+  boardsEl.addEventListener('dragleave', function (e) {
+    if (!e.relatedTarget || !(e.relatedTarget instanceof Node) || !boardsEl.contains(e.relatedTarget)) navHint(false);
+  });
+  boardsEl.addEventListener('drop', function (e) {
+    if (!dragCard && !dragCol && !dragBlock) return;
+    e.preventDefault();
+    navHint(false);
+    clearDropHints();
+    var snapCard = dragCard, snapCol = dragCol;
+    var snapBlock = dragBlock ? { card: dragBlock.card, block: dragBlock.block } : null;
+    dragCard = null; dragCol = null; dragBlock = null;
+    var srcBoard = state.boardId;
+    if (snapBlock) openCopyMoveModal('block', snapBlock, srcBoard);
+    else if (snapCard) openCopyMoveModal('card', snapCard, srcBoard);
+    else if (snapCol) openCopyMoveModal('column', snapCol, srcBoard);
+  });
+  document.addEventListener('dragend', function () { navHint(false); });
+
   // ---- Resizable columns: drag handle, widths in localStorage ----
   boardEl.addEventListener('pointerdown', function (e) {
     var h = e.target && e.target.closest ? e.target.closest('[data-resize]') : null;

@@ -44,6 +44,7 @@ Pending = requested but not yet built on this branch.
 - Board scrolls horizontally; near-full-width columns under 700px.
 - Pending: window-level + skinny scrollbars.
 - Pending: drag-pan board.
+- Drag card/block-handle/column-header onto the navbar board strip opens a copy/move-to-board dialog (existing APIs only, create-then-delete).
 
 ## Data & performance
 
