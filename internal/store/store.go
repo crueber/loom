@@ -67,6 +67,10 @@ type Store interface {
 	// (OSS-71); with auth disabled there is no caller, so no behavior
 	// change. Returns the number of boards claimed by this call.
 	ClaimUnownedBoards(userID string) (int, error)
+
+	// User preferences (OSS-83). Absent rows return defaults.
+	GetUserPrefs(userID string) (model.UserPrefs, error)
+	UpdateUserPrefs(userID string, prefs model.UserPrefs) (model.UserPrefs, error)
 }
 
 type snapshot struct {
@@ -79,6 +83,8 @@ type snapshot struct {
 	Users    []model.User        `json:"users"`
 	Members  []model.BoardMember `json:"members"`
 	Sessions []model.Session     `json:"sessions"`
+	// Per-user preferences (OSS-83). Absent key -> defaults.
+	Prefs map[string]model.UserPrefs `json:"prefs,omitempty"`
 }
 
 // FileStore is a JSON-file-backed Store. Suitable for single-user

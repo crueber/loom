@@ -100,3 +100,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL DEFAULT ''
 );
+
+-- Per-user preferences (OSS-83). Absent row -> defaults.
+CREATE TABLE IF NOT EXISTS user_prefs (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  theme TEXT NOT NULL DEFAULT 'paper',
+  language TEXT NOT NULL DEFAULT 'en'
+);

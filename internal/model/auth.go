@@ -91,3 +91,30 @@ type Session struct {
 func NewUser(issuer, subject, email, name string) User {
 	return User{ID: NewID(), Issuer: issuer, Subject: subject, Email: email, Name: name, CreatedAt: now()}
 }
+
+// UserPrefs is the per-user preference set (OSS-83). Theme mirrors the
+// board background ids (web/app.js SWATCHES); language is EN-only for
+// now but kept as a field so the picker shape is functional.
+type UserPrefs struct {
+	Theme    string `json:"theme"`
+	Language string `json:"language"`
+}
+
+// DefaultUserPrefs is the zero/anonymous fallback.
+func DefaultUserPrefs() UserPrefs {
+	return UserPrefs{Theme: "paper", Language: "en"}
+}
+
+// Normalize clamps unknown themes to paper (client normBg semantics)
+// and unknown languages to en.
+func (p UserPrefs) Normalize() UserPrefs {
+	switch p.Theme {
+	case "paper", "honey", "sage", "sky", "rose", "slate":
+	default:
+		p.Theme = "paper"
+	}
+	if p.Language != "en" {
+		p.Language = "en"
+	}
+	return p
+}

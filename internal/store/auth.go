@@ -255,5 +255,30 @@ func (s *FileStore) ClaimUnownedBoards(userID string) (int, error) {
 	return n, s.persistLocked()
 }
 
+// GetUserPrefs returns stored prefs or defaults when absent (OSS-83).
+func (s *FileStore) GetUserPrefs(userID string) (model.UserPrefs, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p, ok := s.snap.Prefs[userID]; ok {
+		return p.Normalize(), nil
+	}
+	return model.DefaultUserPrefs(), nil
+}
+
+// UpdateUserPrefs normalizes, stores and persists prefs (OSS-83).
+func (s *FileStore) UpdateUserPrefs(userID string, prefs model.UserPrefs) (model.UserPrefs, error) {
+	if userID == "" {
+		return model.UserPrefs{}, fmt.Errorf("user id required")
+	}
+	prefs = prefs.Normalize()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.snap.Prefs == nil {
+		s.snap.Prefs = map[string]model.UserPrefs{}
+	}
+	s.snap.Prefs[userID] = prefs
+	return prefs, s.persistLocked()
+}
+
 // FileStore satisfies the extended Store interface.
 var _ Store = (*FileStore)(nil)

@@ -428,7 +428,7 @@
         : '');
     var tree = curTree();
     if (!tree) {
-      document.body.dataset.bg = BG_DEFAULT;
+      document.body.dataset.bg = getPrefs().theme || BG_DEFAULT;
       topbarCtl.innerHTML = '';
       boardEl.innerHTML = state.boards.length
         ? '<div class="emptyboard"><p>Select a board above, or create one to start writing.</p></div>'
@@ -803,9 +803,10 @@
       box.remove();
       if (!commit || !val) return;
       if (kind === 'board') {
-        // New boards inherit the current board's background (OSS-58).
+        // New boards inherit the current board's background (OSS-58),
+        // falling back to the prefs default theme (OSS-83).
         var tree0 = curTree();
-        var bg0 = (tree0 && tree0.board && tree0.board.background) || undefined;
+        var bg0 = (tree0 && tree0.board && tree0.board.background) || getPrefs().theme || undefined;
         api('POST', '/api/boards', bg0 ? { title: val, background: bg0 } : { title: val }).then(function (nb) {
           state.boards.push(nb);
           state.trees[nb.id] = normalizeTree({ board: nb, columns: [], cards: {} });
@@ -1745,6 +1746,12 @@
     return api('GET', '/api/auth/status').then(function (s) {
       state.auth = { enabled: !!s.enabled, requireAuth: !!s.require_auth, authenticated: !!s.authenticated, user: s.user || null };
       paintAuth(); render();
+      // Signed-in: server prefs overwrite the local cache (OSS-83).
+      if (state.auth.authenticated) {
+        api('GET', '/api/me/prefs').then(function (p) { setPrefs(p); applyPrefsTheme(); }).catch(function () {});
+      } else {
+        applyPrefsTheme();
+      }
     }).catch(function () {});
   }
   function paintAuth() {
@@ -1778,34 +1785,177 @@
     }
     el.textContent = msg;
   }
+  // ---- User prefs (OSS-83): localStorage cache, server truth when signed in ----
+  // Shape {theme, language}; unknown themes fall back to paper (client
+  // normBg semantics). Anonymous: local only, never sent. Signed-in: PUT
+  // to /api/me/prefs after every edit; 401/offline keeps the local copy.
+  var LS_PREFS = 'loom.prefs.v1';
+  function normTheme(t) { return ['paper', 'honey', 'sage', 'sky', 'rose', 'slate'].indexOf(t) >= 0 ? t : 'paper'; }
+  function getPrefs() {
+    try {
+      var p = JSON.parse(localStorage.getItem(LS_PREFS) || '{}') || {};
+      return { theme: normTheme(p.theme), language: 'en' };
+    } catch (e) { return { theme: 'paper', language: 'en' }; }
+  }
+  function setPrefs(p) {
+    try { localStorage.setItem(LS_PREFS, JSON.stringify({ theme: normTheme(p && p.theme), language: 'en' })); } catch (e) {}
+  }
+  function paintPrefsSync(ov, msg) {
+    if (!ov) return;
+    ov.querySelectorAll('[data-prefs-sync]').forEach(function (el) { el.textContent = msg; });
+  }
+  function applyPrefsTheme() {
+    if (!curTree()) document.body.dataset.bg = getPrefs().theme;
+  }
+  function savePrefs(p, ov) {
+    setPrefs(p);
+    paintPrefsSync(ov, state.auth.authenticated ? 'saving…' : 'saved locally');
+    if (!state.auth.authenticated) { applyPrefsTheme(); return; }
+    api('PUT', '/api/me/prefs', p).then(function (sv) {
+      setPrefs(sv); paintPrefsSync(ov, 'synced');
+    }).catch(function () { paintPrefsSync(ov, 'saved locally'); });
+    applyPrefsTheme();
+  }
+  function syncPrefsControls(ov, p) {
+    ov.querySelectorAll('[data-ptheme]').forEach(function (x) { x.classList.toggle('on', x.dataset.ptheme === p.theme); });
+    ov.querySelectorAll('[data-ptheme-sel]').forEach(function (x) { x.value = p.theme; });
+    ov.querySelectorAll('[data-plang]').forEach(function (x) { x.value = p.language || 'en'; });
+  }
+  // Settings modal (OSS-83): left sidebar + content pane per section.
+  // openDialog stays untouched for Share; this builds its own .dlg-ov
+  // overlay (Esc + click-outside close, stacked layout on mobile).
   function openSettings() {
-    api('GET', '/api/auth/settings').then(function (s) {
-      var ov = openDialog('Settings',
-        '<label>OIDC issuer URL<input type="text" data-s="issuer" value="' + esc(s.issuer || '') + '" placeholder="https://accounts.example.com"></label>' +
-        '<label>Client ID<input type="text" data-s="client_id" value="' + esc(s.client_id || '') + '"></label>' +
-        '<label>Client secret (blank keeps stored' + (s.has_secret ? ' ✓' : '') + ')<input type="password" data-s="client_secret" value="" autocomplete="new-password"></label>' +
-        '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + '> Enable auth (login required, new boards private)</label>' +
-        '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + '> Require login even for public boards</label>' +
+    var prefs = getPrefs();
+    var a = state.auth;
+    var user = a.user || {};
+    var who = esc(user.email || user.name || '');
+    var swRow = SWATCHES.map(function (s) {
+      return '<button data-ptheme="' + s.id + '"' + (prefs.theme === s.id ? ' class="on"' : '') +
+        ' title="' + s.name + '" aria-label="' + s.name + ' theme"><i class="sw sw-' + s.id + '"></i></button>';
+    }).join('');
+    var themeOpts = SWATCHES.map(function (s) {
+      return '<option value="' + s.id + '"' + (prefs.theme === s.id ? ' selected' : '') + '>' + s.name + '</option>';
+    }).join('');
+    var langOpts = '<option value="en" selected>en — English</option>';
+    var accountHTML;
+    if (!a.authenticated) {
+      accountHTML = '<h4>Account</h4><div><button data-login>Login</button> ' +
+        '<span class="hint">Sign in to sync theme + language across devices.</span></div>';
+    } else {
+      accountHTML = '<h4>Account</h4><div>Signed in as <b>' + (who || 'you') + '</b></div>' +
+        '<div style="margin-top:6px"><button data-logout>Logout</button></div>' +
+        '<h4>Preferences</h4>' +
+        '<label>Theme<select data-ptheme-sel>' + themeOpts + '</select></label>' +
+        '<label>Language<select data-plang>' + langOpts + '</select></label>' +
+        '<div class="hint"><span data-prefs-sync></span></div>';
+    }
+    var ov = document.createElement('div');
+    ov.className = 'dlg-ov';
+    ov.innerHTML = '<div class="dlg settings-wide" role="dialog" aria-label="Settings"><h3>Settings</h3>' +
+      '<div class="set-wrap"><div class="set-side" role="tablist">' +
+      '<button data-sec="general" class="on">General</button>' +
+      '<button data-sec="data">Data</button>' +
+      '<button data-sec="account">Account</button>' +
+      '<button data-sec="admin">Admin</button></div>' +
+      '<div class="set-body">' +
+      '<div data-pane="general"><h4>Language</h4>' +
+      '<div><select data-plang>' + langOpts + '</select> <span class="hint">More languages coming soon.</span></div>' +
+      '<h4>Default board theme</h4>' +
+      '<div class="swatches" role="group" aria-label="Default board theme">' + swRow + '</div>' +
+      '<div class="hint">New boards start with this theme; each board still stores its own background.<br><span data-prefs-sync></span></div></div>' +
+      '<div data-pane="data" hidden><h4>Import</h4>' +
+      '<div><button data-import-v1 title="Import a Loom v1 export file (adds new boards, never deletes)">Import v1 file…</button> ' +
+      '<span class="hint">Adds new boards, never deletes.</span></div>' +
+      '<h4>Export</h4><div><a href="/api/export" download="loom-export.json">Download export (JSON)</a> ' +
+      '<span class="hint">Full backup; never deletes.</span></div></div>' +
+      '<div data-pane="account" hidden>' + accountHTML + '</div>' +
+      '<div data-pane="admin" hidden><h4>Admin — OIDC</h4><div data-admin-body><span class="hint">Loading…</span></div></div>' +
+      '</div></div>' +
+      '<div class="dlg-foot"><button data-dlg-close>Close</button></div></div>';
+    document.body.appendChild(ov);
+    function onEsc(e) {
+      if (e.key !== 'Escape') return;
+      closeDialog();
+      if (!document.querySelector('.dlg-ov')) document.removeEventListener('keydown', onEsc);
+    }
+    document.addEventListener('keydown', onEsc);
+    ov.addEventListener('click', function (e) {
+      if (e.target === ov || (e.target.closest && e.target.closest('[data-dlg-close]'))) {
+        closeDialog();
+        document.removeEventListener('keydown', onEsc);
+      }
+    });
+    ov.querySelectorAll('[data-sec]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        ov.querySelectorAll('[data-sec]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+        ov.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = (p.dataset.pane !== btn.dataset.sec); });
+      });
+    });
+    // Prefs controls (General swatches + selects everywhere).
+    ov.querySelectorAll('[data-ptheme]').forEach(function (sw) {
+      sw.addEventListener('click', function () {
+        var p = getPrefs(); p.theme = sw.dataset.ptheme; savePrefs(p, ov); syncPrefsControls(ov, p);
+      });
+    });
+    ov.querySelectorAll('[data-ptheme-sel]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var p = getPrefs(); p.theme = sel.value; savePrefs(p, ov); syncPrefsControls(ov, p);
+      });
+    });
+    ov.querySelectorAll('[data-plang]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var p = getPrefs(); p.language = sel.value || 'en'; savePrefs(p, ov); syncPrefsControls(ov, p);
+      });
+    });
+    var imp = ov.querySelector('[data-import-v1]');
+    if (imp) imp.addEventListener('click', doImportV1);
+    var lg = ov.querySelector('[data-login]');
+    if (lg) lg.addEventListener('click', function () { window.location.href = '/api/auth/login'; });
+    var lo = ov.querySelector('[data-logout]');
+    if (lo) lo.addEventListener('click', function () {
+      fetch('/api/auth/logout', { method: 'POST' }).then(function () { closeDialog(); refreshAuth().then(revalidate); });
+    });
+    // Signed-in: server prefs hydrate inputs and overwrite the local cache.
+    if (state.auth.authenticated) {
+      paintPrefsSync(ov, 'loading…');
+      api('GET', '/api/me/prefs').then(function (sv) {
+        if (!document.body.contains(ov)) { setPrefs(sv); return; }
+        setPrefs(sv); syncPrefsControls(ov, getPrefs()); paintPrefsSync(ov, 'synced');
+      }).catch(function () { paintPrefsSync(ov, 'saved locally'); });
+    } else {
+      paintPrefsSync(ov, 'saved locally');
+    }
+    // Admin pane: OIDC settings load async; anonymous + auth-on becomes
+    // an inline error with disabled inputs (no more alert()).
+    var adminBody = ov.querySelector('[data-admin-body]');
+    function paintAdmin(s, disabled, errMsg) {
+      var dis = disabled ? ' disabled' : '';
+      adminBody.innerHTML =
+        (errMsg ? '<div class="err">' + esc(errMsg) + '</div>' : '') +
+        (disabled ? '<div class="hint">Sign in to change admin settings.</div>' : '') +
+        '<label>OIDC issuer URL<input type="text" data-s="issuer" value="' + esc(s.issuer || '') + '" placeholder="https://accounts.example.com"' + dis + '></label>' +
+        '<label>Client ID<input type="text" data-s="client_id" value="' + esc(s.client_id || '') + '"' + dis + '></label>' +
+        '<label>Client secret (blank keeps stored' + (s.has_secret ? ' ✓' : '') + ')<input type="password" data-s="client_secret" value="" autocomplete="new-password"' + dis + '></label>' +
+        '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + dis + '> Enable auth (login required, new boards private)</label>' +
+        '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + dis + '> Require login even for public boards</label>' +
         '<div class="hint">Saved server-side in the database; disabling restores open access.</div>' +
-        '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>' +
-        '<hr><h4>Language</h4>' +
-        '<div><button class="i18n-slot" disabled title="Language picker (coming soon)">EN</button> <span class="hint">More languages coming soon.</span></div>' +
-        '<hr><h4>Import</h4>' +
-        '<div><button id="import-v1" title="Import a Loom v1 export file (adds new boards, never deletes)">Import v1 file…</button> <span class="hint">Adds new boards, never deletes.</span></div>',
-        function (ov) {
-          var imp = ov.querySelector('#import-v1');
-          if (imp) imp.addEventListener('click', doImportV1);
-          ov.querySelector('[data-save]').addEventListener('click', function () {
-            function val(k) { return ov.querySelector('[data-s="' + k + '"]').value; }
-            function chk(k) { return ov.querySelector('[data-s="' + k + '"]').checked; }
-            api('PUT', '/api/auth/settings', {
-              issuer: val('issuer'), client_id: val('client_id'), client_secret: val('client_secret'),
-              enabled: chk('enabled'), require_auth: chk('require_auth'),
-            }).then(function () { closeDialog(); refreshAuth().then(revalidate); })
-              .catch(function () { dlgErr(ov, 'Save failed (enabling needs issuer + client ID + secret).'); });
-          });
-        });
-    }).catch(function () { alert('Settings need a login once auth is enabled.'); });
+        (disabled ? '' : '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>');
+      if (disabled) return;
+      adminBody.querySelector('[data-save]').addEventListener('click', function () {
+        function val(k) { return adminBody.querySelector('[data-s="' + k + '"]').value; }
+        function chk(k) { return adminBody.querySelector('[data-s="' + k + '"]').checked; }
+        api('PUT', '/api/auth/settings', {
+          issuer: val('issuer'), client_id: val('client_id'), client_secret: val('client_secret'),
+          enabled: chk('enabled'), require_auth: chk('require_auth'),
+        }).then(function () { closeDialog(); refreshAuth().then(revalidate); })
+          .catch(function () { dlgErr(ov, 'Save failed (enabling needs issuer + client ID + secret).'); });
+      });
+    }
+    api('GET', '/api/auth/settings').then(function (s) { paintAdmin(s, false, ''); })
+      .catch(function () {
+        paintAdmin({ issuer: '', client_id: '', has_secret: false, enabled: false, require_auth: false },
+          true, 'Settings need a login once auth is enabled.');
+      });
   }
   function openShare() {
     var tree = curTree();
