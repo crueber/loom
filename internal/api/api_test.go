@@ -148,6 +148,64 @@ func TestBoardStylingAndEmptyTreeShape(t *testing.T) {
 	}
 }
 
+func TestCreateBoardPersistsBackground(t *testing.T) {
+	_, mux := newTestServer(t)
+
+	// OSS-70: client sends current background on create; it must persist.
+	rec := do(t, mux, "POST", "/api/boards", map[string]string{"title": "Sky", "background": "sky"})
+	if rec.Code != 201 {
+		t.Fatalf("create board: %d %s", rec.Code, rec.Body.String())
+	}
+	var board model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &board); err != nil {
+		t.Fatal(err)
+	}
+	if board.Background != "sky" {
+		t.Fatalf("background not persisted on create: %+v", board)
+	}
+
+	// Survives reload: GET tree returns the same background.
+	rec = do(t, mux, "GET", "/api/boards/"+board.ID, nil)
+	if rec.Code != 200 {
+		t.Fatalf("get tree: %d %s", rec.Code, rec.Body.String())
+	}
+	var tree model.BoardTree
+	if err := json.Unmarshal(rec.Body.Bytes(), &tree); err != nil {
+		t.Fatal(err)
+	}
+	if tree.Board.Background != "sky" {
+		t.Fatalf("background lost after reload: %+v", tree.Board)
+	}
+
+	// Unknown ids fall back to '' (client normBg renders paper).
+	// (Fresh var: `background,omitempty` omits '' so Unmarshal into a
+	// reused struct would keep the previous value.)
+	rec = do(t, mux, "POST", "/api/boards", map[string]string{"title": "Bogus", "background": "neon"})
+	if rec.Code != 201 {
+		t.Fatalf("create board: %d %s", rec.Code, rec.Body.String())
+	}
+	var bogus model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &bogus); err != nil {
+		t.Fatal(err)
+	}
+	if bogus.Background != "" {
+		t.Fatalf("unknown background should fall back to '': %+v", bogus)
+	}
+
+	// Omitting background still works (defaults to '').
+	rec = do(t, mux, "POST", "/api/boards", map[string]string{"title": "Plain"})
+	if rec.Code != 201 {
+		t.Fatalf("create board: %d %s", rec.Code, rec.Body.String())
+	}
+	var plain model.Board
+	if err := json.Unmarshal(rec.Body.Bytes(), &plain); err != nil {
+		t.Fatal(err)
+	}
+	if plain.Background != "" {
+		t.Fatalf("omitted background should default to '': %+v", plain)
+	}
+}
+
 func TestV1Import(t *testing.T) {
 	_, mux := newTestServer(t)
 	v1 := `{"version":1,"lists":[
