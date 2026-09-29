@@ -97,8 +97,10 @@ body {
 }
 .boardmenu-row button.mv:hover { color: var(--ink); border-color: var(--line); }
 /* Round 4 item 5: collapsed rails — fold chevron and resize handle stay
-   muted; the resize handle hides on rails (nothing to resize). */
+   muted; the resize handle hides on rails (nothing to resize). The name
+   keeps ink color alongside the colored dot and count pill. */
 .column.collapsed .fold { color: var(--muted); }
+.column.collapsed .coltitle { color: var(--ink); }
 .column.collapsed .resize { display: none; }
 #creator { padding: 0 20px; }
 .creatorform {
