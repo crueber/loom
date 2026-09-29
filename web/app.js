@@ -2020,6 +2020,18 @@
     var a = state.auth;
     var user = a.user || {};
     var who = esc(user.email || user.name || '');
+    // OSS-87: board rename lives in Settings General too (tab
+    // double-click path kept). Prefill from the current board; with no
+    // board open the field is disabled with a hint.
+    var setTree = curTree();
+    var setBoard = setTree && setTree.board;
+    var boardNameHTML = '<h4>Board name</h4>' +
+      (setBoard
+        ? '<div><input type="text" data-board-name value="' + esc(setBoard.title) + '" maxlength="200"> ' +
+          '<button data-board-save>Save</button></div>'
+        : '<div><input type="text" data-board-name disabled placeholder="No board open"> ' +
+          '<button data-board-save disabled>Save</button> ' +
+          '<span class="hint">Open a board to rename it.</span></div>');
     var swRow = SWATCHES.map(function (s) {
       return '<button data-ptheme="' + s.id + '"' + (prefs.theme === s.id ? ' class="on"' : '') +
         ' title="' + s.name + '" aria-label="' + s.name + ' theme"><i class="sw sw-' + s.id + '"></i></button>';
@@ -2049,7 +2061,8 @@
       '<button data-sec="account">Account</button>' +
       '<button data-sec="admin">Admin</button></div>' +
       '<div class="set-body">' +
-      '<div data-pane="general"><h4>Language</h4>' +
+      '<div data-pane="general">' + boardNameHTML +
+      '<h4>Language</h4>' +
       '<div><select data-plang>' + langOpts + '</select> <span class="hint">More languages coming soon.</span></div>' +
       '<h4>Default board theme</h4>' +
       '<div class="swatches" role="group" aria-label="Default board theme">' + swRow + '</div>' +
@@ -2098,6 +2111,36 @@
         var p = getPrefs(); p.language = sel.value || 'en'; savePrefs(p, ov); syncPrefsControls(ov, p);
       });
     });
+    // OSS-87: Settings board rename — same semantics as the tab
+    // double-click path (trim; empty/unchanged is an inline no-op with
+    // no server call). Valid change optimistically updates state +
+    // cache + tabs, then reconciles the PATCH response; failures show
+    // inline and keep the dialog open.
+    var nameInput = ov.querySelector('[data-board-name]');
+    var nameSave = ov.querySelector('[data-board-save]');
+    if (nameInput && nameSave && setBoard) {
+      nameSave.addEventListener('click', function () {
+        var title = nameInput.value.trim();
+        if (!title) { dlgErr(ov, 'Board name cannot be empty.'); return; }
+        if (title === setBoard.title) return;
+        var bid = setBoard.id;
+        state.boards.forEach(function (b) { if (b.id === bid) b.title = title; });
+        var tr0 = state.trees[bid];
+        if (tr0 && tr0.board) tr0.board.title = title;
+        setBoard.title = title;
+        saveCache(); render();
+        api('PATCH', '/api/boards/' + bid, { title: title }).then(function (b) {
+          state.boards.forEach(function (x, i) { if (x.id === b.id) state.boards[i] = b; });
+          var tr1 = state.trees[b.id];
+          if (tr1) tr1.board = b;
+          setBoard.title = b.title;
+          saveCache(); render();
+        }).catch(function (err) {
+          if (!document.body.contains(ov)) return;
+          dlgErr(ov, 'Rename failed (' + (err && err.message ? err.message : 'network error') + ') — kept "' + setBoard.title + '".');
+        });
+      });
+    }
     var imp = ov.querySelector('[data-import-v1]');
     if (imp) imp.addEventListener('click', doImportV1);
     var lg = ov.querySelector('[data-login]');
