@@ -25,8 +25,8 @@ func scanUser(row *sql.Row) (model.User, error) {
 func (s *SQLiteStore) GetAuthSettings() (model.AuthSettings, error) {
 	var a model.AuthSettings
 	var enabled, requireAuth, backfillDone int
-	err := s.db.QueryRow(`SELECT COALESCE(issuer,''),COALESCE(client_id,''),COALESCE(client_secret,''),enabled,require_auth,COALESCE(oidc_backfill_done,0) FROM auth_settings WHERE id=1`).
-		Scan(&a.Issuer, &a.ClientID, &a.ClientSecret, &enabled, &requireAuth, &backfillDone)
+	err := s.db.QueryRow(`SELECT COALESCE(issuer,''),COALESCE(client_id,''),COALESCE(client_secret,''),enabled,require_auth,COALESCE(oidc_backfill_done,0),COALESCE(public_url,'') FROM auth_settings WHERE id=1`).
+		Scan(&a.Issuer, &a.ClientID, &a.ClientSecret, &enabled, &requireAuth, &backfillDone, &a.PublicURL)
 	if err == sql.ErrNoRows {
 		return model.AuthSettings{}, nil
 	}
@@ -35,9 +35,9 @@ func (s *SQLiteStore) GetAuthSettings() (model.AuthSettings, error) {
 }
 
 func (s *SQLiteStore) UpdateAuthSettings(a model.AuthSettings) (model.AuthSettings, error) {
-	_, err := s.db.Exec(`INSERT INTO auth_settings(id,issuer,client_id,client_secret,enabled,require_auth,oidc_backfill_done) VALUES(1,?,?,?,?,?,?)
-		ON CONFLICT(id) DO UPDATE SET issuer=excluded.issuer,client_id=excluded.client_id,client_secret=excluded.client_secret,enabled=excluded.enabled,require_auth=excluded.require_auth,oidc_backfill_done=excluded.oidc_backfill_done`,
-		a.Issuer, a.ClientID, a.ClientSecret, boolInt(a.Enabled), boolInt(a.RequireAuth), boolInt(a.OIDCBackfillDone))
+	_, err := s.db.Exec(`INSERT INTO auth_settings(id,issuer,client_id,client_secret,enabled,require_auth,oidc_backfill_done,public_url) VALUES(1,?,?,?,?,?,?,?)
+		ON CONFLICT(id) DO UPDATE SET issuer=excluded.issuer,client_id=excluded.client_id,client_secret=excluded.client_secret,enabled=excluded.enabled,require_auth=excluded.require_auth,oidc_backfill_done=excluded.oidc_backfill_done,public_url=excluded.public_url`,
+		a.Issuer, a.ClientID, a.ClientSecret, boolInt(a.Enabled), boolInt(a.RequireAuth), boolInt(a.OIDCBackfillDone), a.PublicURL)
 	if err != nil {
 		return model.AuthSettings{}, err
 	}

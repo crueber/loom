@@ -2380,6 +2380,8 @@
         '<label>OIDC issuer URL<input type="text" data-s="issuer" value="' + esc(s.issuer || '') + '" placeholder="https://accounts.example.com"' + dis + '></label>' +
         '<label>Client ID<input type="text" data-s="client_id" value="' + esc(s.client_id || '') + '"' + dis + '></label>' +
         '<label>Client secret (blank keeps stored' + (s.has_secret ? ' ✓' : '') + ')<input type="password" data-s="client_secret" value="" autocomplete="new-password"' + dis + '></label>' +
+        '<label>Public base URL<input type="text" data-s="public_url" value="' + esc(s.public_url || '') + '" placeholder="https://loom.example.com"' + dis + '></label>' +
+        '<div class="hint">Callback URL (register this exact URL in your provider): ' + esc(s.callback_url || (location.origin + '/api/auth/callback')) + '</div>' +
         '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + dis + '> Enable auth (login required, new boards private)</label>' +
         '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + dis + '> Require login even for public boards</label>' +
         '<div class="hint">Saved server-side in the database; disabling restores open access.</div>' +
@@ -2402,6 +2404,7 @@
         function chk(k) { return adminBody.querySelector('[data-s="' + k + '"]').checked; }
         api('PUT', '/api/auth/settings', {
           issuer: val('issuer'), client_id: val('client_id'), client_secret: val('client_secret'),
+          public_url: val('public_url'),
           enabled: chk('enabled'), require_auth: chk('require_auth'),
         }).then(function () { closeDialog(); refreshAuth().then(revalidate); })
           .catch(function () { dlgErr(ov, 'Save failed (enabling needs issuer + client ID + secret).'); });

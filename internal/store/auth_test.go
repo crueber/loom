@@ -10,7 +10,7 @@ import (
 // Settings persist across restarts on both backends (OSS-50: the admin
 // enables OIDC via the UI and it must survive a reboot).
 func TestAuthSettingsPersist(t *testing.T) {
-	want := model.AuthSettings{Issuer: "https://issuer.test", ClientID: "cid", ClientSecret: "shh", Enabled: true, RequireAuth: true}
+	want := model.AuthSettings{Issuer: "https://issuer.test", ClientID: "cid", ClientSecret: "shh", Enabled: true, RequireAuth: true, PublicURL: "https://public.example.com"}
 
 	fs, err := OpenFile(filepath.Join(t.TempDir(), "loom.json"))
 	if err != nil {
