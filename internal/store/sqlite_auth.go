@@ -12,10 +12,12 @@ import (
 func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var ca string
-	err := row.Scan(&u.ID, &u.Issuer, &u.Subject, &u.Email, &u.Name, &ca)
+	var admin int
+	err := row.Scan(&u.ID, &u.Issuer, &u.Subject, &u.Email, &u.Name, &admin, &ca)
 	if err == sql.ErrNoRows {
 		return u, fmt.Errorf("user not found")
 	}
+	u.IsAdmin = admin != 0
 	u.CreatedAt = parseTS(ca)
 	return u, err
 }
@@ -47,8 +49,8 @@ func (s *SQLiteStore) UpsertUserBySubject(issuer, subject, email, name string) (
 	err := s.db.QueryRow(`SELECT id FROM users WHERE issuer=? AND subject=?`, issuer, subject).Scan(&id)
 	if err == sql.ErrNoRows {
 		u := model.NewUser(issuer, subject, email, name)
-		_, err := s.db.Exec(`INSERT INTO users(id,issuer,subject,email,name,created_at) VALUES(?,?,?,?,?,?)`,
-			u.ID, u.Issuer, u.Subject, u.Email, u.Name, ts(u.CreatedAt))
+		_, err := s.db.Exec(`INSERT INTO users(id,issuer,subject,email,name,is_admin,created_at) VALUES(?,?,?,?,?,?,?)`,
+			u.ID, u.Issuer, u.Subject, u.Email, u.Name, 0, ts(u.CreatedAt))
 		return u, err
 	}
 	if err != nil {
@@ -58,15 +60,36 @@ func (s *SQLiteStore) UpsertUserBySubject(issuer, subject, email, name string) (
 		email, email, name, name, id); err != nil {
 		return model.User{}, err
 	}
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,created_at FROM users WHERE id=?`, id))
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
 }
 
 func (s *SQLiteStore) GetUser(id string) (model.User, error) {
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,created_at FROM users WHERE id=?`, id))
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
 }
 
 func (s *SQLiteStore) GetUserByEmail(email string) (model.User, error) {
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,created_at FROM users WHERE email=? AND email<>''`, email))
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE email=? AND email<>''`, email))
+}
+
+// SetUserAdmin flips the admin bit for one user (OSS-136).
+func (s *SQLiteStore) SetUserAdmin(userID string, admin bool) (model.User, error) {
+	res, err := s.db.Exec(`UPDATE users SET is_admin=? WHERE id=?`, boolInt(admin), userID)
+	if err != nil {
+		return model.User{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return model.User{}, fmt.Errorf("user not found")
+	}
+	return s.GetUser(userID)
+}
+
+// CountAdmins returns the number of admin users (OSS-136).
+func (s *SQLiteStore) CountAdmins() (int, error) {
+	var n int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM users WHERE COALESCE(is_admin,0)!=0`).Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 func (s *SQLiteStore) CreateBoardWithOwner(title, ownerID, visibility string) (model.Board, error) {

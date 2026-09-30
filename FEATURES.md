@@ -69,3 +69,4 @@ Pending = requested but not yet built on this branch.
 - Boards are public or private (new boards private when auth is on); per-board share dialog with viewer/editor invites + roles.
 - First OIDC sign-in claims legacy unowned boards once (idempotent backfill flag; owned boards untouched; unwired — no caller yet).
 - Admin Test connection button POSTs unsaved issuer/client ID to /api/auth/test (discovery-only, persists nothing).
+- OIDC login syncs the admin bit from the verified `groups` claim (`admin` exact match; first user bootstraps admin; sole-admin guard blocks last demote).

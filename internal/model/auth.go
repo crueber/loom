@@ -34,6 +34,7 @@ type User struct {
 	Subject   string    `json:"subject"`
 	Email     string    `json:"email,omitempty"`
 	Name      string    `json:"name,omitempty"`
+	IsAdmin   bool      `json:"is_admin"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
