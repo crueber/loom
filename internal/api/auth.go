@@ -426,6 +426,11 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, err.Error())
 		return
 	}
+	user, err = syncAdminOnLogin(h.Store, user, id.Groups)
+	if err != nil {
+		writeErr(w, 500, err.Error())
+		return
+	}
 	raw, hash, err := auth.MintToken()
 	if err != nil {
 		writeErr(w, 500, err.Error())
@@ -438,6 +443,42 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	auth.SetSessionCookie(w, raw, exp)
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// syncAdminOnLogin applies the admin-bit rules (OSS-136) after
+// UpsertUserBySubject and before session creation, using the verified
+// token groups (exact case-sensitive "admin"):
+//
+//  1. groups contain "admin" -> ensure admin true.
+//  2. else if no admins exist -> ensure admin true (first-user bootstrap).
+//  3. else if user is admin and more than one admin exists -> demote.
+//  4. otherwise leave as-is (sole-admin guard keeps the last admin).
+func syncAdminOnLogin(st interface {
+	SetUserAdmin(userID string, admin bool) (model.User, error)
+	CountAdmins() (int, error)
+}, user model.User, groups []string) (model.User, error) {
+	for _, g := range groups {
+		if g == "admin" {
+			if user.IsAdmin {
+				return user, nil
+			}
+			return st.SetUserAdmin(user.ID, true)
+		}
+	}
+	n, err := st.CountAdmins()
+	if err != nil {
+		return user, err
+	}
+	if n == 0 {
+		if user.IsAdmin {
+			return user, nil
+		}
+		return st.SetUserAdmin(user.ID, true)
+	}
+	if user.IsAdmin && n > 1 {
+		return st.SetUserAdmin(user.ID, false)
+	}
+	return user, nil
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {

@@ -47,6 +47,8 @@ type Store interface {
 	UpsertUserBySubject(issuer, subject, email, name string) (model.User, error)
 	GetUser(id string) (model.User, error)
 	GetUserByEmail(email string) (model.User, error)
+	SetUserAdmin(userID string, admin bool) (model.User, error)
+	CountAdmins() (int, error)
 	CreateBoardWithOwner(title, ownerID, visibility string) (model.Board, error)
 	SetBoardVisibility(id, visibility string) (model.Board, error)
 	SetBoardOwner(id, ownerID string) (model.Board, error)

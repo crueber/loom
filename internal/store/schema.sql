@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS users (
   subject TEXT NOT NULL DEFAULT '',
   email TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL DEFAULT '',
+  is_admin INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_issuer_subject ON users(issuer, subject);

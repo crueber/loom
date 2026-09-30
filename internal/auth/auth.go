@@ -182,6 +182,7 @@ type Identity struct {
 	Subject string
 	Email   string
 	Name    string
+	Groups  []string
 }
 
 // VerifyIDToken validates an RS256 ID token against the provider JWKS
@@ -203,13 +204,14 @@ func VerifyIDToken(jwksURI, issuer, clientID, idToken, wantNonce string) (Identi
 		return id, fmt.Errorf("unsupported token alg %q (RS256 only)", header.Alg)
 	}
 	var claims struct {
-		Iss   string  `json:"iss"`
-		Sub   string  `json:"sub"`
-		Aud   any     `json:"aud"`
-		Exp   float64 `json:"exp"`
-		Nonce string  `json:"nonce"`
-		Email string  `json:"email"`
-		Name  string  `json:"name"`
+		Iss    string  `json:"iss"`
+		Sub    string  `json:"sub"`
+		Aud    any     `json:"aud"`
+		Exp    float64 `json:"exp"`
+		Nonce  string  `json:"nonce"`
+		Email  string  `json:"email"`
+		Name   string  `json:"name"`
+		Groups any     `json:"groups"`
 	}
 	if err := decodePart(parts[1], &claims); err != nil {
 		return id, fmt.Errorf("bad token claims: %w", err)
@@ -242,7 +244,36 @@ func VerifyIDToken(jwksURI, issuer, clientID, idToken, wantNonce string) (Identi
 		return id, fmt.Errorf("bad signature")
 	}
 	id.Subject, id.Email, id.Name = claims.Sub, claims.Email, claims.Name
+	id.Groups = parseGroups(claims.Groups)
 	return id, nil
+}
+
+// parseGroups normalizes the OIDC `groups` claim: a JSON array of
+// strings -> as-is (non-strings dropped); a single string -> one
+// element; missing/null/other -> empty. Matching stays exact and
+// case-sensitive at the call site ("admin").
+func parseGroups(v any) []string {
+	switch g := v.(type) {
+	case nil:
+		return nil
+	case string:
+		if g == "" {
+			return nil
+		}
+		return []string{g}
+	case []any:
+		out := []string{}
+		for _, e := range g {
+			if s, ok := e.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []string:
+		return append([]string{}, g...)
+	default:
+		return nil
+	}
 }
 
 func audMatches(aud any, clientID string) bool {

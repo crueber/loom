@@ -74,6 +74,32 @@ func (s *FileStore) GetUserByEmail(email string) (model.User, error) {
 	return model.User{}, fmt.Errorf("user not found")
 }
 
+// SetUserAdmin flips the admin bit for one user (OSS-136).
+func (s *FileStore) SetUserAdmin(userID string, admin bool) (model.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, u := range s.snap.Users {
+		if u.ID == userID {
+			s.snap.Users[i].IsAdmin = admin
+			return s.snap.Users[i], s.persistLocked()
+		}
+	}
+	return model.User{}, fmt.Errorf("user not found")
+}
+
+// CountAdmins returns the number of admin users (OSS-136).
+func (s *FileStore) CountAdmins() (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, u := range s.snap.Users {
+		if u.IsAdmin {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // CreateBoardWithOwner stores owner/visibility alongside the board.
 func (s *FileStore) CreateBoardWithOwner(title, ownerID, visibility string) (model.Board, error) {
 	vis, err := normalizeVisibility(visibility)
