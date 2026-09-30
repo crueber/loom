@@ -228,20 +228,31 @@ button.primary {
   border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px;
 }
 .fold:hover { color: var(--ink); border-color: var(--line); }
-/* OSS-96: column delete affordance in the header; confirm-gated, red
-   hover like the board delete. Hidden on collapsed rails. */
-.del-col {
+/* OSS-124: column header menu — single ... button opening rename /
+  color / delete. Theme matches .boardmenu/.colpop; hidden on collapsed
+  rails (same rule as the old delete ×) to keep rails clean. */
+.colmenu-wrap { position: relative; flex: 0 0 auto; }
+.colmenu-btn {
   border: 1px solid transparent; background: transparent; color: var(--muted);
   border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px; line-height: 1;
 }
-.del-col:hover { color: #c0392b; border-color: #c0392b; }
-.column.collapsed .del-col { display: none; }
-.cdot {
-  width: 14px; height: 14px; border-radius: 50%; display: inline-block;
-  cursor: pointer; position: relative; overflow: hidden; flex: 0 0 auto;
-  border: 1px solid rgba(0,0,0,0.12);
-  padding: 0;
+.colmenu-btn:hover { color: var(--ink); border-color: var(--line); }
+.column.collapsed .colmenu-btn { display: none; }
+.colmenu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+  min-width: 168px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
 }
+.colmenu button {
+  border: none; background: transparent; color: var(--ink);
+  cursor: pointer; font-size: 13.5px; text-align: left;
+  border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+}
+.colmenu button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.colmenu button.danger:hover { color: #c0392b; }
 /* Round 3 item 4: presets + custom color popover. */
 .colpop {
   position: absolute; z-index: 50;
@@ -263,8 +274,7 @@ button.primary {
   width: 30px; height: 24px; border: none; background: none;
   padding: 0; cursor: pointer;
 }
-.coltitle { cursor: text; border-radius: 6px; padding: 1px 6px; margin-left: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
-.coltitle:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.coltitle { border-radius: 6px; padding: 1px 6px; margin-left: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .resize {
   flex: 0 0 auto; width: 8px; align-self: stretch; cursor: ew-resize;
   border-radius: 4px; margin-right: -4px; touch-action: none;
