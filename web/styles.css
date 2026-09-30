@@ -289,12 +289,13 @@ button.primary {
 /* Collapsed columns become slim rails; a lone open column reads narrow. */
 .column.collapsed {
   width: 48px; flex: 0 0 48px;
-  /* Round 4 item 5: rails span the full container height with muted
-     chrome — neutral background, no color wash; only the name and
-     card count carry color (rules below). */
+  /* OSS-147: rails reuse the header wash (22% colc) as their background
+     so a collapsed column keeps its color; border reuses the header
+     edge tone (38% colc) with a top accent in the column color. */
   align-self: stretch;
-  background: color-mix(in srgb, var(--bg-soft) 55%, transparent);
-  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--colc, transparent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--colc, transparent) 38%, transparent);
+  border-top: 3px solid var(--colc, transparent);
   border-radius: 12px;
 }
 /* Round 4 item 5: 1px vertical separator divides adjacent collapsed
