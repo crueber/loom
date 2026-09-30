@@ -219,7 +219,7 @@ button.primary {
   min-height: 28px;
   background: color-mix(in srgb, var(--colc, transparent) 22%, transparent);
   border-radius: 0 0 8px 8px;
-  padding: 6px 12px;
+  padding: 6px 6px 6px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--colc, transparent) 38%, transparent);
   /* OSS-129: the whole header (except ▾/resize) toggles collapse. */
   cursor: pointer;
@@ -229,7 +229,7 @@ button.primary {
    rails clean. */
 .colmenu-btn {
   border: 1px solid transparent; background: transparent; color: var(--muted);
-  border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px; line-height: 1;
+  border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 2px; line-height: 1;
   flex: 0 0 auto;
 }
 .colmenu-btn:hover { color: var(--ink); border-color: var(--line); }
@@ -276,7 +276,7 @@ button.primary {
 .coltitle { border-radius: 6px; padding: 1px 4px; margin-left: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .resize {
   flex: 0 0 auto; width: 8px; align-self: stretch; cursor: ew-resize;
-  border-radius: 4px; margin-right: -8px; touch-action: none;
+  border-radius: 4px; margin-right: -6px; touch-action: none;
 }
 .resize:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
 /* OSS-129: keep the resize cursor — the h2 collapse pointer above must
