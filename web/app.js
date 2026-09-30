@@ -315,11 +315,6 @@
     });
   }
   var boardMenuOpen = false;
-  // OSS-124: per-column header menu — one explicit path for rename /
-  // color / delete. Null when closed, else the open column id. Rendered
-  // inline in the header (like .boardmenu) so render() auto-cleans it.
-  var colMenuFor = null;
-  function closeColMenu() { colMenuFor = null; }
   // OSS-85: mobile dual-hamburger nav — left opens the board list, right
   // opens board controls + Settings. State lives on body dataset so CSS
   // panels show/hide without re-render (render() rebuilds tabs only).
@@ -567,17 +562,13 @@
       // data-coldrag as a drop target, but native drag never starts from
       // lane background / section chrome, so pointer pan survives.
       return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
-        '<h2 draggable="true"><button class="fold" data-fold="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' + (col.collapsed ? '▸' : '▾') + '</button>' +
-        '<span class="coltitle" data-coltitle="' + col.id + '">' + esc(col.title) + '</span>' +
+        '<h2 draggable="true" data-colhead="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' +
+        '<span class="coltitle" data-coltitle="' + col.id + '" title="' + esc(col.title) + '">' + esc(col.title) + '</span>' +
         '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
-        // OSS-124: single header menu (rename / color / delete) replacing
-        // the color dot + delete ×. Hidden on collapsed rails (CSS) to
-        // keep rails clean.
-        '<span class="colmenu-wrap"><button class="colmenu-btn" data-colmenu="' + col.id + '" aria-haspopup="menu" aria-expanded="' + (colMenuFor === col.id) + '" title="Column options">...</button>' +
-        (colMenuFor === col.id ? '<span class="colmenu" role="menu"><button role="menuitem" data-colmenu-act="rename" data-col="' + col.id + '">Rename column</button>' +
-          '<button role="menuitem" data-colmenu-act="color" data-col="' + col.id + '">Column color...</button>' +
-          '<button role="menuitem" class="danger" data-colmenu-act="delete" data-col="' + col.id + '">Delete column</button></span>' : '') +
-        '</span>' +
+        // OSS-129: single ▾ dropdown trigger on the right. Clicking
+        // anywhere else on the header toggles collapse. Hidden on
+        // collapsed rails (CSS) to keep rails clean.
+        '<button class="colmenu-btn" data-colmenu="' + col.id + '" title="Column options" aria-label="Column options for ' + esc(col.title) + '" aria-haspopup="menu">▾</button>' +
         '<span class="resize" data-resize="' + col.id + '" title="Drag to resize; double-click to reset"></span></h2>' +
         // Item 10: explicit "+ add card" text label, not a bare +.
         '<div class="cards" data-cards="' + col.id + '">' + cards + '<button class="add-compact" data-add="' + col.id + '" title="Add card">+ add card</button></div></section>';
@@ -1520,53 +1511,29 @@
     if (t.closest && t.closest('.bhandle')) return;
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
     if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
-    // OSS-124: header menu toggle — the only entry to rename / color /
-    // delete. Stop propagation so header drag never starts (same guard
-    // as other header buttons; dragstart also ignores buttons).
+    // OSS-129: ▾ opens the column menu only (never toggles collapse).
     var cmBtn = t.closest && t.closest('[data-colmenu]');
     if (cmBtn) {
       if (e.stopPropagation) e.stopPropagation();
-      colMenuFor = (colMenuFor === cmBtn.dataset.colmenu) ? null : cmBtn.dataset.colmenu;
-      render();
+      openColMenu(cmBtn);
       return;
     }
-    // OSS-124: menu item actions. The menu closes first (one menu open
-    // at a time); each item reuses its existing path.
-    var cmAct = t.closest && t.closest('[data-colmenu-act]');
-    if (cmAct) {
-      if (e.stopPropagation) e.stopPropagation();
-      var cmId = cmAct.dataset.col;
-      var cmKind = cmAct.dataset.colmenuAct;
-      colMenuFor = null;
-      if (cmKind === 'color') {
-        // Anchor the color popover before render() replaces the menu
-        // button node; the popover lives on body so it survives render.
-        var wrap = cmAct.closest ? cmAct.closest('.colmenu-wrap') : null;
-        var anchor = (wrap && wrap.querySelector('[data-colmenu]')) || cmAct;
-        openColPop(anchor, cmId);
-        render();
-      } else if (cmKind === 'delete') {
-        render();
-        deleteColumn(cmId);
-      } else {
-        render();
-        var titleEl = boardEl.querySelector('[data-coltitle="' + cmId + '"]');
-        if (titleEl) startEdit(titleEl, true);
+    // OSS-129: clicking anywhere else on the header toggles collapse
+    // (existing fold behavior + PATCH persistence). The resize handle
+    // keeps its own drag/dblclick behavior; an in-progress inline
+    // rename never collapses under itself.
+    var head = t.closest && t.closest('[data-colhead]');
+    if (head && !(t.closest && t.closest('[data-resize]')) && !(t.isContentEditable)) {
+      var hCol = findCol(head.dataset.colhead);
+      if (hCol) {
+        hCol.collapsed = !hCol.collapsed;
+        saveCache(); render();
+        api('PATCH', '/api/columns/' + head.dataset.colhead, hCol).catch(function () {});
+        return;
       }
-      return;
-    }
-    if (t.dataset && t.dataset.fold) {
-      // Collapse toggle: optimistic-local, synced behind.
-      var colId = t.dataset.fold;
-      var target = findCol(colId);
-      if (!target) return;
-      target.collapsed = !target.collapsed;
-      saveCache(); render();
-      api('PATCH', '/api/columns/' + colId, target).catch(function () {});
-      return;
     }
     // OSS-88: clicking empty rail space on a collapsed column expands it.
-    // Fold/menu/title keep their own behavior above; any other click inside
+    // The ▾ trigger keeps its own behavior above; any other click inside
     // a collapsed section (count badge, header padding, rail) expands.
     var collapsedSec = t.closest && t.closest('section.column.collapsed');
     if (collapsedSec) {
@@ -1733,10 +1700,10 @@
     syncCard(card);
   });
 
-  // Column color presets + custom color (round 3 item 4). The header
-  // menu's "Column color..." item opens a small popover: 12 preset
-  // swatches plus a native custom color input (live preview, commits on
-  // change). Persists via the existing column PATCH path.
+  // OSS-129 column header menu: color swatches first (round 3 item 4
+  // presets + custom color, no submenu), Rename second (focuses the
+  // coltitle inline edit), separator, Delete last (OSS-96 confirm-gated
+  // deleteColumn path). Persists color via the existing column PATCH.
   var COL_PRESETS = ['#4c8dff', '#7aa5d8', '#00838f', '#4d7831', '#8fae85', '#697374',
     '#a96800', '#e8b96a', '#d8969c', '#c0392b', '#6b3d7d', '#37474f'];
   var colPop = null;
@@ -1748,29 +1715,46 @@
     saveCache(); render();
     api('PATCH', '/api/columns/' + id, col).catch(function () {});
   }
-  function openColPop(anchor, id) {
-    id = id || (anchor && anchor.dataset && anchor.dataset.coldot);
+  // OSS-129: Rename focuses the header title's inline edit (the menu
+  // closes first so render() never drops the fresh edit node).
+  function renameCol(id) {
+    closeColPop();
+    render();
+    var el = boardEl.querySelector('[data-coltitle="' + id + '"]');
+    if (el) startEdit(el, true);
+  }
+  function openColMenu(btn) {
+    var id = btn.dataset.colmenu;
     var col = findCol(id);
     if (!col) return;
     if (colPop && colPop.dataset.col === id) { closeColPop(); return; }
     closeColPop();
     var pop = document.createElement('div');
-    pop.className = 'colpop';
+    pop.className = 'colmenu';
     pop.dataset.col = id;
+    pop.setAttribute('role', 'menu');
     pop.innerHTML = '<div class="colpop-grid" role="group" aria-label="Column color presets">' +
       COL_PRESETS.map(function (c) {
         return '<button data-preset="' + c + '" style="background:' + c + '" title="' + c + '" aria-label="Color ' + c + '"' +
           (col.color === c ? ' class="on"' : '') + '></button>';
       }).join('') + '</div><label class="colpop-custom">Custom <input type="color" data-custom value="' +
-      esc(col.color || '#4c8dff') + '"></label>';
+      esc(col.color || '#4c8dff') + '"></label>' +
+      '<button class="colmenu-action" data-act="rename" role="menuitem">Rename</button>' +
+      '<div class="colmenu-sep" aria-hidden="true"></div>' +
+      '<button class="colmenu-action colmenu-del" data-act="delete" role="menuitem">Delete</button>';
     document.body.appendChild(pop);
-    var r = anchor.getBoundingClientRect();
-    pop.style.left = Math.max(8, Math.min(window.innerWidth - 194, r.left - 8)) + 'px';
+    var r = btn.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - 202, r.right - 194)) + 'px';
     pop.style.top = (r.bottom + 6) + 'px';
     colPop = pop;
     pop.addEventListener('click', function (e) {
+      if (e.stopPropagation) e.stopPropagation();
       var sw = e.target.closest && e.target.closest('[data-preset]');
-      if (sw) { commitColColor(id, sw.dataset.preset); closeColPop(); }
+      if (sw) { commitColColor(id, sw.dataset.preset); closeColPop(); return; }
+      var act = e.target.closest && e.target.closest('[data-act]');
+      if (!act) return;
+      if (act.dataset.act === 'rename') { renameCol(id); return; }
+      if (act.dataset.act === 'delete') { closeColPop(); deleteColumn(id); return; }
     });
     var custom = pop.querySelector('[data-custom]');
     custom.addEventListener('input', function () {
@@ -1782,9 +1766,7 @@
     custom.addEventListener('change', function () { commitColColor(id, custom.value); closeColPop(); });
   }
   document.addEventListener('pointerdown', function (e) {
-    if (colPop && !(e.target.closest && (e.target.closest('.colpop') || e.target.closest('[data-colmenu]') || e.target.closest('.colmenu')))) closeColPop();
-    // OSS-124: dismiss the header menu on outside press.
-    if (colMenuFor && !(e.target.closest && (e.target.closest('.colmenu-wrap') || e.target.closest('.colmenu')))) { colMenuFor = null; render(); }
+    if (colPop && !(e.target.closest && (e.target.closest('.colmenu') || e.target.closest('[data-colmenu]')))) closeColPop();
     // Round 4 item 6: dismiss the board overflow menu on outside press.
     if (boardMenuOpen && !(e.target.closest && e.target.closest('.boardmenu-wrap'))) { boardMenuOpen = false; render(); }
     // OSS-85: dismiss mobile nav panels on outside press (toggles live in
@@ -1792,7 +1774,7 @@
     if (navOpen() && !(e.target.closest && e.target.closest('#topbar'))) { closeNav(); }
   }, true);
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeColPop(); if (colMenuFor) { colMenuFor = null; render(); } if (boardMenuOpen) { boardMenuOpen = false; render(); } if (navOpen()) { closeNav(); } }
+    if (e.key === 'Escape') { closeColPop(); if (boardMenuOpen) { boardMenuOpen = false; render(); } if (navOpen()) { closeNav(); } }
   });
 
   // Commit inline edits on focus loss (blur doesn't bubble; focusout does).

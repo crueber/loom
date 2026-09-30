@@ -104,10 +104,9 @@ body {
   border-radius: 6px; cursor: pointer; font-size: 13px; padding: 2px 7px; line-height: 1.4;
 }
 .boardmenu-row button.mv:hover { color: var(--ink); border-color: var(--line); }
-/* Round 4 item 5: collapsed rails — fold chevron and resize handle stay
-   muted; the resize handle hides on rails (nothing to resize). The name
-   keeps ink color alongside the colored dot and count pill. */
-.column.collapsed .fold { color: var(--muted); }
+/* Round 4 item 5: collapsed rails — the resize handle hides on rails
+   (nothing to resize) and the ▾ menu trigger hides too (OSS-129).
+   The name keeps ink color alongside the count pill. */
 .column.collapsed .coltitle { color: var(--ink); }
 .column.collapsed .resize { display: none; }
 #creator { padding: 0 20px; }
@@ -222,38 +221,38 @@ button.primary {
   border-radius: 0 0 8px 8px;
   padding: 6px 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--colc, transparent) 38%, transparent);
+  /* OSS-129: the whole header (except ▾/resize) toggles collapse. */
+  cursor: pointer;
 }
-.fold {
-  border: 1px solid transparent; background: transparent; color: var(--muted);
-  border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px;
-}
-.fold:hover { color: var(--ink); border-color: var(--line); }
-/* OSS-124: column header menu — single ... button opening rename /
-  color / delete. Theme matches .boardmenu/.colpop; hidden on collapsed
-  rails (same rule as the old delete ×) to keep rails clean. */
-.colmenu-wrap { position: relative; flex: 0 0 auto; }
+/* OSS-129: single ▾ column menu trigger on the right of the header;
+   header click toggles collapse. Hidden on collapsed rails to keep
+   rails clean. */
 .colmenu-btn {
   border: 1px solid transparent; background: transparent; color: var(--muted);
   border-radius: 6px; cursor: pointer; font-size: 13px; padding: 1px 6px; line-height: 1;
+  flex: 0 0 auto;
 }
 .colmenu-btn:hover { color: var(--ink); border-color: var(--line); }
 .column.collapsed .colmenu-btn { display: none; }
+/* OSS-129: header dropdown — color swatches first, Rename, separator,
+   Delete. Swatch grid + custom row reuse the round-3 item-4 styles. */
 .colmenu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
-  min-width: 168px;
+  position: absolute; z-index: 50;
   background: var(--card); border: 1px solid var(--line);
   border-radius: 12px; box-shadow: var(--shadow);
-  padding: 6px;
-  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px; width: 190px;
 }
-.colmenu button {
-  border: none; background: transparent; color: var(--ink);
-  cursor: pointer; font-size: 13.5px; text-align: left;
-  border-radius: 8px; padding: 7px 10px; white-space: nowrap;
+.colmenu-action {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  border-radius: 8px; cursor: pointer; font-size: 13px; padding: 6px 8px; margin-top: 4px;
 }
-.colmenu button:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
-.colmenu button.danger:hover { color: #c0392b; }
-/* Round 3 item 4: presets + custom color popover. */
+.colmenu-action:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.colmenu-del { color: #c0392b; }
+.colmenu-del:hover { border-color: #c0392b; background: transparent; }
+.colmenu-sep { border-top: 1px solid var(--line); margin: 6px 2px 2px; }
+/* Round 3 item 4: presets + custom color popover (now the top of the
+   OSS-129 column menu). */
 .colpop {
   position: absolute; z-index: 50;
   background: var(--card); border: 1px solid var(--line);
@@ -280,6 +279,9 @@ button.primary {
   border-radius: 4px; margin-right: -4px; touch-action: none;
 }
 .resize:hover { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* OSS-129: keep the resize cursor — the h2 collapse pointer above must
+   not override the handle affordance. */
+.column > h2 .resize { cursor: ew-resize; }
 .colcount {
   font-size: 11.5px; background: color-mix(in srgb, var(--ink) 8%, transparent);
   border-radius: 10px; padding: 0 8px; font-weight: 600;
@@ -288,8 +290,8 @@ button.primary {
 .column.collapsed {
   width: 48px; flex: 0 0 48px;
   /* Round 4 item 5: rails span the full container height with muted
-     chrome — neutral background, no color wash; only the name, color
-     dot, and card count carry color (rules below). */
+     chrome — neutral background, no color wash; only the name and
+     card count carry color (rules below). */
   align-self: stretch;
   background: color-mix(in srgb, var(--bg-soft) 55%, transparent);
   border: 1px solid var(--line);
@@ -305,7 +307,7 @@ button.primary {
   /* OSS-88: empty rail space click expands — signal clickability. */
   cursor: pointer;
   /* Round 4 item 5: header fills the rail (full height) but muted —
-     transparent wash, no tinted edge; name/dot/count below re-assert
+     transparent wash, no tinted edge; name/count below re-assert
      their own color. */
   flex: 1 1 auto;
   background: transparent;
