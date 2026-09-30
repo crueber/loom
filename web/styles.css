@@ -273,7 +273,7 @@ button.primary {
   width: 30px; height: 24px; border: none; background: none;
   padding: 0; cursor: pointer;
 }
-.coltitle { border-radius: 6px; padding: 1px 6px; margin-left: -6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
+.coltitle { border-radius: 6px; padding: 1px 6px; margin-left: -4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 auto; min-width: 0; }
 .resize {
   flex: 0 0 auto; width: 8px; align-self: stretch; cursor: ew-resize;
   border-radius: 4px; margin-right: -4px; touch-action: none;
