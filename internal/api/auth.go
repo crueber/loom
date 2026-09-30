@@ -145,6 +145,7 @@ func (h *Handler) authRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/auth/login", h.login)
 	mux.HandleFunc("/api/auth/callback", h.callback)
 	mux.HandleFunc("/api/auth/logout", h.logout)
+	mux.HandleFunc("/api/auth/test", h.authTest)
 }
 
 func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
@@ -292,6 +293,50 @@ func (h *Handler) authSettingsRoute(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+// authTest probes an UNSAVED OIDC config (OSS-128): it runs discovery
+// against the supplied issuer and reports the endpoints found. It never
+// persists anything, never enables auth, and never echoes the secret.
+func (h *Handler) authTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	s := h.authSettings()
+	if h.settingsGate(w, r, s) == nil && s.Enabled {
+		return
+	}
+	var body struct {
+		Issuer       string `json:"issuer"`
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret"`
+	}
+	if !decodeJSON(w, r, &body) {
+		return
+	}
+	issuer := strings.TrimRight(strings.TrimSpace(body.Issuer), "/")
+	if issuer == "" || strings.TrimSpace(body.ClientID) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "issuer and client ID are required"})
+		return
+	}
+	// NOTE: client_secret is intentionally unused beyond parsing; the
+	// test is discovery-only and the secret is never logged or echoed.
+	d, err := auth.Discover(issuer)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if strings.TrimRight(strings.TrimSpace(d.Issuer), "/") != issuer {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": "discovery issuer mismatch"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{
+		"ok": true, "issuer": d.Issuer,
+		"authorization_endpoint": d.AuthorizationEndpoint,
+		"token_endpoint":         d.TokenEndpoint,
+		"jwks_uri":               d.JwksURI,
+	})
 }
 
 func callbackBaseURL(r *http.Request) string {

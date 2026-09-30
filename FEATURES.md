@@ -68,3 +68,4 @@ Pending = requested but not yet built on this branch.
 - Optional OIDC login (Authorization Code + PKCE, stdlib-only), configured from the UI Settings dialog; off by default = open single-user mode.
 - Boards are public or private (new boards private when auth is on); per-board share dialog with viewer/editor invites + roles.
 - First OIDC sign-in claims legacy unowned boards once (idempotent backfill flag; owned boards untouched; unwired — no caller yet).
+- Admin Test connection button POSTs unsaved issuer/client ID to /api/auth/test (discovery-only, persists nothing).

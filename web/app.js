@@ -2401,8 +2401,20 @@
         '<label class="chk"><input type="checkbox" data-s="enabled"' + (s.enabled ? ' checked' : '') + dis + '> Enable auth (login required, new boards private)</label>' +
         '<label class="chk"><input type="checkbox" data-s="require_auth"' + (s.require_auth ? ' checked' : '') + dis + '> Require login even for public boards</label>' +
         '<div class="hint">Saved server-side in the database; disabling restores open access.</div>' +
-        (disabled ? '' : '<div style="margin-top:10px;text-align:right"><button class="primary" data-save>Save</button></div>');
+        (disabled ? '' : '<div data-test-result class="hint" aria-live="polite"></div><div style="margin-top:10px;text-align:right"><button data-test>Test connection</button> <button class="primary" data-save>Save</button></div>');
       if (disabled) return;
+      adminBody.querySelector('[data-test]').addEventListener('click', function () {
+        function val(k) { return adminBody.querySelector('[data-s="' + k + '"]').value; }
+        var line = adminBody.querySelector('[data-test-result]');
+        line.textContent = 'Testing…';
+        api('POST', '/api/auth/test', {
+          issuer: val('issuer'), client_id: val('client_id'), client_secret: val('client_secret'),
+        }).then(function (t) {
+          line.textContent = t && t.ok ? 'Connection OK: ' + (t.issuer || val('issuer')) : 'Test failed.';
+        }).catch(function (e) {
+          line.textContent = 'Test failed: ' + ((e && e.message) || 'discovery failed');
+        });
+      });
       adminBody.querySelector('[data-save]').addEventListener('click', function () {
         function val(k) { return adminBody.querySelector('[data-s="' + k + '"]').value; }
         function chk(k) { return adminBody.querySelector('[data-s="' + k + '"]').checked; }

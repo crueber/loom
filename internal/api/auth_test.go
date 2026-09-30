@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -270,5 +271,68 @@ func TestMembersAndSettingsAndMe(t *testing.T) {
 	}
 	if rec := doAuth(t, mux, "GET", "/api/me", nil, tk["owner"]); rec.Code != 401 {
 		t.Fatalf("me after logout: want 401, got %d", rec.Code)
+	}
+}
+
+func TestAuthTestEndpoint(t *testing.T) {
+	_, mux := newTestServer(t)
+	// Fake provider serving a discovery doc whose issuer matches.
+	var prov *httptest.Server
+	prov = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"issuer":%q,"authorization_endpoint":"%s/auth","token_endpoint":"%s/token","jwks_uri":"%s/jwks"}`,
+			prov.URL, prov.URL, prov.URL, prov.URL)
+	}))
+	defer prov.Close()
+	rec := do(t, mux, "POST", "/api/auth/test", map[string]string{"issuer": prov.URL, "client_id": "cid"})
+	if rec.Code != 200 {
+		t.Fatalf("test ok: want 200, got %d %s", rec.Code, rec.Body.String())
+	}
+	var ok struct {
+		OK   bool   `json:"ok"`
+		Iss  string `json:"issuer"`
+		Auth string `json:"authorization_endpoint"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &ok); err != nil {
+		t.Fatal(err)
+	}
+	if !ok.OK || ok.Iss != prov.URL || ok.Auth == "" {
+		t.Fatalf("unexpected ok body: %s", rec.Body.String())
+	}
+	// Bad issuer: non-2xx with error, and stored settings unchanged.
+	rec = do(t, mux, "POST", "/api/auth/test", map[string]string{"issuer": "http://127.0.0.1:1", "client_id": "cid"})
+	if rec.Code < 400 {
+		t.Fatalf("bad issuer: want non-2xx, got %d", rec.Code)
+	}
+	var fail struct {
+		OK  bool   `json:"ok"`
+		Err string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &fail); err != nil {
+		t.Fatal(err)
+	}
+	if fail.OK || fail.Err == "" {
+		t.Fatalf("expected ok:false + error: %s", rec.Body.String())
+	}
+	rec = do(t, mux, "GET", "/api/auth/settings", nil)
+	var s model.AuthSettings
+	if err := json.Unmarshal(rec.Body.Bytes(), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.Issuer != "" || s.Enabled {
+		t.Fatalf("test must not persist: %+v", s)
+	}
+	// POST only.
+	if rec := do(t, mux, "GET", "/api/auth/test", nil); rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET test: want 405, got %d", rec.Code)
+	}
+	// Missing fields -> 400.
+	if rec := do(t, mux, "POST", "/api/auth/test", map[string]string{"issuer": "", "client_id": ""}); rec.Code != 400 {
+		t.Fatalf("empty test: want 400, got %d", rec.Code)
+	}
+	// Once auth is enabled, anonymous test calls need a session.
+	_, muxOn, tk := authFixture(t)
+	if rec := doAuth(t, muxOn, "POST", "/api/auth/test", map[string]string{"issuer": prov.URL, "client_id": "cid"}, tk[""]); rec.Code != 401 {
+		t.Fatalf("anon test while enabled: want 401, got %d", rec.Code)
 	}
 }
