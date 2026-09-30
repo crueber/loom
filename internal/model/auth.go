@@ -50,6 +50,7 @@ type AuthSettings struct {
 	Enabled          bool   `json:"enabled"`
 	RequireAuth      bool   `json:"require_auth"`
 	OIDCBackfillDone bool   `json:"oidc_backfill_done,omitempty"`
+	PublicURL        string `json:"public_url,omitempty"`
 }
 
 // PublicSettings is the browser-safe view (secret replaced by a flag).
@@ -59,6 +60,8 @@ type PublicSettings struct {
 	HasSecret   bool   `json:"has_secret"`
 	Enabled     bool   `json:"enabled"`
 	RequireAuth bool   `json:"require_auth"`
+	PublicURL   string `json:"public_url,omitempty"`
+	CallbackURL string `json:"callback_url,omitempty"`
 }
 
 // Sanitized drops the secret for browser responses.
@@ -69,6 +72,7 @@ func (s AuthSettings) Sanitized() PublicSettings {
 		HasSecret:   s.ClientSecret != "",
 		Enabled:     s.Enabled,
 		RequireAuth: s.RequireAuth,
+		PublicURL:   s.PublicURL,
 	}
 }
 

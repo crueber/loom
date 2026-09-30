@@ -12,7 +12,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -248,7 +250,9 @@ func (h *Handler) authSettingsRoute(w http.ResponseWriter, r *http.Request) {
 		if h.settingsGate(w, r, s) == nil && s.Enabled {
 			return
 		}
-		writeJSON(w, 200, s.Sanitized())
+		v := s.Sanitized()
+		v.CallbackURL = effectiveCallbackURL(s, r)
+		writeJSON(w, 200, v)
 	case http.MethodPut:
 		user := h.settingsGate(w, r, s)
 		if user == nil && s.Enabled {
@@ -260,6 +264,7 @@ func (h *Handler) authSettingsRoute(w http.ResponseWriter, r *http.Request) {
 			ClientSecret *string `json:"client_secret"`
 			Enabled      *bool   `json:"enabled"`
 			RequireAuth  *bool   `json:"require_auth"`
+			PublicURL    *string `json:"public_url"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
@@ -280,6 +285,14 @@ func (h *Handler) authSettingsRoute(w http.ResponseWriter, r *http.Request) {
 		if body.RequireAuth != nil {
 			next.RequireAuth = *body.RequireAuth
 		}
+		if body.PublicURL != nil {
+			norm, err := normalizePublicURL(*body.PublicURL)
+			if err != nil {
+				writeErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			next.PublicURL = norm
+		}
 		if next.Enabled && (next.Issuer == "" || next.ClientID == "" || next.ClientSecret == "") {
 			writeErr(w, http.StatusBadRequest, "issuer, client ID and secret are required to enable auth")
 			return
@@ -289,7 +302,9 @@ func (h *Handler) authSettingsRoute(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 500, err.Error())
 			return
 		}
-		writeJSON(w, 200, stored.Sanitized())
+		v := stored.Sanitized()
+		v.CallbackURL = effectiveCallbackURL(stored, r)
+		writeJSON(w, 200, v)
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -347,6 +362,30 @@ func callbackBaseURL(r *http.Request) string {
 	return scheme + "://" + r.Host
 }
 
+// normalizePublicURL trims space, strips one trailing slash, and
+// validates http(s). Empty means unset (request-derived fallback).
+func normalizePublicURL(raw string) (string, error) {
+	v := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if v == "" {
+		return "", nil
+	}
+	u, err := url.Parse(v)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("public_url must be an http(s) URL")
+	}
+	return v, nil
+}
+
+// effectiveCallbackURL prefers the configured public base URL and
+// falls back to the request-derived base (reverse-proxy safe).
+func effectiveCallbackURL(s model.AuthSettings, r *http.Request) string {
+	base := strings.TrimSpace(s.PublicURL)
+	if base == "" {
+		base = callbackBaseURL(r)
+	}
+	return strings.TrimRight(base, "/") + "/api/auth/callback"
+}
+
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -381,7 +420,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, err.Error())
 		return
 	}
-	redirectURI := callbackBaseURL(r) + "/api/auth/callback"
+	redirectURI := effectiveCallbackURL(s, r)
 	h.pending().Create(state, verifier, nonce, redirectURI)
 	http.Redirect(w, r, auth.LoginURL(d, s.ClientID, redirectURI, state, nonce, auth.ChallengeS256(verifier)), http.StatusFound)
 }
