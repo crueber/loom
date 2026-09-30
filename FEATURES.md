@@ -9,7 +9,7 @@ Pending = requested but not yet built on this branch.
 - Columns hold ordered cards; per-column collapse toggle.
 - Add board / add column from navbar (appends at end).
 - Delete board from navbar (UI confirm modal; removes its columns/cards).
-- Column header ▾ menu (right side): color swatches first, Rename second, separator, Delete last (UI confirm modal; removes its cards); header click toggles collapse; menu hidden on collapsed rails; header text insets symmetric left/right.
+- Column header ▾ menu (right side): color swatches first, Rename second, separator, Delete last (UI confirm modal; removes its cards); header click toggles collapse; menu hidden on collapsed rails; header ink balanced left/right (12px pads, zero title bleed, net-zero resize).
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
 - Columns resize by dragging the header handle (widths persist locally); double-click the handle resets to the standard width.
