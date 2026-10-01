@@ -6,7 +6,7 @@ Pending = requested but not yet built on this branch.
 ## Boards & columns
 
 - Boards hold ordered columns; navbar switcher.
-- Columns hold ordered cards; per-column collapse toggle.
+- Columns hold ordered cards; per-column collapse toggle with a quick (~190ms) width-glide animation and a per-user Animations switch in Settings General (default on; honors reduced-motion).
 - Add board / add column from navbar (appends at end).
 - Delete board from navbar (UI confirm modal; removes its columns/cards).
 - Column header ▾ menu (right side): color swatches first, Rename second, separator, Delete last (UI confirm modal; removes its cards); header click toggles collapse; menu hidden on collapsed rails; header ink balanced left/right (12px/6px pads, zero title bleed, flush resize, slim ▾ button).

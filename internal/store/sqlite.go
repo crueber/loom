@@ -55,7 +55,10 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	// Migrate pre-checklist databases: todo items live as JSON here.
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-prefs databases (OSS-83): per-user preferences.
-	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS user_prefs (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, theme TEXT NOT NULL DEFAULT 'paper', language TEXT NOT NULL DEFAULT 'en')`)
+	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS user_prefs (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, theme TEXT NOT NULL DEFAULT 'paper', language TEXT NOT NULL DEFAULT 'en', animations INTEGER NOT NULL DEFAULT 1)`)
+	// Migrate pre-animation databases (OSS-158): default ON, backfill existing rows.
+	_, _ = db.Exec(`ALTER TABLE user_prefs ADD COLUMN animations INTEGER NOT NULL DEFAULT 1`)
+	_, _ = db.Exec(`UPDATE user_prefs SET animations=1 WHERE animations IS NULL`)
 	// Migrate pre-icon-cache databases (OSS-82 child scope).
 	_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS icons (
   host TEXT PRIMARY KEY,

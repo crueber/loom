@@ -107,7 +107,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS user_prefs (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   theme TEXT NOT NULL DEFAULT 'paper',
-  language TEXT NOT NULL DEFAULT 'en'
+  language TEXT NOT NULL DEFAULT 'en',
+  animations INTEGER NOT NULL DEFAULT 1
 );
 
 -- Server-cached link icons (OSS-82 child scope, 7-day TTL).

@@ -181,10 +181,11 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, user)
 }
 
-// mePrefs serves per-user preferences (OSS-83). Auth required: anonymous
-// callers get 401 and must use the localStorage cache instead. GET returns
-// stored prefs (or defaults); PUT merges a partial {theme?,language?},
-// normalizes, stores and returns the stored value.
+// mePrefs serves per-user preferences (OSS-83, OSS-158 animations).
+// Auth required: anonymous callers get 401 and must use the localStorage
+// cache instead. GET returns stored prefs (or defaults); PUT merges a
+// partial {theme?,language?,animations?}, normalizes, stores and returns
+// the stored value.
 func (h *Handler) mePrefs(w http.ResponseWriter, r *http.Request) {
 	user := h.CurrentUser(r)
 	if user == nil {
@@ -201,8 +202,9 @@ func (h *Handler) mePrefs(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, p)
 	case http.MethodPut:
 		var body struct {
-			Theme    *string `json:"theme"`
-			Language *string `json:"language"`
+			Theme      *string `json:"theme"`
+			Language   *string `json:"language"`
+			Animations *bool   `json:"animations"`
 		}
 		if !decodeJSON(w, r, &body) {
 			return
@@ -217,6 +219,9 @@ func (h *Handler) mePrefs(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.Language != nil {
 			cur.Language = *body.Language
+		}
+		if body.Animations != nil {
+			cur.Animations = *body.Animations
 		}
 		stored, err := h.Store.UpdateUserPrefs(user.ID, cur.Normalize())
 		if err != nil {

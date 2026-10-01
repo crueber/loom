@@ -1508,6 +1508,38 @@
   document.addEventListener('pointerup', endPan);
   document.addEventListener('pointercancel', endPan);
 
+  // OSS-158: animated collapse/expand (~190ms, ease-out). render()
+  // rebuilds innerHTML, which would kill a CSS width transition, so the
+  // toggle flips the live section class in place (animating width +
+  // content fade via CSS) and reconciles with a full render after the
+  // transition. Animations OFF (or reduced-motion) renders instantly.
+  var foldTimer = null;
+  function animationsOn() {
+    if (document.body.dataset.animations === 'off') return false;
+    if (window.matchMedia) {
+      try { if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false; } catch (e) {}
+    }
+    return getPrefs().animations !== false;
+  }
+  function foldColumn(colId, collapsed) {
+    var col = findCol(colId);
+    if (!col) return;
+    col.collapsed = collapsed;
+    saveCache();
+    api('PATCH', '/api/columns/' + colId, col).catch(function () {});
+    var sec = boardEl.querySelector('section.column[data-col="' + colId + '"]');
+    if (sec && animationsOn()) {
+      sec.classList.toggle('collapsed', collapsed);
+      var h = sec.querySelector('[data-colhead]');
+      if (h) h.title = collapsed ? 'Expand' : 'Collapse';
+      if (foldTimer) { try { clearTimeout(foldTimer); } catch (e) {} }
+      foldTimer = setTimeout(function () { foldTimer = null; render(); }, 200);
+      return;
+    }
+    if (foldTimer) { try { clearTimeout(foldTimer); } catch (e) {} foldTimer = null; }
+    render();
+  }
+
   boardEl.addEventListener('click', function (e) {
     var t = e.target;
     // Swallow the click that lands right after a canvas pan (item 6).
@@ -1532,9 +1564,7 @@
     if (head && !(t.closest && t.closest('[data-resize]')) && !(t.isContentEditable)) {
       var hCol = findCol(head.dataset.colhead);
       if (hCol) {
-        hCol.collapsed = !hCol.collapsed;
-        saveCache(); render();
-        api('PATCH', '/api/columns/' + head.dataset.colhead, hCol).catch(function () {});
+        foldColumn(head.dataset.colhead, !hCol.collapsed);
         return;
       }
     }
@@ -1543,11 +1573,7 @@
     // a collapsed section (count badge, header padding, rail) expands.
     var collapsedSec = t.closest && t.closest('section.column.collapsed');
     if (collapsedSec) {
-      var expCol = findCol(collapsedSec.dataset.col);
-      if (!expCol) return;
-      expCol.collapsed = false;
-      saveCache(); render();
-      api('PATCH', '/api/columns/' + collapsedSec.dataset.col, expCol).catch(function () {});
+      foldColumn(collapsedSec.dataset.col, false);
       return;
     }
     if (t.dataset && t.dataset.add) {
@@ -2001,6 +2027,7 @@
       return;
     }
     // Collapse all / expand all (persisted per column; never regressed).
+    // OSS-158: animated in place like single folds, then reconciled.
     if (t.closest && t.closest('[data-foldall]')) {
       var tr = curTree();
       if (!tr) return;
@@ -2009,7 +2036,17 @@
         c.collapsed = anyOpen;
         api('PATCH', '/api/columns/' + c.id, c).catch(function () {});
       });
-      saveCache(); render();
+      saveCache();
+      if (animationsOn()) {
+        (tr.columns || []).forEach(function (c) {
+          var s = boardEl.querySelector('section.column[data-col="' + c.id + '"]');
+          if (s) s.classList.toggle('collapsed', c.collapsed);
+        });
+        if (foldTimer) { try { clearTimeout(foldTimer); } catch (e) {} }
+        foldTimer = setTimeout(function () { foldTimer = null; render(); }, 200);
+      } else {
+        render();
+      }
       return;
     }
   });
@@ -2098,9 +2135,9 @@
       paintAuth(); render();
       // Signed-in: server prefs overwrite the local cache (OSS-83).
       if (state.auth.authenticated) {
-        api('GET', '/api/me/prefs').then(function (p) { setPrefs(p); applyPrefsTheme(); }).catch(function () {});
+        api('GET', '/api/me/prefs').then(function (p) { setPrefs(p); applyPrefsTheme(); applyPrefsAnimations(); }).catch(function () {});
       } else {
-        applyPrefsTheme();
+        applyPrefsTheme(); applyPrefsAnimations();
       }
     }).catch(function () {});
   }
@@ -2193,20 +2230,23 @@
       if (focusEl && focusEl.focus) { try { focusEl.focus(); if (hasInput && focusEl.select) focusEl.select(); } catch (e) {} }
     });
   }
-  // ---- User prefs (OSS-83): localStorage cache, server truth when signed in ----
-  // Shape {theme, language}; unknown themes fall back to paper (client
-  // normBg semantics). Anonymous: local only, never sent. Signed-in: PUT
-  // to /api/me/prefs after every edit; 401/offline keeps the local copy.
+  // ---- User prefs (OSS-83, OSS-158 animations): localStorage cache,
+  // server truth when signed in. Shape {theme, language, animations};
+  // unknown themes fall back to paper (client normBg semantics);
+  // animations defaults ON (absent => true). Anonymous: local only,
+  // never sent. Signed-in: PUT to /api/me/prefs after every edit;
+  // 401/offline keeps the local copy.
   var LS_PREFS = 'loom.prefs.v1';
   function normTheme(t) { return ['paper', 'honey', 'sage', 'sky', 'rose', 'slate'].indexOf(t) >= 0 ? t : 'paper'; }
+  function normAnimations(a) { return a === false ? false : true; }
   function getPrefs() {
     try {
       var p = JSON.parse(localStorage.getItem(LS_PREFS) || '{}') || {};
-      return { theme: normTheme(p.theme), language: 'en' };
-    } catch (e) { return { theme: 'paper', language: 'en' }; }
+      return { theme: normTheme(p.theme), language: 'en', animations: normAnimations(p.animations) };
+    } catch (e) { return { theme: 'paper', language: 'en', animations: true }; }
   }
   function setPrefs(p) {
-    try { localStorage.setItem(LS_PREFS, JSON.stringify({ theme: normTheme(p && p.theme), language: 'en' })); } catch (e) {}
+    try { localStorage.setItem(LS_PREFS, JSON.stringify({ theme: normTheme(p && p.theme), language: 'en', animations: normAnimations(p && p.animations) })); } catch (e) {}
   }
   function paintPrefsSync(ov, msg) {
     if (!ov) return;
@@ -2215,12 +2255,20 @@
   function applyPrefsTheme() {
     if (!curTree()) document.body.dataset.bg = getPrefs().theme;
   }
+  // OSS-158: animations kill-switch. body[data-animations="off"] disables
+  // column transitions (CSS); applied on boot, render and every save.
+  function applyPrefsAnimations() {
+    var on = getPrefs().animations !== false;
+    if (on) document.body.dataset.animations = 'on';
+    else document.body.dataset.animations = 'off';
+  }
   function savePrefs(p, ov) {
     setPrefs(p);
     paintPrefsSync(ov, state.auth.authenticated ? 'saving…' : 'saved locally');
+    applyPrefsAnimations();
     if (!state.auth.authenticated) { applyPrefsTheme(); return; }
     api('PUT', '/api/me/prefs', p).then(function (sv) {
-      setPrefs(sv); paintPrefsSync(ov, 'synced');
+      setPrefs(sv); paintPrefsSync(ov, 'synced'); applyPrefsAnimations();
     }).catch(function () { paintPrefsSync(ov, 'saved locally'); });
     applyPrefsTheme();
   }
@@ -2228,6 +2276,7 @@
     ov.querySelectorAll('[data-ptheme]').forEach(function (x) { x.classList.toggle('on', x.dataset.ptheme === p.theme); });
     ov.querySelectorAll('[data-ptheme-sel]').forEach(function (x) { x.value = p.theme; });
     ov.querySelectorAll('[data-plang]').forEach(function (x) { x.value = p.language || 'en'; });
+    ov.querySelectorAll('[data-panim]').forEach(function (x) { x.checked = normAnimations(p.animations); });
   }
   // Settings modal (OSS-83): left sidebar + content pane per section.
   // openDialog stays untouched for Share; this builds its own .dlg-ov
@@ -2279,6 +2328,9 @@
       '<button data-sec="admin">Admin</button></div>' +
       '<div class="set-body">' +
       '<div data-pane="general">' + boardNameHTML +
+      '<h4>Appearance</h4>' +
+      '<div><label class="chk"><input type="checkbox" data-panim' + (prefs.animations !== false ? ' checked' : '') + '> Animations</label> ' +
+      '<span class="hint">Collapse/expand motion. Turn off for instant layout.</span></div>' +
       '<h4>Language</h4>' +
       '<div><select data-plang>' + langOpts + '</select> <span class="hint">More languages coming soon.</span></div>' +
       '<h4>Default board theme</h4>' +
@@ -2326,6 +2378,12 @@
     ov.querySelectorAll('[data-plang]').forEach(function (sel) {
       sel.addEventListener('change', function () {
         var p = getPrefs(); p.language = sel.value || 'en'; savePrefs(p, ov); syncPrefsControls(ov, p);
+      });
+    });
+    // OSS-158: per-user animations toggle (default ON).
+    ov.querySelectorAll('[data-panim]').forEach(function (chk) {
+      chk.addEventListener('change', function () {
+        var p = getPrefs(); p.animations = chk.checked; savePrefs(p, ov); syncPrefsControls(ov, p);
       });
     });
     // OSS-87: Settings board rename — same semantics as the tab
@@ -2376,8 +2434,8 @@
     if (state.auth.authenticated) {
       paintPrefsSync(ov, 'loading…');
       api('GET', '/api/me/prefs').then(function (sv) {
-        if (!document.body.contains(ov)) { setPrefs(sv); return; }
-        setPrefs(sv); syncPrefsControls(ov, getPrefs()); paintPrefsSync(ov, 'synced');
+        if (!document.body.contains(ov)) { setPrefs(sv); applyPrefsAnimations(); return; }
+        setPrefs(sv); syncPrefsControls(ov, getPrefs()); paintPrefsSync(ov, 'synced'); applyPrefsAnimations();
       }).catch(function () { paintPrefsSync(ov, 'saved locally'); });
     } else {
       paintPrefsSync(ov, 'saved locally');
@@ -2504,6 +2562,7 @@
   // Boards list may still be loading; revalidate() re-applies it.
   var deep0 = boardFromURL();
   if (deep0) state.boardId = deep0;
+  applyPrefsAnimations();
   render();
   if (window.performance && performance.now) {
     window.__LOOM_FIRST_PAINT_MS = Math.round((performance.now() - t0) * 10) / 10;

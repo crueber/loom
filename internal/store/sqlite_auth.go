@@ -247,11 +247,15 @@ func (s *SQLiteStore) ClaimUnownedBoards(userID string) (int, error) {
 	return int(n), nil
 }
 
-// GetUserPrefs returns stored prefs or defaults when absent (OSS-83).
+// GetUserPrefs returns stored prefs or defaults when absent (OSS-83, OSS-158).
 func (s *SQLiteStore) GetUserPrefs(userID string) (model.UserPrefs, error) {
 	var p model.UserPrefs
-	err := s.db.QueryRow(`SELECT COALESCE(theme,'paper'),COALESCE(language,'en') FROM user_prefs WHERE user_id=?`, userID).
-		Scan(&p.Theme, &p.Language)
+	var anim int
+	err := s.db.QueryRow(`SELECT COALESCE(theme,'paper'),COALESCE(language,'en'),COALESCE(animations,1) FROM user_prefs WHERE user_id=?`, userID).
+		Scan(&p.Theme, &p.Language, &anim)
+	if err == nil {
+		p.Animations = anim != 0
+	}
 	if err == sql.ErrNoRows {
 		return model.DefaultUserPrefs(), nil
 	}
@@ -261,15 +265,19 @@ func (s *SQLiteStore) GetUserPrefs(userID string) (model.UserPrefs, error) {
 	return p.Normalize(), nil
 }
 
-// UpdateUserPrefs normalizes, upserts and returns stored prefs (OSS-83).
+// UpdateUserPrefs normalizes, upserts and returns stored prefs (OSS-83, OSS-158).
 func (s *SQLiteStore) UpdateUserPrefs(userID string, prefs model.UserPrefs) (model.UserPrefs, error) {
 	if userID == "" {
 		return model.UserPrefs{}, fmt.Errorf("user id required")
 	}
 	prefs = prefs.Normalize()
-	_, err := s.db.Exec(`INSERT INTO user_prefs(user_id,theme,language) VALUES(?,?,?)
-		ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme,language=excluded.language`,
-		userID, prefs.Theme, prefs.Language)
+	anim := 0
+	if prefs.Animations {
+		anim = 1
+	}
+	_, err := s.db.Exec(`INSERT INTO user_prefs(user_id,theme,language,animations) VALUES(?,?,?,?)
+		ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme,language=excluded.language,animations=excluded.animations`,
+		userID, prefs.Theme, prefs.Language, anim)
 	if err != nil {
 		return model.UserPrefs{}, err
 	}
