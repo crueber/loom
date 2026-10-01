@@ -14,7 +14,7 @@ Pending = requested but not yet built on this branch.
 - Pending: resizable / reorderable columns with drop hints.
 - Columns resize by dragging the header handle (widths persist locally); double-click the handle resets to the standard width.
 - Pending: collapsed columns as narrow rails.
-- Collapsed rails: count sits just under the vertical name; name hover shrinks to text; clicking empty rail space expands the column; rail background reuses the header color wash.
+- Collapsed rails: count sits just under the vertical name; name hover shrinks to text; clicking empty rail space expands the column; rail background reuses the header color wash; adjacent rails share one theme-aware hairline divider (no bright seam on dark themes).
 - Board backgrounds + swatch picker; new boards inherit the current board's background (server persists POST background, unknown ids fall back to paper).
 - Pending: column themes.
 - Pending: board-overflow dropdown.

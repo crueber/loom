@@ -298,10 +298,11 @@ button.primary {
   border-top: 3px solid var(--colc, transparent);
   border-radius: 12px;
 }
-/* Round 4 item 5: 1px vertical separator divides adjacent collapsed
-   rails — the negative margin cancels the strip gap so the rails sit
-   adjacent with the border as the divider. */
-.column.collapsed + .column.collapsed { margin-left: -20px; border-left: 1px solid var(--muted); }
+/* OSS-156: adjacent collapsed rails share one theme-aware hairline.
+   var(--line) — not var(--muted), which reads as a bright gray slash on
+   the dark Ink theme — keeps the divider subtle in every theme, and
+   -21px overlaps the two 1px borders into a single divider. */
+.column.collapsed + .column.collapsed { margin-left: -21px; border-left: 1px solid var(--line); }
 .column.collapsed .cards { display: none; }
 .column.collapsed > h2 {
   flex-direction: column; align-items: center; gap: 10px;
