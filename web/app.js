@@ -839,10 +839,16 @@
       syncCard(card); render();
       return;
     }
-    if ((loc.item.content || '') !== text) {
-      loc.item.content = text;
-      syncCard(card);
+    // OSS-151: moving focus between todos without edits must not rebuild
+    // the whole board — a full render() recreates every link favicon
+    // <img> and the ones with no cached icon blink. Normalize the edited
+    // span in place and leave the rest of the DOM untouched.
+    if ((loc.item.content || '') === text) {
+      try { el.textContent = text; } catch (e) {}
+      return;
     }
+    loc.item.content = text;
+    syncCard(card);
     render();
   }
 
@@ -1842,6 +1848,13 @@
           if (locC && locC.item && !locC.item.content) {
             removeTodoItem(cardC, locC);
             saveCache(); syncCard(cardC);
+          }
+          // OSS-151: cancelling a non-empty row changes no model state,
+          // so restore its text in place instead of a full render()
+          // (which would blink every link favicon <img>).
+          if (locC && locC.item) {
+            try { t.textContent = locC.item.content || ''; } catch (e) {}
+            return;
           }
         }
         render();
