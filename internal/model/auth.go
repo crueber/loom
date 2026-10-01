@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Auth + board-permission model (OSS-50, UI-configured OIDC).
 //
@@ -100,14 +103,40 @@ func NewUser(issuer, subject, email, name string) User {
 // UserPrefs is the per-user preference set (OSS-83). Theme mirrors the
 // board background ids (web/app.js SWATCHES); language is EN-only for
 // now but kept as a field so the picker shape is functional.
+// Animations (OSS-158) toggles collapse/expand motion; default ON.
 type UserPrefs struct {
-	Theme    string `json:"theme"`
-	Language string `json:"language"`
+	Theme      string `json:"theme"`
+	Language   string `json:"language"`
+	Animations bool   `json:"animations"`
 }
 
 // DefaultUserPrefs is the zero/anonymous fallback.
 func DefaultUserPrefs() UserPrefs {
-	return UserPrefs{Theme: "paper", Language: "en"}
+	return UserPrefs{Theme: "paper", Language: "en", Animations: true}
+}
+
+// UnmarshalJSON defaults animations to ON when the key is absent so
+// pre-OSS-158 stored prefs (no animations key) keep animating; an
+// explicit false is preserved.
+func (p *UserPrefs) UnmarshalJSON(b []byte) error {
+	type raw struct {
+		Theme      string `json:"theme"`
+		Language   string `json:"language"`
+		Animations *bool  `json:"animations"`
+	}
+	var r raw
+	if err := json.Unmarshal(b, &r); err != nil {
+		return err
+	}
+	p.Theme = r.Theme
+	p.Language = r.Language
+	if r.Animations == nil {
+		p.Animations = true
+	} else {
+		p.Animations = *r.Animations
+	}
+	*p = p.Normalize()
+	return nil
 }
 
 // Normalize clamps unknown themes to paper (client normBg semantics)

@@ -27,7 +27,7 @@ func TestMePrefsRoundtrip(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &def); err != nil {
 		t.Fatal(err)
 	}
-	if def.Theme != "paper" || def.Language != "en" {
+	if def.Theme != "paper" || def.Language != "en" || def.Animations != true {
 		t.Fatalf("defaults: got %+v", def)
 	}
 
@@ -60,5 +60,31 @@ func TestMePrefsRoundtrip(t *testing.T) {
 	}
 	if normed.Theme != "paper" {
 		t.Fatalf("unknown theme: got %+v", normed)
+	}
+
+	// OSS-158: animations toggle persists; explicit false survives roundtrip.
+	rec = doAuth(t, mux, "PUT", "/api/me/prefs", map[string]any{"animations": false}, toks["owner"])
+	var off model.UserPrefs
+	if err := json.Unmarshal(rec.Body.Bytes(), &off); err != nil {
+		t.Fatal(err)
+	}
+	if off.Animations != false {
+		t.Fatalf("animations off: got %+v", off)
+	}
+	rec = doAuth(t, mux, "GET", "/api/me/prefs", nil, toks["owner"])
+	var backOff model.UserPrefs
+	if err := json.Unmarshal(rec.Body.Bytes(), &backOff); err != nil {
+		t.Fatal(err)
+	}
+	if backOff.Animations != false {
+		t.Fatalf("animations roundtrip: got %+v", backOff)
+	}
+	rec = doAuth(t, mux, "PUT", "/api/me/prefs", map[string]any{"animations": true}, toks["owner"])
+	var on model.UserPrefs
+	if err := json.Unmarshal(rec.Body.Bytes(), &on); err != nil {
+		t.Fatal(err)
+	}
+	if on.Animations != true {
+		t.Fatalf("animations on: got %+v", on)
 	}
 }

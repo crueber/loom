@@ -35,16 +35,25 @@ func TestUserPrefsBothBackends(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s create user: %v", name, err)
 		}
-		got, err := st.UpdateUserPrefs(u.ID, model.UserPrefs{Theme: "neon", Language: "xx"})
+		got, err := st.UpdateUserPrefs(u.ID, model.UserPrefs{Theme: "neon", Language: "xx", Animations: true})
 		if err != nil {
 			t.Fatalf("%s update: %v", name, err)
 		}
-		if got.Theme != "paper" || got.Language != "en" {
+		if got.Theme != "paper" || got.Language != "en" || got.Animations != true {
 			t.Fatalf("%s normalized: got %+v", name, got)
 		}
 		back, err := st.GetUserPrefs(u.ID)
 		if err != nil || back != got {
 			t.Fatalf("%s roundtrip: wrote %+v, read %+v (%v)", name, got, back, err)
+		}
+		// OSS-158: explicit false persists.
+		off, err := st.UpdateUserPrefs(u.ID, model.UserPrefs{Theme: "sky", Language: "en", Animations: false})
+		if err != nil || off.Animations != false {
+			t.Fatalf("%s animations off: wrote %+v (%v)", name, off, err)
+		}
+		backOff, err := st.GetUserPrefs(u.ID)
+		if err != nil || backOff.Animations != false {
+			t.Fatalf("%s animations roundtrip: got %+v (%v)", name, backOff, err)
 		}
 	}
 }

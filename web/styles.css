@@ -206,6 +206,28 @@ button.primary {
      short column ends at its lane; tall lanes still cap at max-height
      and scroll internally. Collapsed rails keep align-self:stretch. */
   align-self: flex-start;
+  /* OSS-158: collapse/expand motion — quick ease-out width glide plus a
+     soft content fade. Kept under 200ms so it feels instant, not waitful. */
+  transition: width 0.19s ease-out, flex-basis 0.19s ease-out,
+    background-color 0.19s ease-out, border-color 0.19s ease-out;
+}
+.column .cards { transition: opacity 0.15s ease-out; }
+.column.collapsed .cards { opacity: 0; }
+.column > h2 .coltitle, .column > h2 .colcount {
+  transition: opacity 0.15s ease-out;
+}
+/* OSS-158 kill-switches: per-user OFF plus OS reduced-motion. */
+body[data-animations="off"] .column,
+body[data-animations="off"] .column .cards,
+body[data-animations="off"] .column > h2 .coltitle,
+body[data-animations="off"] .column > h2 .colcount {
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .column, .column .cards,
+  .column > h2 .coltitle, .column > h2 .colcount {
+    transition: none !important;
+  }
 }
 .column.reading { width: min(680px, 92vw); flex: 0 1 680px; margin: 0 auto; }
 /* Round 3 item 3: the header is JOINED to the top color border — no gap
