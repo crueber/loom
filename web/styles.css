@@ -436,6 +436,11 @@ body[data-animations="off"] .column > h2 .colcount {
    resize handle) — never inside the block box, so blocks keep symmetric
    full-width layout with zero left gutter and no overlap of favicons,
    note text, or todo checkboxes. Hover-only, sole block-drag zone.
+   OSS-166: the handle parks OUTSIDE the block box, so .block:hover can
+   never cover the cursor over the handle itself (hit test falls through
+   to the card and every handle grab lifts the whole card). Reveal on
+   .card:hover instead — the cursor over the handle is always over the
+   card — so the handle is hit-testable exactly where it is visible.
    Insertion lines mark before/after; the hovered card gets a dashed outline. */
 .card .block { position: relative; }
 .bhandle {
@@ -447,7 +452,7 @@ body[data-animations="off"] .column > h2 .colcount {
   opacity: 0; pointer-events: none; touch-action: none;
   user-select: none; -webkit-user-select: none;
 }
-.block:hover > .bhandle, .block:focus-within > .bhandle { opacity: .8; pointer-events: auto; }
+.card:hover .bhandle, .block:focus-within > .bhandle { opacity: .8; pointer-events: auto; }
 .bhandle:hover { color: var(--ink); border-color: var(--line); background: color-mix(in srgb, var(--accent) 35%, transparent); opacity: 1; }
 .bhandle:active { cursor: grabbing; }
 .block.drop-bbefore { box-shadow: 0 -3px 0 var(--accent); }

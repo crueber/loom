@@ -1023,6 +1023,16 @@
     // Round 5 item 2: the block handle is checked FIRST so a block drag
     // never starts a card drag (distinct handle zone, no gesture conflict).
     var bh = e.target && e.target.closest ? e.target.closest('.bhandle') : null;
+    // OSS-166: some browsers report the draggable ANCESTOR (the card) as
+    // the dragstart target even when the gesture began on the nested
+    // handle. Re-resolve by pointer coordinates so a handle grab still
+    // claims a block-level drag with the block id in the payload.
+    if (!bh && e.clientX !== undefined && isFinite(e.clientX) && isFinite(e.clientY)) {
+      try {
+        var hit = document.elementFromPoint(e.clientX, e.clientY);
+        bh = hit && hit.closest ? hit.closest('.bhandle') : null;
+      } catch (err2) { bh = null; }
+    }
     if (bh && bh.dataset.bid) {
       dragBlock = { card: bh.dataset.bcard, block: bh.dataset.bid };
       try { e.dataTransfer.setData('text/plain', 'block:' + dragBlock.card + ':' + dragBlock.block); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
