@@ -34,7 +34,7 @@ Pending = requested but not yet built on this branch.
 - Compact add: + card per column; + link/note/image per card.
 - Pending: Enter-save + modifier-newline while editing.
 - Pending: drag cards within/across columns with drop hints (move API exists).
-- Blocks drag via handle to reorder within/across cards (card PATCH persists); handle sits in a reserved left gutter, never covering icons/checkboxes.
+- Blocks drag via slim handle parked in the card's left padding to reorder within/across cards (card PATCH persists); blocks keep symmetric full-width layout, never covering icons/checkboxes.
 - Block drop zones cover the whole block: hovering any part shows the before/after line (handle stays the drag source).
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller, so navbar scrolling never clips it.
