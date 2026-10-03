@@ -39,6 +39,7 @@ Pending = requested but not yet built on this branch.
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller, so navbar scrolling never clips it.
 - Todo-list blocks: one block = one checklist (items array); Enter adds items in-list and focuses the new row ready to type, Up/Down moves between todo rows in the card (caret at end), Escape exits, checkbox toggles via card PATCH; background sync never steals todo focus, Todo… placeholder never edits as text; render blurs-before-rebuild so Enter never strands focus (re-entrancy guard); moving between todos or Escape-cancelling a non-empty row touches no favicon <img> (in-place restore, no board rebuild).
+- Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; full `render()` stays for column/board structural changes only.
 - Pending: reading mode.
 
 ## Navigation & chrome
