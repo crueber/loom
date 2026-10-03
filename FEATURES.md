@@ -25,7 +25,7 @@ Pending = requested but not yet built on this branch.
 - Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace).
 - Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
-- Inline note editing in place; blur commits.
+- Inline note editing in place; blur commits; text blocks carry the same hover × remove affordance as link/image blocks (card PATCH, positions reindexed).
 - Empty notes render nothing (no "+ add text" placeholder); toolbar Add-note focuses a fresh editable note.
 - Markdown renders; re-edit shows raw text.
 - Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).

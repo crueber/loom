@@ -398,8 +398,11 @@
       if (!b.content) {
         return '';
       }
-      return '<div class="block note" data-block="' + esc(b.id || '') + '"' +
-        ' title="Click to edit">' + bhandleHTML(cardId, b.id) + md(b.content) + '</div>';
+      // OSS-184: text blocks get the same × remove affordance as
+      // link/image blocks, persisted via card PATCH.
+      return '<div class="block note block-note" data-block="' + esc(b.id || '') + '"' +
+        ' title="Click to edit">' + bhandleHTML(cardId, b.id) + md(b.content) +
+        '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove text" aria-label="Remove text">&times;</button></div>';
     }
     return '';
   }
@@ -1681,6 +1684,38 @@
         });
       return;
     }
+    // OSS-184: block × removes run BEFORE any edit affordance — the
+    // text-block × lives inside .note[data-block], so the note-edit
+    // branch below would otherwise swallow the click and enter edit
+    // mode instead of deleting.
+    // Todo item remove (× per row): drops that item only, keeping the
+    // rest of the list; an emptied list drops its block too.
+    var rmt = t.closest && t.closest('[data-rmtodo]');
+    if (rmt) {
+      var cardElM = rmt.closest('[data-card]');
+      var cardM = cardElM && findCard(cardElM.dataset.card);
+      if (cardM) {
+        var locM = todoLoc(cardM, rmt.dataset.todolist, rmt.dataset.rmtodo);
+        if (locM && locM.item) {
+          removeTodoItem(cardM, locM);
+          syncCard(cardM); render();
+        }
+      }
+      return;
+    }
+    // Item 7 + OSS-184: remove an image/link/text block via its ×
+    // affordance (card PATCH). Reindex positions so they stay contiguous.
+    var rm = t.closest && t.closest('[data-rmblock]');
+    if (rm) {
+      var cardElR = rm.closest('[data-card]');
+      var cardR = cardElR && findCard(cardElR.dataset.card);
+      if (cardR) {
+        cardR.blocks = cardR.blocks.filter(function (x) { return (x.id || '') !== (rm.dataset.rmblock || ''); });
+        cardR.blocks.forEach(function (b, i) { b.position = i; });
+        syncCard(cardR); render();
+      }
+      return;
+    }
     // Click any note text to edit its RAW source directly (item 3; links
     // still navigate).
     var note = t.closest && t.closest('.note[data-block]');
@@ -1710,32 +1745,6 @@
         var locT = todoLoc(cardT, todo.dataset.todolist, todo.dataset.todo);
         if (locT && locT.item) editTodoRaw(todo, locT.item, false);
         else render();
-      }
-      return;
-    }
-    // Todo item remove (× per row): drops that item only, keeping the
-    // rest of the list; an emptied list drops its block too.
-    var rmt = t.closest && t.closest('[data-rmtodo]');
-    if (rmt) {
-      var cardElM = rmt.closest('[data-card]');
-      var cardM = cardElM && findCard(cardElM.dataset.card);
-      if (cardM) {
-        var locM = todoLoc(cardM, rmt.dataset.todolist, rmt.dataset.rmtodo);
-        if (locM && locM.item) {
-          removeTodoItem(cardM, locM);
-          syncCard(cardM); render();
-        }
-      }
-      return;
-    }
-    // Item 7: remove an image/link block via its × affordance (card PATCH).
-    var rm = t.closest && t.closest('[data-rmblock]');
-    if (rm) {
-      var cardElR = rm.closest('[data-card]');
-      var cardR = cardElR && findCard(cardElR.dataset.card);
-      if (cardR) {
-        cardR.blocks = cardR.blocks.filter(function (x) { return (x.id || '') !== (rm.dataset.rmblock || ''); });
-        syncCard(cardR); render();
       }
       return;
     }
