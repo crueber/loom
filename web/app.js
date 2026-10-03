@@ -2192,6 +2192,25 @@
     img.addEventListener('error', tile);
     if (img.complete && img.naturalWidth === 0) tile();
   }
+  // OSS-171: anchor the pop to the trigger with explicit viewport coords.
+  // Stylesheet absolute positioning resolved against a bogus containing
+  // block (display:contents #rightzone ancestry), so the pop rendered a
+  // full viewport below the fold and was never pointer-reachable. With
+  // position:fixed the pop is viewport-relative; measure after unhide so
+  // offsetWidth/offsetHeight are real, right-align to the trigger, and
+  // clamp into the viewport.
+  function anchorUserMenu() {
+    if (!userMenuOpen || !userMenuBtn || !userMenuPop) return;
+    var r = userMenuBtn.getBoundingClientRect();
+    var pw = userMenuPop.offsetWidth || 230;
+    var ph = userMenuPop.offsetHeight || 0;
+    var left = Math.round(r.right - pw);
+    left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+    var top = Math.round(r.bottom + 6);
+    if (ph && top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - ph - 8);
+    userMenuPop.style.left = left + 'px';
+    userMenuPop.style.top = top + 'px';
+  }
   function setUserMenu(open) {
     userMenuOpen = open === undefined ? !userMenuOpen : !!open;
     if (userMenuBtn) userMenuBtn.setAttribute('aria-expanded', userMenuOpen ? 'true' : 'false');
@@ -2269,7 +2288,7 @@
       }
       userMenuPop.innerHTML = html;
     }
-    if (userMenuOpen) userMenuPop.removeAttribute('hidden');
+    if (userMenuOpen) { userMenuPop.removeAttribute('hidden'); anchorUserMenu(); }
     else userMenuPop.setAttribute('hidden', '');
   }
   if (userMenuBtn) userMenuBtn.addEventListener('click', function (e) {
@@ -2280,7 +2299,9 @@
     var t = e.target;
     if (!t.closest) return;
     if (t.closest('[data-um-share]')) { setUserMenu(false); openShare(); return; }
-    var sw = t.closest('[data-bg]');
+    // Scoped: body also carries data-bg (prefs theme), so a bare
+    // closest('[data-bg]') would match body and swallow every item.
+    var sw = t.closest('.swatches [data-bg]');
     if (sw) {
       setBoardBackground(sw.dataset.bg);
       var el = userMenuPop.querySelector('[data-bg="' + sw.dataset.bg + '"]');
@@ -2316,6 +2337,9 @@
       if (userMenuBtn && userMenuBtn.focus) { try { userMenuBtn.focus(); } catch (escErr) {} }
     }
   });
+  // OSS-171: keep the fixed pop glued to the trigger across scroll/resize.
+  window.addEventListener('resize', anchorUserMenu);
+  document.addEventListener('scroll', anchorUserMenu, true);
   function openDialog(title, bodyHTML, onMount) {
     closeDialog();
     var ov = document.createElement('div');

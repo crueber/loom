@@ -68,8 +68,13 @@ body {
   background: var(--line); color: var(--muted);
   font-size: 14px; font-weight: 700; line-height: 1;
 }
+/* OSS-171: fixed positioning + JS rect anchor (see anchorUserMenu in
+   app.js). The old absolute top:calc(100%+6px) resolved against a bogus
+   containing block (display:contents #rightzone ancestry), rendering the
+   pop a full viewport below the fold with offsetParent null. Fixed
+   positioning is viewport-relative, so the pop cannot escape the page. */
 .usermenu-pop {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 80;
+  position: fixed; z-index: 80;
   min-width: 230px; max-width: min(300px, 86vw); max-height: 60vh; overflow-y: auto;
   background: var(--card); border: 1px solid var(--line);
   border-radius: 12px; box-shadow: var(--shadow);
