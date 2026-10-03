@@ -598,6 +598,8 @@ body[data-animations="off"] .column > h2 .colcount {
   color: var(--muted);
 }
 .emptyboard p { font-size: 16px; margin-bottom: 18px; }
+/* OSS-177: dedicated login-required page (no navbar, centered panel). */
+.login-required h2 { font-size: 22px; margin-bottom: 8px; color: var(--ink); }
 @media (max-width: 700px) {
   .column { width: 86vw; flex-basis: 86vw; }
   .column.reading { width: 94vw; flex-basis: 94vw; }

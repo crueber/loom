@@ -34,6 +34,7 @@
   var boardsEl = document.getElementById('boards');
   var creatorEl = document.getElementById('creator');
   var topbarCtl = document.getElementById('boardctl');
+  var topbarEl = document.getElementById('topbar');
   var state = { boards: [], trees: {}, boardId: null };
   // Item 11 (white theme bug): Paper is an explicit 'paper' theme, never ''.
   // Root cause was SWATCHES id '' + CSS dark-mode guard keyed on "paper",
@@ -481,7 +482,25 @@
     }
   }
 
+  // OSS-177: anonymous on a login-required Loom sees a dedicated page
+  // (no navbar, no cached boards) instead of a half-rendered board.
+  function isLoginRequired() {
+    var a = state.auth || {};
+    return !!(a.enabled && a.requireAuth && !a.authenticated);
+  }
+
   function renderInner() {
+    if (isLoginRequired()) {
+      if (topbarEl) topbarEl.style.display = 'none';
+      if (creatorEl) creatorEl.innerHTML = '';
+      if (topbarCtl) topbarCtl.innerHTML = '';
+      if (boardsEl) boardsEl.innerHTML = '';
+      boardEl.innerHTML = '<div class="emptyboard login-required"><h2>Login required</h2>' +
+        '<p>This Loom requires login to view boards.</p>' +
+        '<button class="primary" data-login>Login</button></div>';
+      return;
+    }
+    if (topbarEl) topbarEl.style.display = '';
     // OSS-43: mutating column buttons all end in render(), which rebuilds
     // boardEl.innerHTML including the .cols strip — destroying the scroller
     // resets scrollLeft to 0. Capture/restore here so every caller is covered.
@@ -1577,6 +1596,8 @@
     // Round 5 item 2: the block drag handle is a drag-only zone — its
     // click (no movement) must not start note editing or any action.
     if (t.closest && t.closest('.bhandle')) return;
+    // OSS-177: dedicated login-required page wires here.
+    if (t.closest && t.closest('[data-login]')) { window.location.href = '/api/auth/login'; return; }
     if (t.closest && t.closest('[data-newboard]')) { openCreator('board'); return; }
     if (t.closest && t.closest('[data-newcol]')) { openInlineColForm(); return; }
     // OSS-129: ▾ opens the column menu only (never toggles collapse).
@@ -2146,6 +2167,9 @@
   }
 
   function revalidate() {
+    // OSS-177: anonymous on a login-required Loom skips board fetch —
+    // boards would be [] anyway; avoids 401 noise + panel overwrite.
+    if (isLoginRequired()) return Promise.resolve();
     return api('GET', '/api/boards').then(function (boards) {
       state.boards = boards || [];
       var known = {};
@@ -2173,6 +2197,14 @@
   function refreshAuth() {
     return api('GET', '/api/auth/status').then(function (s) {
       state.auth = { enabled: !!s.enabled, requireAuth: !!s.require_auth, authenticated: !!s.authenticated, user: s.user || null };
+      // OSS-177: purge any boot-painted cache so no stale private boards
+      // stay visible to anonymous once auth status arrives.
+      if (isLoginRequired()) {
+        state.boards = [];
+        state.trees = {};
+        state.boardId = null;
+        saveCache();
+      }
       paintAuth(); render();
       // Signed-in: server prefs overwrite the local cache (OSS-83).
       if (state.auth.authenticated) {
