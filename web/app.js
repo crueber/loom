@@ -718,12 +718,40 @@
     render();
   }
 
-  // Focus a note right after its render commit. Runs synchronously:
-  // render() builds DOM in the same task, so the node is queryable
-  // immediately (rAF focus is unreliable in background/headless tabs).
+  // Focus a note: either a rendered note div (edit raw source) or a
+  // model-only empty draft (materialized as an editable div at the
+  // bottom of the card). Runs synchronously: render() builds DOM in the
+  // same task, so the node is queryable immediately (rAF focus is
+  // unreliable in background/headless tabs).
   function focusNote(cardId, blockId, selectAll) {
     var cardEl = boardEl.querySelector('[data-card="' + cardId + '"]');
     if (!cardEl) return;
+    // OSS-176: an empty draft renders as no DOM (no placeholder UI), so
+    // a caller naming no specific block ('') always means the just-added
+    // draft — prefer the model's last empty note over any existing
+    // rendered note. Otherwise Add-note focuses the old note instead
+    // of creating one at the bottom like every other add action.
+    if (!blockId) {
+      var dcard = findCard(cardId);
+      var draft = null;
+      if (dcard) {
+        for (var di = dcard.blocks.length - 1; di >= 0; di--) {
+          if (dcard.blocks[di].type === 'note' && !dcard.blocks[di].content) { draft = dcard.blocks[di]; break; }
+        }
+      }
+      if (draft) {
+        var ddiv = document.createElement('div');
+        ddiv.className = 'block note editing';
+        ddiv.dataset.block = draft.id || '';
+        ddiv.title = 'Click to edit';
+        ddiv.textContent = draft.content || '';
+        var dbar = cardEl.querySelector('.cardbar');
+        if (dbar) cardEl.insertBefore(ddiv, dbar);
+        else cardEl.appendChild(ddiv);
+        startEdit(ddiv, selectAll !== false);
+        return;
+      }
+    }
     var target = blockId ? cardEl.querySelector('[data-block="' + blockId + '"]') : null;
     if (!target) {
       var notes = cardEl.querySelectorAll('.note');
@@ -1681,18 +1709,32 @@
         syncCard(card); render();
       });
     } else if (act === 'addnote') {
-      // Render + focus first; the blur commit persists (avoids a
-      // sync re-render stealing focus before the user types).
-      card.blocks.push({ id: '', type: 'note', content: '', position: card.blocks.length });
-      saveCache(); render();
+      // OSS-176: always append a NEW empty note at the bottom and focus
+      // it — never steal focus to an existing note. The draft carries a
+      // client tmp id (like addtodo) so the blur commit matches it
+      // exactly. No full render(): empty notes render as no DOM anyway,
+      // and a board-wide rebuild recreates every link favicon <img>,
+      // making icon-less links blink. focusNote materializes the draft
+      // div in this card only; the blur commit persists via syncCard.
+      card.blocks.push({ id: tmpId(), type: 'note', content: '', position: card.blocks.length });
+      saveCache();
       focusNote(card.id, '', true);
     } else if (act === 'addtodo') {
-      // New checklist block (one block = one list); render-first like
-      // addnote, then focus its first item. A second list needs another
-      // explicit + todo — Enter never creates a block, only items.
+      // New checklist block (one block = one list); a second list needs
+      // another explicit + todo — Enter never creates a block, only
+      // items. OSS-176: no full render() here either (same favicon
+      // blink); append this card's new list only, then focus its item.
       var nb = { id: tmpId(), type: 'todo', position: card.blocks.length, items: [{ id: tmpId(), content: '', checked: false }] };
       card.blocks.push(nb);
-      saveCache(); render();
+      saveCache();
+      (function () {
+        var cel = boardEl.querySelector('[data-card="' + card.id + '"]');
+        if (!cel) { render(); return; }
+        var tmp = document.createElement('div');
+        tmp.innerHTML = todoListHTML(nb, card.id);
+        var bar = cel.querySelector('.cardbar');
+        while (tmp.firstChild) cel.insertBefore(tmp.firstChild, bar);
+      })();
       focusTodoAt(card.id, countTodoItems(card) - 1, true);
     } else if (act === 'addimg') {
       // Local upload: hidden file picker -> POST /api/images -> image block.

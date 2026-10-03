@@ -31,7 +31,7 @@ Pending = requested but not yet built on this branch.
 - Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
 - Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing).
 - Shared confirm modal (confirm + text-input modes) replaces native confirm/prompt/alert for deletes, board rename, and errors.
-- Compact add: + card per column; + link/note/image per card.
+- Compact add: + card per column; + link/note/image per card; Add-note always appends a new note at the card bottom and focuses it (never an existing note); add clicks update only that card, never a full-board rebuild, so icon-less link favicons never blink.
 - Pending: Enter-save + modifier-newline while editing.
 - Pending: drag cards within/across columns with drop hints (move API exists).
 - Blocks drag via slim handle parked in the card's left padding to reorder within/across cards (card PATCH persists); blocks keep symmetric full-width layout, never covering icons/checkboxes.
