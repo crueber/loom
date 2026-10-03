@@ -606,10 +606,40 @@
     img.replaceWith(s);
   }
   document.addEventListener('error', function (e) { favFallback(e.target); }, true);
-  function wireFavFallbacks() {
-    boardEl.querySelectorAll('img[data-letter]').forEach(function (img) {
+  function wireFavFallbacks(root) {
+    (root || boardEl).querySelectorAll('img[data-letter]').forEach(function (img) {
       img.addEventListener('error', function () { favFallback(img); });
     });
+  }
+
+  // OSS-182: card-scoped refresh — replace one card's DOM instead of
+  // rebuilding the whole board. Full render() recreates every link
+  // favicon <img>, so icon-less links blink on any single-card text
+  // edit. Returns true when the card was refreshed in place; falls
+  // back to full render() (returning false) only when the card
+  // element or model is missing. Shares render()'s re-entrancy guard
+  // so a blur fired by the outerHTML swap never commits re-entrantly.
+  function refreshCardDOM(cardId) {
+    if (!cardId || rendering) return false;
+    var card = findCard(cardId);
+    var oldEl = cardId ? boardEl.querySelector('[data-card="' + cardId + '"]') : null;
+    if (!card || !oldEl) { render(); return false; }
+    rendering = true;
+    try {
+      var ae = document.activeElement;
+      if (ae && oldEl.contains(ae) && ae.isContentEditable && ae.blur) {
+        try { ae.blur(); } catch (blurErr) {}
+      }
+      var tmp = document.createElement('div');
+      tmp.innerHTML = cardHTML(card);
+      var freshEl = tmp.firstChild;
+      if (!freshEl) { render(); return false; }
+      oldEl.replaceWith(freshEl);
+      wireFavFallbacks(freshEl);
+    } finally {
+      rendering = false;
+    }
+    return true;
   }
 
   function findCard(id) {
@@ -635,15 +665,16 @@
     saveCache();
     return api('PATCH', '/api/cards/' + card.id, card).then(function (fresh) {
       Object.assign(card, fresh);
-      saveCache(); renderPreservingTodoFocus();
+      saveCache(); refreshCardPreservingTodoFocus(card.id);
     }).catch(function () { /* stays local; revalidates next load */ });
   }
 
-  // Re-render without dropping an in-progress todo edit: a PATCH
-  // resolving after Enter-chained focus would otherwise rebuild the DOM
-  // and leave the new row unfocused. Captures the focused row by id and
-  // restores the caret to the end of the same row after render.
-  function renderPreservingTodoFocus() {
+  // OSS-182: card-scoped replacement for renderPreservingTodoFocus on
+  // syncCard's PATCH-success path — refreshes only the synced card so
+  // other cards' favicon <img> nodes survive. refreshCardDOM falls
+  // back to a full render() when the card element or model is gone;
+  // either way the memoized todo focus is restored below.
+  function refreshCardPreservingTodoFocus(cardId) {
     var a = document.activeElement;
     var memo = null;
     if (a && a.isContentEditable && a.isConnected && a.classList &&
@@ -653,7 +684,7 @@
         memo = { cardId: ce.dataset.card, list: a.dataset.todolist || '', item: a.dataset.todo };
       }
     }
-    render();
+    refreshCardDOM(cardId);
     if (!memo) return;
     var cardEl = boardEl.querySelector('[data-card="' + memo.cardId + '"]');
     if (!cardEl) return;
@@ -729,12 +760,18 @@
         if (card.blocks[i].type === 'note' && !card.blocks[i].content) { blk = card.blocks[i]; break; }
       }
     }
-    if (blk && (blk.content || '') !== text) {
-      blk.content = text;
-      if (blk.type !== 'note' && text) blk.type = 'note';
-      syncCard(card);
-    }
-    render();
+    if (!blk) { refreshCardDOM(card.id); return; }
+    // OSS-182: single-card text mutations refresh only this card — a
+    // full render() would recreate every link favicon <img>. Unchanged
+    // text restores the rendered HTML with no PATCH; changed text
+    // persists via syncCard (whose PATCH-success path refreshes this
+    // card only).
+    if ((blk.content || '') === text) { refreshCardDOM(card.id); return; }
+    blk.content = text;
+    if (blk.type !== 'note' && text) blk.type = 'note';
+    saveCache();
+    refreshCardDOM(card.id);
+    syncCard(card);
   }
 
   // Focus a note: either a rendered note div (edit raw source) or a
@@ -870,12 +907,16 @@
     var card = findCard(cardEl.dataset.card);
     if (!card) return;
     var loc = todoLoc(card, el.dataset.todolist, el.dataset.todo);
-    if (!loc || !loc.item) { render(); return; }
+    // OSS-182: stale/missing rows restore this card only (no board
+    // rebuild, no cross-card favicon blink).
+    if (!loc || !loc.item) { refreshCardDOM(card.id); return; }
     var text = el.innerText.replace(/\n+$/, '');
     if (!text) {
       // Empty todo commits as a delete of that item only.
       removeTodoItem(card, loc);
-      syncCard(card); render();
+      saveCache();
+      refreshCardDOM(card.id);
+      syncCard(card);
       return;
     }
     // OSS-151: moving focus between todos without edits must not rebuild
@@ -887,8 +928,9 @@
       return;
     }
     loc.item.content = text;
+    saveCache();
+    refreshCardDOM(card.id);
     syncCard(card);
-    render();
   }
 
   // Focus the todo text at global item ordinal right after a render
@@ -2013,25 +2055,40 @@
         var cardE = cardElE && findCard(cardElE.dataset.card);
         if (!cardE) { t.blur(); return; }
         var locE = todoLoc(cardE, t.dataset.todolist, t.dataset.todo);
-        if (!locE || !locE.item) { t.blur(); render(); return; }
+        // OSS-182: stale rows and empty commits restore this card only.
+        if (!locE || !locE.item) { refreshCardDOM(cardE.id); try { t.blur(); } catch (e0) {} return; }
         var textE = t.innerText.replace(/\n+$/, '');
         if (!textE) {
           if (!locE.item.content) removeTodoItem(cardE, locE);
-          saveCache(); syncCard(cardE); render();
-          t.blur();
+          saveCache(); refreshCardDOM(cardE.id); syncCard(cardE);
+          try { t.blur(); } catch (e1) {}
           return;
         }
         locE.item.content = textE;
         var ordE = todoOrdinal(cardE, locE.block.id, locE.item.id);
         locE.block.items.splice(locE.itemIndex + 1, 0, { id: tmpId(), content: '', checked: false });
         cardE.blocks.forEach(function (b, i) { b.position = i; });
-        saveCache(); syncCard(cardE); render();
+        // OSS-182: Enter-chain refreshes this card only, then focuses
+        // the new row; the PATCH-success path preserves that focus.
+        saveCache(); refreshCardDOM(cardE.id); syncCard(cardE);
         focusTodoAt(cardE.id, ordE + 1, true);
         return;
       }
       return;
     }
-    if (e.key === 'Escape') { e.preventDefault(); t.blur(); render(); }
+    // OSS-182: note Escape discards keystrokes via the focusout commit
+    // (commitNote refreshes only that card); other inline titles keep
+    // the full render. The explicit refresh below only fires when the
+    // commit left the node connected (e.g. missing block).
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      var escCardEl = t.closest && t.closest('[data-card]');
+      var escCardId = escCardEl && escCardEl.dataset.card;
+      var escIsNote = !!(t.classList && t.classList.contains('note'));
+      t.blur();
+      if (escIsNote) { if (escCardId && t.isConnected) refreshCardDOM(escCardId); }
+      else render();
+    }
     else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       insertNewline(t);
