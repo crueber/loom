@@ -71,3 +71,4 @@ Pending = requested but not yet built on this branch.
 - Admin Test connection button POSTs unsaved issuer/client ID to /api/auth/test (discovery-only, persists nothing).
 - OIDC login syncs the admin bit from the verified `groups` claim (`admin` exact match; first user bootstraps admin; sole-admin guard blocks last demote).
 - Admin OIDC pane shows the effective callback URL plus an optional public base URL override (trailing slash trimmed, non-http(s) rejected).
+- Login-required Looms show anonymous visitors a dedicated page (no navbar, Login button) instead of an empty board.
