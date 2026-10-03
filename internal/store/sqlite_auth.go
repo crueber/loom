@@ -13,7 +13,7 @@ func scanUser(row *sql.Row) (model.User, error) {
 	var u model.User
 	var ca string
 	var admin int
-	err := row.Scan(&u.ID, &u.Issuer, &u.Subject, &u.Email, &u.Name, &admin, &ca)
+	err := row.Scan(&u.ID, &u.Issuer, &u.Subject, &u.Email, &u.Name, &u.AvatarSeed, &admin, &ca)
 	if err == sql.ErrNoRows {
 		return u, fmt.Errorf("user not found")
 	}
@@ -49,8 +49,8 @@ func (s *SQLiteStore) UpsertUserBySubject(issuer, subject, email, name string) (
 	err := s.db.QueryRow(`SELECT id FROM users WHERE issuer=? AND subject=?`, issuer, subject).Scan(&id)
 	if err == sql.ErrNoRows {
 		u := model.NewUser(issuer, subject, email, name)
-		_, err := s.db.Exec(`INSERT INTO users(id,issuer,subject,email,name,is_admin,created_at) VALUES(?,?,?,?,?,?,?)`,
-			u.ID, u.Issuer, u.Subject, u.Email, u.Name, 0, ts(u.CreatedAt))
+		_, err := s.db.Exec(`INSERT INTO users(id,issuer,subject,email,name,avatar_seed,is_admin,created_at) VALUES(?,?,?,?,?,?,?,?)`,
+			u.ID, u.Issuer, u.Subject, u.Email, u.Name, u.AvatarSeed, 0, ts(u.CreatedAt))
 		return u, err
 	}
 	if err != nil {
@@ -60,15 +60,20 @@ func (s *SQLiteStore) UpsertUserBySubject(issuer, subject, email, name string) (
 		email, email, name, name, id); err != nil {
 		return model.User{}, err
 	}
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
+	// OSS-173: one-time backfill for pre-avatar rows. Exactly-once:
+	// only rows with an empty seed get one; later visits keep it.
+	if _, err := s.db.Exec(`UPDATE users SET avatar_seed=? WHERE id=? AND COALESCE(avatar_seed,'')=''`, model.NewID(), id); err != nil {
+		return model.User{}, err
+	}
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(avatar_seed,''),COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
 }
 
 func (s *SQLiteStore) GetUser(id string) (model.User, error) {
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(avatar_seed,''),COALESCE(is_admin,0),created_at FROM users WHERE id=?`, id))
 }
 
 func (s *SQLiteStore) GetUserByEmail(email string) (model.User, error) {
-	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(is_admin,0),created_at FROM users WHERE email=? AND email<>''`, email))
+	return scanUser(s.db.QueryRow(`SELECT id,issuer,subject,email,name,COALESCE(avatar_seed,''),COALESCE(is_admin,0),created_at FROM users WHERE email=? AND email<>''`, email))
 }
 
 // SetUserAdmin flips the admin bit for one user (OSS-136).

@@ -44,6 +44,11 @@ func (s *FileStore) UpsertUserBySubject(issuer, subject, email, name string) (mo
 			if name != "" {
 				s.snap.Users[i].Name = name
 			}
+			// OSS-173: one-time backfill for pre-avatar rows; never
+			// regenerated once set.
+			if s.snap.Users[i].AvatarSeed == "" {
+				s.snap.Users[i].AvatarSeed = model.NewID()
+			}
 			return s.snap.Users[i], s.persistLocked()
 		}
 	}

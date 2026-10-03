@@ -52,6 +52,9 @@ func OpenSQLite(path string) (*SQLiteStore, error) {
 	_, _ = db.Exec(`ALTER TABLE auth_settings ADD COLUMN public_url TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-admin databases (OSS-136): admin bit on users.
 	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0`)
+	// Migrate pre-avatar databases (OSS-173): stored Landscape seed,
+	// assigned once per user, never regenerated on later visits.
+	_, _ = db.Exec(`ALTER TABLE users ADD COLUMN avatar_seed TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-checklist databases: todo items live as JSON here.
 	_, _ = db.Exec(`ALTER TABLE blocks ADD COLUMN items TEXT NOT NULL DEFAULT ''`)
 	// Migrate pre-prefs databases (OSS-83): per-user preferences.

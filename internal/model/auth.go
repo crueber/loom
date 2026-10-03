@@ -32,13 +32,14 @@ func (b Board) EffectiveVisibility() string {
 
 // User is a person authenticated via OIDC (one row per issuer+subject).
 type User struct {
-	ID        string    `json:"id"`
-	Issuer    string    `json:"issuer"`
-	Subject   string    `json:"subject"`
-	Email     string    `json:"email,omitempty"`
-	Name      string    `json:"name,omitempty"`
-	IsAdmin   bool      `json:"is_admin"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	Issuer     string    `json:"issuer"`
+	Subject    string    `json:"subject"`
+	Email      string    `json:"email,omitempty"`
+	Name       string    `json:"name,omitempty"`
+	AvatarSeed string    `json:"avatar_seed,omitempty"`
+	IsAdmin    bool      `json:"is_admin"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // AuthSettings is the single-row OIDC configuration edited via the UI.
@@ -95,9 +96,11 @@ type Session struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// NewUser builds a user row for an OIDC identity.
+// NewUser builds a user row for an OIDC identity. The avatar seed is
+// assigned once here and never regenerated (OSS-173: Landscape avatar,
+// stored seed, stable across visits).
 func NewUser(issuer, subject, email, name string) User {
-	return User{ID: NewID(), Issuer: issuer, Subject: subject, Email: email, Name: name, CreatedAt: now()}
+	return User{ID: NewID(), Issuer: issuer, Subject: subject, Email: email, Name: name, AvatarSeed: NewID(), CreatedAt: now()}
 }
 
 // UserPrefs is the per-user preference set (OSS-83). Theme mirrors the
