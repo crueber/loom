@@ -475,6 +475,7 @@
         try { ae.blur(); } catch (blurErr) {}
       }
       renderInner();
+      paintUserMenu();
     } finally {
       rendering = false;
     }
@@ -487,9 +488,10 @@
     var prevStrip = boardEl.querySelector('.cols');
     var savedScroll = prevStrip ? prevStrip.scrollLeft : 0;
     // (static HTML holds the wordmark; tabs render here). Right zone =
-    // #boardctl (expand/collapse + theme) followed by .actions (auth +
-    // Settings) clustered far-right via a single margin-left:auto — no
-    // board-name repeat, no centered cluster.
+    // #boardctl (expand/collapse only) followed by .actions (the single
+    // user menu; Share + themes live inside it) clustered far-right via
+    // a single margin-left:auto — no board-name repeat, no centered
+    // cluster.
     // Round 4 item 6: with >3 boards show the first three in creation
     // order plus a dropdown next to the third listing ALL boards with
     // reorder controls (localStorage order; see LS_BOARDORDER).
@@ -533,18 +535,13 @@
     var open = cols.filter(function (c) { return !c.collapsed; });
     var focus = open.length === 1 && cols.length > 1;
     var allFolded = cols.length > 0 && open.length === 0;
-    // Round 4 item 2: right zone order = expand-all/collapse-all, then
-    // theme switcher (background swatches). Language (EN slot) and the v1
-    // importer live in Settings (OSS-57). The board title is NOT repeated
-    // here (rename via double-click on the active board tab).
+    // OSS-169: #boardctl holds expand-all/collapse-all only. Share +
+    // theme swatches moved into the unified user menu (.actions);
+    // Settings auth buttons stay hidden for compat (see paintAuth).
+    // Board title is NOT repeated here (rename via double-click on the
+    // active board tab).
     topbarCtl.innerHTML =
-      (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '') +
-      (state.auth.enabled ? '<button class="ghost compact" data-share title="Visibility + members">Share</button>' : '') +
-      '<span class="swatches" role="group" aria-label="Board background">' +
-      SWATCHES.map(function (s) {
-        return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
-          ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + s.id + '"></i></button>';
-      }).join('') + '</span>';
+      (cols.length ? '<button class="ghost compact" data-foldall>' + (allFolded ? 'Expand all' : 'Collapse all') + '</button>' : '');
     if (!cols.length) {
       boardEl.innerHTML = '<div class="emptyboard"><p>This board has no columns yet.</p><button class="primary" data-newcol>Add your first column</button></div>';
       return;
@@ -2016,9 +2013,10 @@
     startEdit(b, true);
   });
 
-  // Round 4 item 2: the single navbar owns the right-zone controls —
-  // expand-all/collapse-all first, then the theme switcher (background
-  // swatches). Settings (language + import) lives in .actions.
+  // OSS-169: #boardctl owns expand-all/collapse-all only — Share and the
+  // board-background swatches moved into the unified user menu (which
+  // reuses the same openShare / PATCH paths via its own listener below).
+  // The data-share / data-bg branches stay as a harmless fallback.
   // No board title here.
   topbarCtl.addEventListener('click', function (e) {
     var t = e.target;
@@ -2153,10 +2151,171 @@
   }
   function paintAuth() {
     if (!authBtn || !settingsBtn) return;
-    var a = state.auth;
-    authBtn.style.display = a.enabled ? '' : 'none';
-    authBtn.textContent = a.authenticated ? ('Logout' + (a.user && a.user.email ? ' (' + a.user.email + ')' : '')) : 'Login';
+    // OSS-169: the scattered topbar auth/Settings buttons are superseded
+    // by the unified user menu — keep their IDs mounted but hidden so the
+    // legacy listeners below never strand. Visible state paints there.
+    authBtn.style.display = 'none';
+    authBtn.hidden = true;
+    settingsBtn.style.display = 'none';
+    settingsBtn.hidden = true;
+    paintUserMenu();
   }
+  // ---- Unified user menu (OSS-169): one dropdown in .actions ----
+  // Trigger = Dicebear Identicon avatar <img> when signed in, generic
+  // Menu button when anonymous. Items are conditional on auth state +
+  // board selection and reuse the existing openShare / board PATCH /
+  // savePrefs / openSettings / confirm-gated deleteBoard / /api/auth
+  // paths — no backend change, no JS lib. The menu lives inside
+  // #rightzone so desktop + mobile share it. Esc / click-outside closes;
+  // items are native buttons/selects so Tab works.
+  var userMenuBtn = document.getElementById('usermenu-btn');
+  var userMenuPop = document.getElementById('usermenu-pop');
+  var userMenuOpen = false;
+  function userSeed() {
+    var u = (state.auth && state.auth.user) || {};
+    return u.email || u.sub || u.name || 'user';
+  }
+  function avatarURL() {
+    return 'https://api.dicebear.com/9.x/identicon/svg?seed=' + encodeURIComponent(userSeed());
+  }
+  // Letter-tile fallback when the avatar <img> fails (offline / blocked).
+  function wireAvatarFallback(img) {
+    if (!img || img.tagName !== 'IMG') return;
+    function tile() {
+      if (!img.isConnected) return;
+      var s = document.createElement('span');
+      s.className = 'um-tile';
+      s.setAttribute('aria-hidden', 'true');
+      s.textContent = (userSeed().charAt(0) || 'U').toUpperCase();
+      img.replaceWith(s);
+    }
+    img.addEventListener('error', tile);
+    if (img.complete && img.naturalWidth === 0) tile();
+  }
+  function setUserMenu(open) {
+    userMenuOpen = open === undefined ? !userMenuOpen : !!open;
+    if (userMenuBtn) userMenuBtn.setAttribute('aria-expanded', userMenuOpen ? 'true' : 'false');
+    paintUserMenu();
+    if (userMenuBtn && userMenuOpen && userMenuBtn.focus) { try { userMenuBtn.focus(); } catch (e) {} }
+  }
+  // Board-background PATCH shared by the menu swatches (same path the
+  // old #boardctl swatches used: optimistic local + server reconcile).
+  function setBoardBackground(bgId) {
+    var tree = curTree();
+    if (!tree) return;
+    tree.board.background = bgId;
+    saveCache(); render();
+    api('PATCH', '/api/boards/' + tree.board.id, { background: bgId }).then(function (b) {
+      tree.board = b; saveCache(); render();
+    }).catch(function () {});
+  }
+  function paintUserMenu() {
+    if (!userMenuBtn || !userMenuPop) return;
+    var a = state.auth || {};
+    var tree = curTree();
+    // Trigger: unique-per-user identicon when signed in, Menu otherwise.
+    if (a.authenticated) {
+      userMenuBtn.innerHTML = '<img data-avatar src="' + avatarURL() + '" alt="" width="26" height="26">';
+      userMenuBtn.classList.add('is-avatar');
+      var who = (a.user && (a.user.email || a.user.name)) || '';
+      userMenuBtn.setAttribute('aria-label', 'Account menu' + (who ? ' (' + who + ')' : ''));
+      userMenuBtn.title = 'Account menu' + (who ? ' (' + who + ')' : '');
+      wireAvatarFallback(userMenuBtn.querySelector('[data-avatar]'));
+    } else {
+      userMenuBtn.textContent = 'Menu';
+      userMenuBtn.classList.remove('is-avatar');
+      userMenuBtn.setAttribute('aria-label', 'Menu');
+      userMenuBtn.title = 'Menu';
+    }
+    // Rebuilding the pop drops focus inside it — skip the rebuild while
+    // the user is tabbing through it (e.g. a background revalidate).
+    if (!(userMenuOpen && userMenuPop.contains(document.activeElement))) {
+      var prefs = getPrefs();
+      var bg = tree ? normBg(tree.board.background) : '';
+      var themeOpts = SWATCHES.map(function (s) {
+        return '<option value="' + s.id + '"' + (prefs.theme === s.id ? ' selected' : '') + '>' + s.name + '</option>';
+      }).join('');
+      var html = '';
+      if (a.authenticated) {
+        var email = (a.user && (a.user.email || a.user.name)) || 'you';
+        html += '<div class="um-account">Signed in as <b>' + esc(email) + '</b></div><div class="um-sep"></div>';
+      }
+      if (a.enabled && tree) {
+        html += '<button class="um-item" data-um-share role="menuitem" title="Visibility + members">Share</button>';
+      }
+      html += '<div class="um-label" id="um-boardtheme">Board theme</div>';
+      if (tree) {
+        html += '<div class="swatches" role="group" aria-labelledby="um-boardtheme">' + SWATCHES.map(function (s) {
+          return '<button data-bg="' + s.id + '"' + (bg === s.id ? ' class="on"' : '') +
+            ' title="' + s.name + '" aria-label="' + s.name + ' background"><i class="sw sw-' + s.id + '"></i></button>';
+        }).join('') + '</div>';
+      } else {
+        html += '<div class="hint">Open a board to theme it.</div>';
+      }
+      html += '<label class="um-label">Default theme<select data-um-ptheme>' + themeOpts + '</select></label>';
+      html += '<div class="um-sep"></div>';
+      html += '<button class="um-item" data-um-settings role="menuitem">Settings</button>';
+      if (tree) {
+        html += '<button class="um-item um-danger" data-um-delboard role="menuitem">Delete board</button>';
+      } else {
+        html += '<button class="um-item" disabled title="Open a board to delete it.">Delete board</button>' +
+          '<div class="hint">Open a board to delete it.</div>';
+      }
+      html += '<div class="um-sep"></div>';
+      if (a.authenticated) {
+        html += '<button class="um-item" data-um-logout role="menuitem">Logout</button>';
+      } else if (a.enabled) {
+        html += '<button class="um-item" data-um-login role="menuitem">Login</button>';
+      }
+      userMenuPop.innerHTML = html;
+    }
+    if (userMenuOpen) userMenuPop.removeAttribute('hidden');
+    else userMenuPop.setAttribute('hidden', '');
+  }
+  if (userMenuBtn) userMenuBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setUserMenu();
+  });
+  if (userMenuPop) userMenuPop.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t.closest) return;
+    if (t.closest('[data-um-share]')) { setUserMenu(false); openShare(); return; }
+    var sw = t.closest('[data-bg]');
+    if (sw) {
+      setBoardBackground(sw.dataset.bg);
+      var el = userMenuPop.querySelector('[data-bg="' + sw.dataset.bg + '"]');
+      if (el && el.focus) { try { el.focus(); } catch (focusErr) {} }
+      return;
+    }
+    if (t.closest('[data-um-settings]')) { setUserMenu(false); openSettings(); return; }
+    if (t.closest('[data-um-delboard]')) { var id = state.boardId; setUserMenu(false); deleteBoard(id); return; }
+    if (t.closest('[data-um-login]')) { window.location.href = '/api/auth/login'; return; }
+    if (t.closest('[data-um-logout]')) {
+      setUserMenu(false);
+      fetch('/api/auth/logout', { method: 'POST' }).then(function () { refreshAuth().then(revalidate); });
+      return;
+    }
+  });
+  if (userMenuPop) userMenuPop.addEventListener('change', function (e) {
+    var sel = e.target && e.target.closest ? e.target.closest('[data-um-ptheme]') : null;
+    if (!sel) return;
+    var p = getPrefs(); p.theme = sel.value; savePrefs(p, null);
+  });
+  document.addEventListener('click', function (e) {
+    if (!userMenuOpen) return;
+    // A menu action may re-render mid-bubble (board swatch PATCH path),
+    // detaching e.target — that click was inside, never outside.
+    if (e.target && e.target.isConnected === false) return;
+    var wrap = document.getElementById('usermenu');
+    if (wrap && wrap.contains(e.target)) return;
+    setUserMenu(false);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && userMenuOpen) {
+      setUserMenu(false);
+      if (userMenuBtn && userMenuBtn.focus) { try { userMenuBtn.focus(); } catch (escErr) {} }
+    }
+  });
   function openDialog(title, bodyHTML, onMount) {
     closeDialog();
     var ov = document.createElement('div');

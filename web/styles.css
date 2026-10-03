@@ -53,6 +53,53 @@ body {
   border-radius: 8px; padding: 4px 12px; cursor: pointer; font-size: 13.5px;
 }
 #topbar .actions button:hover { color: var(--ink); border-color: var(--muted); }
+/* OSS-169: unified user menu — avatar trigger + dropdown in .actions
+   (inside #rightzone, so desktop + mobile share it). */
+.usermenu { position: relative; flex: 0 0 auto; }
+#usermenu-btn.is-avatar {
+  padding: 1px; line-height: 0; border-radius: 50%;
+}
+#usermenu-btn img[data-avatar] {
+  width: 26px; height: 26px; border-radius: 50%; display: block;
+}
+.um-tile {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--line); color: var(--muted);
+  font-size: 14px; font-weight: 700; line-height: 1;
+}
+.usermenu-pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 80;
+  min-width: 230px; max-width: min(300px, 86vw); max-height: 60vh; overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: var(--shadow);
+  padding: 8px;
+}
+.usermenu-pop[hidden] { display: none; }
+.um-account { font-size: 13px; color: var(--muted); padding: 4px 8px; }
+.um-account b { color: var(--ink); }
+.um-sep { border-top: 1px solid var(--line); margin: 6px 2px; }
+.um-label {
+  display: block; font-size: 11.5px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); padding: 6px 8px 2px;
+}
+.um-label select {
+  display: block; width: 100%; margin-top: 4px;
+  font: inherit; text-transform: none; letter-spacing: normal;
+  color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px;
+}
+.um-item {
+  display: block; width: 100%; text-align: left;
+  border: 1px solid transparent !important; background: transparent !important;
+  color: var(--ink) !important; border-radius: 8px !important;
+  padding: 7px 8px !important; font-size: 13.5px;
+}
+.um-item:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 6%, transparent) !important; }
+.um-item:disabled { opacity: 0.45; cursor: default; }
+.um-item.um-danger { color: #c0392b !important; }
+.usermenu-pop .swatches { padding: 2px 8px 4px; }
+.usermenu-pop .hint { font-size: 12px; color: var(--muted); padding: 0 8px 4px; }
 .brand { font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
 /* OSS-85: mobile hamburger toggles — hidden on desktop. The .rightzone
    wrapper is layout-transparent on desktop (display:contents) so the
