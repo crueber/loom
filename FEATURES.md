@@ -8,7 +8,7 @@ Pending = requested but not yet built on this branch.
 - Boards hold ordered columns; navbar switcher.
 - Columns hold ordered cards; per-column collapse toggle with a quick (~190ms) width-glide animation and a per-user Animations switch in Settings General (default on; honors reduced-motion).
 - Add board / add column from navbar (appends at end).
-- Delete board from navbar (UI confirm modal; removes its columns/cards).
+- Delete board from the user menu (UI confirm modal; removes its columns/cards).
 - Column header ▾ menu (right side): color swatches first, Rename second, separator, Delete last (UI confirm modal; removes its cards); header click toggles collapse; menu hidden on collapsed rails; header ink balanced left/right (12px/6px pads, zero title bleed, flush resize, slim ▾ button).
 - Pending: deep-link boards via URL.
 - Pending: resizable / reorderable columns with drop hints.
@@ -45,7 +45,7 @@ Pending = requested but not yet built on this branch.
 
 - Single navbar: brand, boards, + board, + column.
 - Mobile navbar: hamburger toggles at both topbar edges — left opens the board list, right opens board controls + Settings.
-- Settings dialog holds language (EN placeholder) + v1 import; topbar right zone holds one user menu (Dicebear Identicon avatar when signed in, Menu button when anonymous) with Share/Themes/Settings/Delete/Login-Logout — Share + swatches no longer sit in #boardctl.
+- Settings dialog holds language (EN placeholder) + v1 import; topbar right zone holds one user menu (Dicebear Landscape avatar when signed in, stored seed assigned once per user, Menu button when anonymous) with Share/Themes/Settings/Delete/Login-Logout — Share + swatches no longer sit in #boardctl.
 - Settings General renames the current board (empty/unchanged is a no-op; disabled with a hint when no board is open).
 - Settings opens as a sidebar modal (General/Data/Account/Admin); theme + language persist locally and sync via GET/PUT /api/me/prefs when signed in.
 - Board scrolls horizontally; near-full-width columns under 700px.

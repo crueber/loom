@@ -121,9 +121,6 @@ body {
 #boards button.add-inline {
   border-style: dashed; font-weight: 700; padding: 4px 9px; line-height: 1;
 }
-/* OSS-68: board delete affordance next to +; confirm-gated, red hover. */
-#boards button.del-board { border-style: dashed; padding: 4px 9px; line-height: 1; }
-#boards button.del-board:hover { color: #c0392b; border-color: #c0392b; }
 /* Round 4 item 6: board overflow — dropdown next to the third tab when
    >3 boards exist, listing ALL boards with reorder controls. */
 .boardmenu-wrap { position: relative; flex: 0 0 auto; }

@@ -513,12 +513,7 @@
               '<button class="mv" data-boarddown="' + b.id + '" title="Move down" aria-label="Move ' + esc(b.title) + ' down">↓</button></div>';
           }).join('') + '</div>' : '') + '</span>'
         : '') +
-      '<button class="add-inline" data-newboard title="New board">+ </button>' +
-      // OSS-68: delete affordance for the current board, next to +.
-      // Confirm-gated in deleteBoard(); hidden with no selection.
-      (state.boardId
-        ? '<button class="del-board" data-delboard="' + state.boardId + '" title="Delete this board" aria-label="Delete this board">×</button>'
-        : '');
+      '<button class="add-inline" data-newboard title="New board">+ </button>';
     var tree = curTree();
     if (!tree) {
       document.body.dataset.bg = getPrefs().theme || BG_DEFAULT;
@@ -1986,10 +1981,6 @@
   boardsEl.addEventListener('click', function (e) {
     var nb = e.target.closest && e.target.closest('[data-newboard]');
     if (nb) { openCreator('board'); return; }
-    // OSS-68: confirm-gated board delete (cancel = no state change,
-    // no network DELETE).
-    var del = e.target.closest && e.target.closest('[data-delboard]');
-    if (del) { e.stopPropagation(); deleteBoard(del.dataset.delboard); return; }
     // Round 4 item 6: overflow menu toggle + reorder controls.
     var menu = e.target.closest && e.target.closest('[data-boardmenu]');
     if (menu) { boardMenuOpen = !boardMenuOpen; render(); return; }
@@ -2160,8 +2151,8 @@
     settingsBtn.hidden = true;
     paintUserMenu();
   }
-  // ---- Unified user menu (OSS-169): one dropdown in .actions ----
-  // Trigger = Dicebear Identicon avatar <img> when signed in, generic
+  // ---- Unified user menu (OSS-169, OSS-173): one dropdown in .actions ----
+  // Trigger = Dicebear Landscape avatar <img> when signed in, generic
   // Menu button when anonymous. Items are conditional on auth state +
   // board selection and reuse the existing openShare / board PATCH /
   // savePrefs / openSettings / confirm-gated deleteBoard / /api/auth
@@ -2171,12 +2162,17 @@
   var userMenuBtn = document.getElementById('usermenu-btn');
   var userMenuPop = document.getElementById('usermenu-pop');
   var userMenuOpen = false;
+  // OSS-173: Landscape style (DiceBear 10.x Scenes, CC0 1.0), one URL
+  // base for every avatar. The seed is stored per user (avatar_seed via
+  // /api/auth/status) and assigned once server-side — never regenerated
+  // per visit.
+  var AVATAR_BASE = 'https://api.dicebear.com/10.x/landscape/svg';
   function userSeed() {
     var u = (state.auth && state.auth.user) || {};
-    return u.email || u.sub || u.name || 'user';
+    return u.avatar_seed || u.email || u.sub || u.name || 'user';
   }
   function avatarURL() {
-    return 'https://api.dicebear.com/9.x/identicon/svg?seed=' + encodeURIComponent(userSeed());
+    return AVATAR_BASE + '?seed=' + encodeURIComponent(userSeed());
   }
   // Letter-tile fallback when the avatar <img> fails (offline / blocked).
   function wireAvatarFallback(img) {
@@ -2232,7 +2228,7 @@
     if (!userMenuBtn || !userMenuPop) return;
     var a = state.auth || {};
     var tree = curTree();
-    // Trigger: unique-per-user identicon when signed in, Menu otherwise.
+    // Trigger: unique-per-user Landscape avatar when signed in, Menu otherwise.
     if (a.authenticated) {
       userMenuBtn.innerHTML = '<img data-avatar src="' + avatarURL() + '" alt="" width="26" height="26">';
       userMenuBtn.classList.add('is-avatar');
