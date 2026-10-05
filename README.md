@@ -71,6 +71,14 @@ docker build -t loom .
 docker run -p 8080:8080 -v loom-data:/data loom
 ```
 
+Or with Docker Compose (a minimal `compose.yaml` ships in the repo —
+same image, same `loom-data` volume on port 8080):
+
+```sh
+docker compose up --build -d
+docker compose down
+```
+
 Open [http://localhost:8080](http://localhost:8080). Your database lives
 in the `loom-data` volume (`/data/loom.db` inside the container).
 

@@ -1,0 +1,13 @@
+# Minimal Compose setup: builds the local Dockerfile, persists the
+# SQLite DB in a named volume, exposes the app on :8080.
+services:
+  loom:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - loom-data:/data
+    restart: unless-stopped
+
+volumes:
+  loom-data:
