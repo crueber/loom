@@ -71,11 +71,17 @@ docker build -t loom .
 docker run -p 8080:8080 -v loom-data:/data loom
 ```
 
-Or with Docker Compose (a minimal `compose.yaml` ships in the repo —
-same image, same `loom-data` volume on port 8080):
+Or with Docker Compose — `compose.yaml` builds locally, while
+`compose.ghcr.yaml` uses the prebuilt image (same `loom-data`
+volume on port 8080 either way):
 
 ```sh
+# Local build:
 docker compose up --build -d
+
+# Prebuilt GHCR image, no build:
+docker compose -f compose.ghcr.yaml up -d
+
 docker compose down
 ```
 
