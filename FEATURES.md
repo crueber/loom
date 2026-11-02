@@ -29,7 +29,7 @@ Pending = requested but not yet built on this branch.
 - Empty notes render nothing (no "+ add text" placeholder); toolbar Add-note focuses a fresh editable note.
 - Markdown renders; re-edit shows raw text.
 - Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
-- Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing).
+- Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing), except empty cards (no entries) which delete immediately; a checked todo counts as content even with empty text.
 - Shared confirm modal (confirm + text-input modes) replaces native confirm/prompt/alert for deletes, board rename, and errors.
 - Compact add: + card per column; + link/note/image per card; Add-note always appends a new note at the card bottom and focuses it (never an existing note); add clicks update only that card, never a full-board rebuild, so icon-less link favicons never blink.
 - Pending: Enter-save + modifier-newline while editing.
@@ -38,7 +38,7 @@ Pending = requested but not yet built on this branch.
 - Block drop zones cover the whole block: hovering any part shows the before/after line (handle stays the drag source).
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller, so navbar scrolling never clips it.
-- Todo-list blocks: one block = one checklist (items array); Enter adds items in-list and focuses the new row ready to type, Up/Down moves between todo rows in the card (caret at end), Escape exits, checkbox toggles via card PATCH; background sync never steals todo focus, Todo… placeholder never edits as text; render blurs-before-rebuild so Enter never strands focus (re-entrancy guard); moving between todos or Escape-cancelling a non-empty row touches no favicon <img> (in-place restore, no board rebuild).
+- Todo-list blocks: one block = one checklist (items array); Enter adds items in-list and focuses the new row ready to type, Up/Down moves between todo rows in the card (caret at end), Escape exits, checkbox toggles via card PATCH; toggling an empty-text row removes the row instead of checking it; background sync never steals todo focus, Todo… placeholder never edits as text; render blurs-before-rebuild so Enter never strands focus (re-entrancy guard); moving between todos or Escape-cancelling a non-empty row touches no favicon <img> (in-place restore, no board rebuild).
 - Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; full `render()` stays for column/board structural changes only.
 - Pending: reading mode.
 

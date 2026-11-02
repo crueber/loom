@@ -661,6 +661,27 @@
     return null;
   }
 
+  // A card with no visible entries (no blocks, or only blank notes,
+  // blank links/images, and todos with no text) deletes immediately
+  // with no confirm — there is nothing to lose.
+  function cardIsEmpty(card) {
+    if (!card || !Array.isArray(card.blocks) || !card.blocks.length) return true;
+    return card.blocks.every(function (b) {
+      if (!b) return true;
+      if (b.type === 'note') return !(b.content && String(b.content).trim());
+      if (b.type === 'link') return !(b.url && String(b.url).trim());
+      if (b.type === 'image') return !((b.thumb_url && String(b.thumb_url).trim()) || (b.image_url && String(b.image_url).trim()));
+      if (b.type === 'todo') {
+        // A checked box is content worth confirming even with no text.
+        return todoItemsOf(b).every(function (it) {
+          if (it && it.checked) return false;
+          return !(it && it.content && String(it.content).trim());
+        });
+      }
+      return !(b.content && String(b.content).trim());
+    });
+  }
+
   // Optimistic PATCH with background sync; server is source of truth.
   // Returns the sync promise so dependent writes (block cross-card
   // moves) can chain in server-safe order.
@@ -1764,15 +1785,20 @@
     if (!card) return;
     var act = bar.dataset.act;
     if (act === 'del') {
-      // OSS-108: card delete is confirm-gated like board/column — a
-      // single click must never delete. Cancel changes nothing.
-      confirmDialog({ title: 'Delete card?', body: '<p>Delete this card and its blocks? This cannot be undone.</p>', confirmLabel: 'Delete card', danger: true }).then(function (ok) {
-        if (!ok) return;
+      // Card delete is confirm-gated like board/column — a single click
+      // must never delete content. Cancel changes nothing. Empty cards
+      // (no visible entries) delete immediately with no confirm.
+      var doDeleteCard = function () {
         Object.keys(curTree().cards).forEach(function (k) {
           curTree().cards[k] = curTree().cards[k].filter(function (c) { return c.id !== card.id; });
         });
         saveCache(); render();
         api('DELETE', '/api/cards/' + card.id).then(revalidate).catch(function () { revalidate(); });
+      };
+      if (cardIsEmpty(card)) { doDeleteCard(); return; }
+      confirmDialog({ title: 'Delete card?', body: '<p>Delete this card and its blocks? This cannot be undone.</p>', confirmLabel: 'Delete card', danger: true }).then(function (ok) {
+        if (!ok) return;
+        doDeleteCard();
       });
     } else if (act === 'addlink') {
       askInCard(cardEl, 'Link URL', 'Paste link URL…').then(function (url) {
@@ -1844,6 +1870,16 @@
     if (!card) return;
     var loc = todoLoc(card, t.dataset.todolist, t.dataset.todotoggle);
     if (!loc || !loc.item || !!loc.item.checked === t.checked) return;
+    // An empty-text row has nothing to check off: remove the row instead
+    // of leaving a checked-but-empty item behind.
+    if (!(loc.item.content && String(loc.item.content).trim())) {
+      try { t.checked = !!loc.item.checked; } catch (e) {}
+      removeTodoItem(card, loc);
+      saveCache();
+      refreshCardDOM(card.id);
+      syncCard(card);
+      return;
+    }
     loc.item.checked = t.checked;
     syncCard(card);
   });
