@@ -52,7 +52,7 @@ weekend plans.*
 
 - **Lightweight** — single Go binary, stdlib `net/http`, SQLite.
 - **Minimal footprint** — one Docker image, DB in a `/data` volume.
-- **Small client** — initial JS ≤50KB gzipped (currently **33.8KB**;
+- **Small client** — initial JS ≤50KB gzipped (currently **38.3KB**;
   re-check with `sh scripts/budget-check.sh`).
 - **Instant load** — cache/seed → first paint target <100ms
   (instrumented as `window.__LOOM_FIRST_PAINT_MS`; measure in a live

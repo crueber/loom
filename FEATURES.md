@@ -39,7 +39,7 @@ Pending = requested but not yet built on this branch.
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller, so navbar scrolling never clips it.
 - Todo-list blocks: one block = one checklist (items array); Enter adds items in-list and focuses the new row ready to type, Up/Down moves between todo rows in the card (caret at end), Escape exits, checkbox toggles via card PATCH; toggling an empty-text row removes the row instead of checking it; background sync never steals todo focus, Todo… placeholder never edits as text; render blurs-before-rebuild so Enter never strands focus (re-entrancy guard); moving between todos or Escape-cancelling a non-empty row touches no favicon <img> (in-place restore, no board rebuild).
-- Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; full `render()` stays for column/board structural changes only.
+- Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; card/column/block deletes also touch only their own DOM (count badge updated, no success revalidate-render), so deletes never flash the board; full `render()` stays for board structural changes and error recovery only.
 - Pending: reading mode.
 
 ## Navigation & chrome
@@ -61,8 +61,9 @@ Pending = requested but not yet built on this branch.
 - v1 import dedupes links on normalized URL (first wins, order kept).
 - Cache-first instant load: localStorage paint, bootstrap seed, background revalidate.
 - Offline app-shell via service worker; lazy images.
+- Shell assets carry a server-stamped content hash (`?v=`), so a fresh deploy can never serve stale JS/CSS; the page itself is network-first (offline falls back to cache).
 - API reads are network-first (SW cache is offline fallback only) so first reload paints server truth.
-- JS budget ≤50KB gzip (now ~3.5KB); first-paint probe `__LOOM_FIRST_PAINT_MS`.
+- JS budget ≤50KB gzip (now ~38.3KB); first-paint probe `__LOOM_FIRST_PAINT_MS`.
 
 ## Access & auth
 

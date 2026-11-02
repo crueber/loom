@@ -304,15 +304,16 @@
     var n = (tree && tree.cards && tree.cards[id] || []).length;
     confirmDialog({ title: 'Delete column?', body: '<p>Delete column "' + esc(title) + '"? Its ' + n + (n === 1 ? ' card goes' : ' cards go') + ' too. This cannot be undone.</p>', confirmLabel: 'Delete column', danger: true }).then(function (ok) {
       if (!ok) return;
-      api('DELETE', '/api/columns/' + id).then(function () {
-        var tree2 = curTree();
-        if (tree2) {
-          tree2.columns = (tree2.columns || []).filter(function (c) { return c.id !== id; });
-          if (tree2.cards) delete tree2.cards[id];
-        }
-        saveCache(); render();
-        revalidate();
-      }).catch(function () { showError('Delete failed', 'Nothing was removed.'); revalidate(); });
+      var tree2 = curTree();
+      if (tree2) {
+        tree2.columns = (tree2.columns || []).filter(function (c) { return c.id !== id; });
+        if (tree2.cards) delete tree2.cards[id];
+      }
+      saveCache();
+      // Scoped removal (empty board falls back to render); no success
+      // revalidate-render, so surviving columns' favicons never blink.
+      if (!removeColumnDOM(id)) render();
+      api('DELETE', '/api/columns/' + id).catch(function () { showError('Delete failed', 'Nothing was removed.'); revalidate(); });
     });
   }
   var boardMenuOpen = false;
@@ -643,6 +644,28 @@
       rendering = false;
     }
     return true;
+  }
+
+  // Delete paths update only the affected DOM (no full render()), so
+  // other cards' link favicon <img> nodes survive — a board-wide rebuild
+  // makes icon-less links flash while their fallbacks resolve.
+  function removeCardDOM(cardId) {
+    var el = cardId ? boardEl.querySelector('[data-card="' + cardId + '"]') : null;
+    if (!el) return false;
+    var sec = el.closest && el.closest('section[data-col]');
+    el.remove();
+    if (sec) {
+      var left = sec.querySelectorAll('[data-card]').length;
+      var badge = sec.querySelector('.colcount');
+      if (badge) badge.textContent = String(left);
+    }
+    return true;
+  }
+  function removeColumnDOM(colId) {
+    var sec = colId ? boardEl.querySelector('section[data-col="' + colId + '"]') : null;
+    if (!sec) return false;
+    sec.remove();
+    return boardEl.querySelectorAll('section[data-col]').length > 0;
   }
 
   function findCard(id) {
@@ -1719,7 +1742,11 @@
         var locM = todoLoc(cardM, rmt.dataset.todolist, rmt.dataset.rmtodo);
         if (locM && locM.item) {
           removeTodoItem(cardM, locM);
-          syncCard(cardM); render();
+          // Card-scoped refresh only (commitTodo pattern) — a full
+          // render would blink every link favicon on the board.
+          saveCache();
+          refreshCardDOM(cardM.id);
+          syncCard(cardM);
         }
       }
       return;
@@ -1733,7 +1760,11 @@
       if (cardR) {
         cardR.blocks = cardR.blocks.filter(function (x) { return (x.id || '') !== (rm.dataset.rmblock || ''); });
         cardR.blocks.forEach(function (b, i) { b.position = i; });
-        syncCard(cardR); render();
+        // Card-scoped refresh only — a full render would blink every
+        // link favicon on the board.
+        saveCache();
+        refreshCardDOM(cardR.id);
+        syncCard(cardR);
       }
       return;
     }
@@ -1792,8 +1823,12 @@
         Object.keys(curTree().cards).forEach(function (k) {
           curTree().cards[k] = curTree().cards[k].filter(function (c) { return c.id !== card.id; });
         });
-        saveCache(); render();
-        api('DELETE', '/api/cards/' + card.id).then(revalidate).catch(function () { revalidate(); });
+        saveCache();
+        if (!removeCardDOM(card.id)) render();
+        // Optimistic state stands on success; failure revalidates to
+        // restore the card. No success render — other cards' favicons
+        // must not blink for one card's removal.
+        api('DELETE', '/api/cards/' + card.id).catch(function () { revalidate(); });
       };
       if (cardIsEmpty(card)) { doDeleteCard(); return; }
       confirmDialog({ title: 'Delete card?', body: '<p>Delete this card and its blocks? This cannot be undone.</p>', confirmLabel: 'Delete card', danger: true }).then(function (ok) {

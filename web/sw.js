@@ -1,5 +1,5 @@
 /* Loom rebuild app shell cache. Versioned; old caches purged on activate. */
-const CACHE = 'loom-shell-v3';
+const CACHE = 'loom-shell-v4';
 const SHELL = ['/', '/styles.css', '/app.js', '/manifest.json'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -35,8 +35,29 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // Shell: stale-while-revalidate so deploys self-propagate without an
-  // SW byte-change gate. Images: cache-first with LRU cap (below).
+  // Navigations: network-first so a deploy's versioned-asset page is
+  // served on the very first load after it ships — a cached page could
+  // otherwise pin stale unversioned refs for one more load. Offline
+  // still falls back to the last cached page.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        try {
+          const res = await fetch(e.request);
+          if (res.ok) cache.put(e.request, res.clone());
+          return res;
+        } catch (err) {
+          const cached = await cache.match(e.request);
+          if (cached) return cached;
+          throw err;
+        }
+      })
+    );
+    return;
+  }
+  // Shell: stale-while-revalidate. Deploy URLs carry ?v=<bytes hash>,
+  // so each deploy is a cache miss that fills from network — staleness
+  // is impossible while revalidations stay off the critical path.
   if (SHELL.includes(url.pathname)) {
     e.respondWith(
       caches.open(CACHE).then(async (cache) => {
