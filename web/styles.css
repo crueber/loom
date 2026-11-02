@@ -461,16 +461,21 @@ body[data-animations="off"] .column > h2 .colcount {
 .todo:hover .rmblock, .todo:focus-within .rmblock { opacity: 1; }
 /* Item 7 + OSS-184: remove affordance on image/link/text blocks. */
 .block-link, .block-img, .block-note { position: relative; }
-.rmblock {
+.rmblock, .editblock {
   position: absolute; top: 2px; right: 2px;
   width: 22px; height: 22px; line-height: 1;
   border: 1px solid var(--line); background: var(--card); color: var(--muted);
   border-radius: 50%; cursor: pointer; font-size: 14px; padding: 0;
   opacity: 0;
 }
+.editblock { right: 28px; }
+.editblock svg { vertical-align: -2px; }
 .block-link:hover .rmblock, .block-img:hover .rmblock, .block-note:hover .rmblock,
-.block-link:focus-within .rmblock, .block-img:focus-within .rmblock, .block-note:focus-within .rmblock { opacity: 1; }
+.block-link:focus-within .rmblock, .block-img:focus-within .rmblock, .block-note:focus-within .rmblock,
+.block-link:hover .editblock, .block-link:focus-within .editblock { opacity: 1; }
 .rmblock:hover { color: #c0392b; border-color: #c0392b; }
+.editblock:hover { color: var(--accent); border-color: var(--accent); }
+.linktitle[contenteditable="true"] { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; cursor: text; }
 .md-h1 { display: block; font-size: 19px; font-weight: 700; margin: 2px 0 8px; letter-spacing: -0.2px; }
 .md-h2 { display: block; font-size: 16.5px; font-weight: 600; margin: 2px 0 8px; }
 .md-h3 { display: block; font-size: 14.5px; font-weight: 600; margin: 2px 0 8px; color: var(--muted, #666); text-transform: uppercase; letter-spacing: 0.3px; }

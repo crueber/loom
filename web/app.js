@@ -381,9 +381,11 @@
       var h = host(b.url);
       var letter = esc((h.charAt(0) || '?').toUpperCase());
       // Item 7: small remove affordance on link blocks, persisted via card PATCH.
+      // Link titles edit via the pencil (title span becomes editable).
       return '<div class="block block-link">' + bhandleHTML(cardId, b.id) + '<a class="link" href="' + esc(b.url) + '">' +
         (fav ? '<img src="' + fav + '" alt="" loading="lazy" width="22" height="22" data-letter="' + letter + '">' : '') +
-        '<span><span class="t">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
+        '<span><span class="t linktitle" data-linktitle="' + esc(b.id || '') + '">' + esc(b.title || b.url) + '</span><br><span class="u">' + esc(host(b.url)) + '</span></span></a>' +
+        '<button class="editblock" data-editlink="' + esc(b.id || '') + '" title="Edit link title" aria-label="Edit link title">' + ICONS.note + '</button>' +
         '<button class="rmblock" data-rmblock="' + esc(b.id || '') + '" title="Remove link" aria-label="Remove link">&times;</button></div>';
     }
     if (b.type === 'image' && (b.thumb_url || b.image_url)) {
@@ -791,6 +793,31 @@
       if ((card.blocks[i].id || '') === (id || '')) return card.blocks[i];
     }
     return null;
+  }
+
+  function editLinkTitle(titleEl, blk) {
+    if (titleEl) {
+      titleEl.textContent = (blk && blk.title) || (blk && blk.url) || '';
+    }
+    startEdit(titleEl, true);
+  }
+
+  // Link title commit: single-line title only (the domain line is never
+  // editable). Empty text falls back to the URL display. Card-scoped
+  // refresh like commitNote — never a full render (favicon blink).
+  function commitLinkTitle(el) {
+    var cardEl = el.closest && el.closest('[data-card]');
+    if (!cardEl) return;
+    var card = findCard(cardEl.dataset.card);
+    if (!card) return;
+    var text = (el.innerText || '').replace(/\s+/g, ' ').trim();
+    var blk = blockById(card, el.dataset.linktitle);
+    if (!blk || blk.type !== 'link') { refreshCardDOM(card.id); return; }
+    if ((blk.title || '') === text) { refreshCardDOM(card.id); return; }
+    blk.title = text;
+    saveCache();
+    refreshCardDOM(card.id);
+    syncCard(card);
   }
 
   function commitNote(el) {
@@ -1751,6 +1778,20 @@
       }
       return;
     }
+    // Link title edit (pencil): the title span becomes editable;
+    // blur/Enter commits via commitLinkTitle (card PATCH), Escape
+    // restores. The domain line is never editable.
+    var elb = t.closest && t.closest('[data-editlink]');
+    if (elb) {
+      var cardElL = elb.closest && elb.closest('[data-card]');
+      var cardL = cardElL && findCard(cardElL.dataset.card);
+      if (cardL) {
+        var blkL = blockById(cardL, elb.dataset.editlink);
+        var titleEl = cardElL.querySelector('[data-linktitle="' + elb.dataset.editlink + '"]');
+        if (blkL && titleEl) editLinkTitle(titleEl, blkL);
+      }
+      return;
+    }
     // Item 7 + OSS-184: remove an image/link/text block via its ×
     // affordance (card PATCH). Reindex positions so they stay contiguous.
     var rm = t.closest && t.closest('[data-rmblock]');
@@ -2047,6 +2088,7 @@
       return;
     }
     if (t.classList && t.classList.contains('note')) commitNote(t);
+    if (t.classList && t.classList.contains('linktitle')) commitLinkTitle(t);
     // Todo rows commit via commitTodo; Escape sets a cancel flag in the
     // keydown handler so uncommitted keystrokes are discarded instead.
     if (t.classList && t.classList.contains('todo-text')) {
@@ -2164,9 +2206,13 @@
       e.preventDefault();
       var escCardEl = t.closest && t.closest('[data-card]');
       var escCardId = escCardEl && escCardEl.dataset.card;
-      var escIsNote = !!(t.classList && t.classList.contains('note'));
+      // Notes and link titles restore card-scoped (their focusout commit
+      // already refreshed only that card); other inline titles keep the
+      // full render. The explicit refresh below only fires when the
+      // commit left the node connected (e.g. missing block).
+      var escIsScoped = !!(t.classList && (t.classList.contains('note') || t.classList.contains('linktitle')));
       t.blur();
-      if (escIsNote) { if (escCardId && t.isConnected) refreshCardDOM(escCardId); }
+      if (escIsScoped) { if (escCardId && t.isConnected) refreshCardDOM(escCardId); }
       else render();
     }
     else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {

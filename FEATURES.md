@@ -22,7 +22,7 @@ Pending = requested but not yet built on this branch.
 ## Cards & blocks
 
 - Cards hold ordered blocks: link, note (markdown), image.
-- Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace).
+- Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace); the title line edits via a hover pencil (card PATCH, card-scoped refresh), the domain line is display-only.
 - Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits; text blocks carry the same hover × remove affordance as link/image blocks (card PATCH, positions reindexed).
