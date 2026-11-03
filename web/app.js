@@ -49,8 +49,9 @@
     });
   }
   // Minimal markdown: "# H1", "## H2", "### H3", "**bold**", "*italic*", "`code`",
-  // "[text](url)", "- list". No deps. Headings/lists are line-based;
-  // inline marks apply within each line.
+  // "[text](url)", "- or * unordered lists", "1. or 1) ordered lists".
+  // No deps. Headings/lists are line-based; inline marks apply within
+  // each line.
   function inlineFmt(h) {
     h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
     h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>');
@@ -61,31 +62,46 @@
   function md(s) {
     var lines = esc(s == null ? '' : s).split('\n');
     var out = [];
-    var inList = false;
+    // Currently open list kind: null, 'ul', or 'ol'. Switching kinds
+    // closes the old list first so "- a / 1. b" yields <ul> then <ol>.
+    var inList = null;
+    function closeList() {
+      if (inList) { out.push(inList === 'ol' ? '</ol>' : '</ul>'); inList = null; }
+    }
+    function openList(kind) {
+      if (inList === kind) return;
+      closeList();
+      out.push(kind === 'ol' ? '<ol class="md-list">' : '<ul class="md-list">');
+      inList = kind;
+    }
     lines.forEach(function (line) {
       var m3 = line.match(/^###\s+(.*)/);
       var m2 = line.match(/^##\s+(.*)/);
       var m1 = line.match(/^#\s+(.*)/);
-      var ml = line.match(/^-\s+(.*)/);
+      var ml = line.match(/^[-*]\s+(.*)/);
+      var mo = line.match(/^\d+[.)]\s+(.*)/);
       if (m3) {
-        if (inList) { out.push('</ul>'); inList = false; }
+        closeList();
         out.push('<h3 class="md-h3">' + inlineFmt(m3[1]) + '</h3>');
       } else if (m2) {
-        if (inList) { out.push('</ul>'); inList = false; }
+        closeList();
         out.push('<h2 class="md-h2">' + inlineFmt(m2[1]) + '</h2>');
       } else if (m1) {
-        if (inList) { out.push('</ul>'); inList = false; }
+        closeList();
         out.push('<h1 class="md-h1">' + inlineFmt(m1[1]) + '</h1>');
       } else if (ml) {
-        if (!inList) { out.push('<ul class="md-list">'); inList = true; }
+        openList('ul');
         out.push('<li>' + inlineFmt(ml[1]) + '</li>');
+      } else if (mo) {
+        openList('ol');
+        out.push('<li>' + inlineFmt(mo[1]) + '</li>');
       } else {
-        if (inList) { out.push('</ul>'); inList = false; }
+        closeList();
         if (/^\s*$/.test(line)) out.push('');
         else out.push(inlineFmt(line) + '<br>');
       }
     });
-    if (inList) out.push('</ul>');
+    closeList();
     var html = out.join('');
     return html.replace(/(<br>)+$/g, '').replace(/^(<br>)+/g, '') || '';
   }

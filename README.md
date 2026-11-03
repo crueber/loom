@@ -31,9 +31,10 @@ weekend plans.*
 - **Boards, columns, cards** — switch boards from the navbar; collapse
   columns into slim rails when you need focus.
 - **Four block types per card** — `link` lists with auto-fetched site
-  icons, `note` blocks with markdown (`#`/`##`/`###` headers, `**bold**`,
-  `*italic*`, `` `code` ``), `todo` checklists (one block = one list,
-  Enter adds the next item), and `image` blocks via upload or URL.
+  icons, `note` blocks with markdown (`#`/`##`/`###` headers, `-`/`*` and
+  `1.`/`1)` lists, `**bold**`, `*italic*`, `` `code` ``), `todo` checklists
+  (one block = one list, Enter adds the next item), and `image` blocks via
+  upload or URL.
 - **Drag and drop** — cards within and across columns, blocks via their
   handle, columns by their header; drop a card onto the navbar board
   strip to copy or move it to another board.

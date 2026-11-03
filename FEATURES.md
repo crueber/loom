@@ -28,7 +28,7 @@ Pending = requested but not yet built on this branch.
 - Inline note editing in place; blur commits; text blocks carry the same hover × remove affordance as link/image blocks (card PATCH, positions reindexed).
 - Empty notes render nothing (no "+ add text" placeholder); toolbar Add-note focuses a fresh editable note.
 - Markdown renders; re-edit shows raw text.
-- Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text).
+- Markdown note headers: `#`/`##`/`###` render as three distinct sizes (h4+ stays plain text); `-`/`*` unordered and `1.`/`1)` ordered lists render as `<ul>`/`<ol>`.
 - Card toolbar appears on hover/focus; card delete asks via the shared confirm modal (Esc/Cancel deletes nothing), except empty cards (no entries) which delete immediately; a checked todo counts as content even with empty text.
 - Shared confirm modal (confirm + text-input modes) replaces native confirm/prompt/alert for deletes, board rename, and errors.
 - Compact add: + card per column; + link/note/image per card; Add-note always appends a new note at the card bottom and focuses it (never an existing note); add clicks update only that card, never a full-board rebuild, so icon-less link favicons never blink.
