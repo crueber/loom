@@ -682,7 +682,6 @@
       return '<section class="column' + (col.collapsed ? ' collapsed' : '') + (focus && !col.collapsed ? ' reading' : '') + '" data-col="' + col.id + '" data-coldrag="' + col.id + '"' + ' style="' + style + '">' +
         '<h2 draggable="true" data-colhead="' + col.id + '" title="' + (col.collapsed ? 'Expand' : 'Collapse') + '">' +
         '<span class="coltitle" data-coltitle="' + col.id + '" title="' + esc(col.title) + '">' + esc(col.title) + '</span>' +
-        '<span class="colcount">' + (tree.cards[col.id] || []).length + '</span>' +
         // OSS-129: single ▾ dropdown trigger on the right. Clicking
         // anywhere else on the header toggles collapse. Hidden on
         // collapsed rails (CSS) to keep rails clean.
@@ -755,13 +754,7 @@
   function removeCardDOM(cardId) {
     var el = cardId ? boardEl.querySelector('[data-card="' + cardId + '"]') : null;
     if (!el) return false;
-    var sec = el.closest && el.closest('section[data-col]');
     el.remove();
-    if (sec) {
-      var left = sec.querySelectorAll('[data-card]').length;
-      var badge = sec.querySelector('.colcount');
-      if (badge) badge.textContent = String(left);
-    }
     return true;
   }
   function removeColumnDOM(colId) {
@@ -1838,7 +1831,7 @@
     }
     // OSS-88: clicking empty rail space on a collapsed column expands it.
     // The ▾ trigger keeps its own behavior above; any other click inside
-    // a collapsed section (count badge, header padding, rail) expands.
+    // a collapsed section (header padding, rail) expands.
     var collapsedSec = t.closest && t.closest('section.column.collapsed');
     if (collapsedSec) {
       foldColumn(collapsedSec.dataset.col, false);

@@ -14,7 +14,7 @@ Pending = requested but not yet built on this branch.
 - Pending: resizable / reorderable columns with drop hints.
 - Columns resize by dragging the header handle (widths persist locally); double-click the handle resets to the standard width.
 - Pending: collapsed columns as narrow rails.
-- Collapsed rails: count sits just under the vertical name; name hover shrinks to text; clicking empty rail space expands the column; rail background reuses the header color wash; adjacent rails share one theme-aware hairline divider (no bright seam on dark themes).
+- Collapsed rails: name hover shrinks to text; clicking empty rail space expands the column; rail background reuses the header color wash; adjacent rails share one theme-aware hairline divider (no bright seam on dark themes).
 - Board backgrounds + swatch picker; new boards inherit the current board's background (server persists POST background, unknown ids fall back to paper).
 - Pending: column themes.
 - Navbar tabs fit dynamically: however many boards fit beside the right zone (breathing room preserved) show as tabs with the active board always visible; the rest collapse into the ▾ overflow menu.
@@ -23,7 +23,7 @@ Pending = requested but not yet built on this branch.
 
 - Cards hold ordered blocks: link, note (markdown), image.
 - Link blocks show DDG icon + host with letter-tile fallback; card links open in same tab (workspace); the title line edits via a hover pencil (card PATCH, card-scoped refresh), the domain line is display-only.
-- Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL).
+- Link icons served locally via `GET /icons/{host}.ico` (server-cached DDG ip3, 7-day TTL); hosts with no upstream icon get a generated letter tile (HTTP 200, never a 404, so consoles stay clean).
 - Image blocks via upload (jpeg/png/gif, 12MB) or URL.
 - Inline note editing in place; blur commits; text blocks carry the same hover × remove affordance as link/image blocks (card PATCH, positions reindexed).
 - Empty notes render nothing (no "+ add text" placeholder); toolbar Add-note focuses a fresh editable note.
@@ -39,7 +39,7 @@ Pending = requested but not yet built on this branch.
 - Open columns hug content (no tall empty slab); lane background below + add card pans the strip; column reorder starts from the header only so pan is never hijacked.
 - Board overflow menu sits outside the tab scroller (never clipped), listing the boards hidden by the dynamic tab fit with reorder controls.
 - Todo-list blocks: one block = one checklist (items array); Enter adds items in-list and focuses the new row ready to type, Up/Down moves between todo rows in the card (caret at end), Escape exits, checkbox toggles via card PATCH; toggling an empty-text row removes the row instead of checking it; background sync never steals todo focus, Todo… placeholder never edits as text; render blurs-before-rebuild so Enter never strands focus (re-entrancy guard); moving between todos or Escape-cancelling a non-empty row touches no favicon <img> (in-place restore, no board rebuild).
-- Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; card/column/block deletes also touch only their own DOM (count badge updated, no success revalidate-render), so deletes never flash the board; full `render()` stays for board structural changes and error recovery only.
+- Single-card text edits (note commit changed/unchanged, todo commit/Enter-chain/empty-delete, checkbox toggle, background card sync) refresh only that card via `refreshCardDOM` — other cards' link favicon nodes survive, so icon-less links never blink; card/column/block deletes also touch only their own DOM (no success revalidate-render), so deletes never flash the board; full `render()` stays for board structural changes and error recovery only.
 - Pending: reading mode.
 
 ## Navigation & chrome

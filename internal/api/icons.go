@@ -80,6 +80,26 @@ func normalizeIconHost(raw string) (string, bool) {
 	return h, true
 }
 
+// letterTile renders a deterministic fallback avatar for hosts with no
+// upstream icon, so the browser never sees a 404 (failed <img> requests
+// log to the console and there is nothing the user can fix) and the tile
+// paints directly with no error-swap flash.
+func letterTile(host string) []byte {
+	letter := "?"
+	for _, r := range host {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			letter = strings.ToUpper(string(r))
+			break
+		}
+	}
+	var sum uint32
+	for i := 0; i < len(host); i++ {
+		sum = sum*31 + uint32(host[i])
+	}
+	svg := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" rx="7" fill="hsl(%d,38%%,44%%)"/><text x="16" y="22" font-family="system-ui,sans-serif" font-size="17" font-weight="600" fill="#fff" text-anchor="middle">%s</text></svg>`, sum%360, letter)
+	return []byte(svg)
+}
+
 // serveIcon serves /icons/{host}.ico with 7-day server cache.
 func (h *Handler) serveIcon(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -110,13 +130,19 @@ func (h *Handler) serveIcon(w http.ResponseWriter, r *http.Request) {
 	}
 	ctype, blob, ferr := FetchIcon(host)
 	if ferr != nil {
-		// Upstream failure: serve stale if present, else 404
-		// (frontend letter-tile fallback covers it).
+		// Upstream failure: serve stale if present, else a generated
+		// letter tile (200, never a 404 — the frontend letter fallback
+		// stays as backup).
 		if cerr == nil && len(cached.Blob) > 0 {
 			writeIcon(w, cached.ContentType, cached.Blob, maxAge)
 			return
 		}
-		writeErr(w, http.StatusNotFound, "icon not found")
+		tile := letterTile(host)
+		w.Header().Set("Content-Type", "image/svg+xml")
+		w.Header().Set("Content-Length", itoa(len(tile)))
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(tile)
 		return
 	}
 	rec, serr := backend.SaveIcon(host, ctype, blob)

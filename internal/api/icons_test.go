@@ -163,7 +163,7 @@ func TestIconInvalidHostsNoFetch(t *testing.T) {
 	}
 }
 
-func TestIconMissUpstreamFailureIs404(t *testing.T) {
+func TestIconMissUpstreamFailureServesTile(t *testing.T) {
 	st, err := store.OpenFile("")
 	if err != nil {
 		t.Fatal(err)
@@ -174,8 +174,15 @@ func TestIconMissUpstreamFailureIs404(t *testing.T) {
 	req := httptest.NewRequest("GET", "/icons/missing.com.ico", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
-	if rec.Code != 404 {
-		t.Fatalf("got %d, want 404", rec.Code)
+	if rec.Code != 200 {
+		t.Fatalf("got %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "image/svg+xml" {
+		t.Fatalf("content-type = %q, want image/svg+xml", ct)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "<svg") || !strings.Contains(body, ">M<") {
+		t.Fatalf("tile missing svg/letter M: %q", body)
 	}
 }
 

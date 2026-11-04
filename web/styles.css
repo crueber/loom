@@ -263,19 +263,18 @@ button.primary {
 }
 .column .cards { transition: opacity 0.15s ease-out; }
 .column.collapsed .cards { opacity: 0; }
-.column > h2 .coltitle, .column > h2 .colcount {
+.column > h2 .coltitle {
   transition: opacity 0.15s ease-out;
 }
 /* OSS-158 kill-switches: per-user OFF plus OS reduced-motion. */
 body[data-animations="off"] .column,
 body[data-animations="off"] .column .cards,
-body[data-animations="off"] .column > h2 .coltitle,
-body[data-animations="off"] .column > h2 .colcount {
+body[data-animations="off"] .column > h2 .coltitle {
   transition: none !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .column, .column .cards,
-  .column > h2 .coltitle, .column > h2 .colcount {
+  .column > h2 .coltitle {
     transition: none !important;
   }
 }
@@ -354,10 +353,6 @@ body[data-animations="off"] .column > h2 .colcount {
 /* OSS-129: keep the resize cursor — the h2 collapse pointer above must
    not override the handle affordance. */
 .column > h2 .resize { cursor: ew-resize; }
-.colcount {
-  font-size: 11.5px; background: color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: 10px; padding: 0 8px; font-weight: 600;
-}
 /* Collapsed columns become slim rails; a lone open column reads narrow. */
 .column.collapsed {
   width: 48px; flex: 0 0 48px;
@@ -395,13 +390,11 @@ body[data-animations="off"] .column > h2 .colcount {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-height: 40vh; margin: 0; padding: 6px 1px;
   /* Round 5 item 3: never grow in the vertical header — the base
-     flex:1 would stretch the name the full rail height, parking the
-     count mid-rail and painting a long hover strip. Shrink-to-text
-     keeps the count just beneath the name and the hover/click area
-     on the name itself. */
+     flex:1 would stretch the name the full rail height, painting a long
+     hover strip. Shrink-to-text keeps the hover/click area on the name
+     itself. */
   flex: 0 0 auto;
 }
-.column.collapsed .colcount { padding: 0 6px; }
 /* Round 3 item 5: lanes scroll internally, capped at the viewport —
    the page itself never scrolls. Round 4 item 3: skinny lane scrollbars
    — thin styled, with a 3px gap between cards and scrollbar via right
