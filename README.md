@@ -32,7 +32,8 @@ weekend plans.*
   columns into slim rails when you need focus.
 - **Four block types per card** — `link` lists with auto-fetched site
   icons, `note` blocks with markdown (`#`/`##`/`###` headers, `-`/`*` and
-  `1.`/`1)` lists, `**bold**`, `*italic*`, `` `code` ``), `todo` checklists
+  `1.`/`1)` lists, `---`/`===`/`***` rules, `**bold**`, `*italic*`,
+  `` `code` ``), `todo` checklists
   (one block = one list, Enter adds the next item), and `image` blocks via
   upload or URL.
 - **Drag and drop** — cards within and across columns, blocks via their

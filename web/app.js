@@ -49,9 +49,9 @@
     });
   }
   // Minimal markdown: "# H1", "## H2", "### H3", "**bold**", "*italic*", "`code`",
-  // "[text](url)", "- or * unordered lists", "1. or 1) ordered lists".
-  // No deps. Headings/lists are line-based; inline marks apply within
-  // each line.
+  // "[text](url)", "- or * unordered lists", "1. or 1) ordered lists",
+  // "---/===/*** horizontal rules". No deps. Headings/lists/rules are
+  // line-based; inline marks apply within each line.
   function inlineFmt(h) {
     h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
     h = h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>');
@@ -78,9 +78,15 @@
       var m3 = line.match(/^###\s+(.*)/);
       var m2 = line.match(/^##\s+(.*)/);
       var m1 = line.match(/^#\s+(.*)/);
+      // Horizontal rule: 3+ of the same -/=/* char, nothing else
+      // (surrounding/inner spaces allowed, like CommonMark).
+      var mh = line.match(/^\s*([-*=])(?:\s*\1){2,}\s*$/);
       var ml = line.match(/^[-*]\s+(.*)/);
       var mo = line.match(/^\d+[.)]\s+(.*)/);
-      if (m3) {
+      if (mh) {
+        closeList();
+        out.push('<hr class="md-hr">');
+      } else if (m3) {
         closeList();
         out.push('<h3 class="md-h3">' + inlineFmt(m3[1]) + '</h3>');
       } else if (m2) {
@@ -267,6 +273,85 @@
       return pa - pb;
     });
   }
+  // Dynamic board tabs: show however many tabs fit the navbar without
+  // touching the right zone (plus breathing room); the rest collapse
+  // into the ▾ menu. DOM-only post-pass — runs after every render and
+  // on window resize, never triggers a render itself.
+  var TAB_RIGHT_GAP = 24;
+  // Left edge of the navbar right zone in viewport coords. The zone
+  // itself is display:contents (no box of its own), so take the
+  // leftmost rendered descendant instead.
+  function rightZoneLeft() {
+    var right = document.getElementById('rightzone');
+    if (!right) return null;
+    var left = Infinity;
+    Array.prototype.forEach.call(right.querySelectorAll('*'), function (el) {
+      if (!el.offsetWidth || !el.offsetHeight) return;
+      var x = el.getBoundingClientRect().left;
+      if (x < left) left = x;
+    });
+    return left === Infinity ? null : left;
+  }
+  function fitBoardTabs() {
+    if (!boardsEl) return;
+    var tabsEl = boardsEl.querySelector('.boardtabs');
+    var wrap = boardsEl.querySelector('.boardmenu-wrap');
+    var btns = tabsEl ? Array.prototype.slice.call(tabsEl.querySelectorAll('[data-board]')) : [];
+    btns.forEach(function (b) { b.style.display = ''; });
+    if (wrap) wrap.style.display = '';
+    if (!btns.length) { if (wrap) wrap.style.display = 'none'; return; }
+    // Hidden navbar (mobile panels) has no width to fit against.
+    if (!boardsEl.offsetWidth) return;
+    var zoneLeft = rightZoneLeft();
+    if (zoneLeft === null) return;
+    var limit = zoneLeft - TAB_RIGHT_GAP;
+    var start = tabsEl.getBoundingClientRect().left;
+    var addBtn = boardsEl.querySelector('.add-inline');
+    var reserve = (wrap ? wrap.offsetWidth : 0) + (addBtn ? addBtn.offsetWidth : 0) + 12;
+    var budget = limit - start - reserve;
+    function tabW(b) { return b.offsetWidth + 6; }
+    var shown = [], used = 0;
+    btns.forEach(function (b) {
+      var w = tabW(b);
+      if (used + w <= budget) { used += w; shown.push(b); }
+    });
+    // The active board stays a visible tab whenever it fits at all:
+    // swap it in for the last shown tab (document order preserved —
+    // the active board always sorts after a leading run that excludes
+    // it), dropping earlier tabs until the run fits again.
+    var active = null;
+    btns.forEach(function (b) { if (b.classList.contains('active')) active = b; });
+    if (active && shown.indexOf(active) < 0) {
+      shown.push(active);
+      for (var i = shown.length - 2; i >= 0; i--) {
+        var total = 0;
+        shown.forEach(function (b) { total += tabW(b); });
+        if (total <= budget || shown.length <= 1) break;
+        if (shown[i] !== active) shown.splice(i, 1);
+      }
+    }
+    var shownIds = {};
+    shown.forEach(function (b) { shownIds[b.dataset.board] = true; });
+    btns.forEach(function (b) { if (!shownIds[b.dataset.board]) b.style.display = 'none'; });
+    if (!wrap) return;
+    if (shown.length >= btns.length) {
+      if (boardMenuOpen) boardMenuOpen = false;
+      wrap.style.display = 'none';
+      return;
+    }
+    if (boardMenuOpen) {
+      // Menu lists the hidden boards only.
+      Array.prototype.forEach.call(wrap.querySelectorAll('.boardmenu-row'), function (r) {
+        var go = r.querySelector('[data-board]');
+        if (go && shownIds[go.dataset.board]) r.remove();
+      });
+    }
+  }
+  var fitT = null;
+  window.addEventListener('resize', function () {
+    if (fitT) clearTimeout(fitT);
+    fitT = setTimeout(function () { fitT = null; fitBoardTabs(); }, 150);
+  });
   function moveBoard(id, dir) {
     // Reorder within the full ordered list, then persist the full id
     // array so the override stays total (new boards append at the end).
@@ -499,6 +584,8 @@
       }
       renderInner();
       paintUserMenu();
+      // Dynamic tabs fit the navbar width (DOM-only measurement pass).
+      fitBoardTabs();
     } finally {
       rendering = false;
     }
@@ -533,27 +620,25 @@
     // user menu; Share + themes live inside it) clustered far-right via
     // a single margin-left:auto — no board-name repeat, no centered
     // cluster.
-    // Round 4 item 6: with >3 boards show the first three in creation
-    // order plus a dropdown next to the third listing ALL boards with
-    // reorder controls (localStorage order; see LS_BOARDORDER).
+    // Round 4 item 6 (dynamic fit): render every tab plus the overflow
+    // wrap; the fitBoardTabs post-pass hides whatever doesn't fit the
+    // navbar and prunes the menu to those hidden boards (creation order
+    // via LS_BOARDORDER; see orderedBoards).
     var ordered = orderedBoards();
-    var visible = ordered.length > 3 ? ordered.slice(0, 3) : ordered;
     // Round 6 item 3: the tabs scroll inside an inner .boardtabs element
     // while the overflow menu (.boardmenu-wrap) sits OUTSIDE it as a
     // direct child of #boards — navbar scrolling can never clip the menu.
-    boardsEl.innerHTML = '<span class="boardtabs">' + visible.map(function (b) {
+    boardsEl.innerHTML = '<span class="boardtabs">' + ordered.map(function (b) {
       return '<button data-board="' + b.id + '"' + (b.id === state.boardId ? ' class="active"' : '') +
         ' title="Open board (double-click to rename)">' + esc(b.title) + '</button>';
     }).join('') + '</span>' +
-      (ordered.length > 3
-        ? '<span class="boardmenu-wrap"><button class="boardmenu-btn" data-boardmenu aria-haspopup="true" title="All boards">▾</button>' +
-          (boardMenuOpen ? '<div class="boardmenu" role="menu">' + ordered.map(function (b) {
-            return '<div class="boardmenu-row' + (b.id === state.boardId ? ' current' : '') + '">' +
-              '<button class="boardmenu-go" data-board="' + b.id + '" role="menuitem">' + esc(b.title) + '</button>' +
-              '<button class="mv" data-boardup="' + b.id + '" title="Move up" aria-label="Move ' + esc(b.title) + ' up">↑</button>' +
-              '<button class="mv" data-boarddown="' + b.id + '" title="Move down" aria-label="Move ' + esc(b.title) + ' down">↓</button></div>';
-          }).join('') + '</div>' : '') + '</span>'
-        : '') +
+      '<span class="boardmenu-wrap"><button class="boardmenu-btn" data-boardmenu aria-haspopup="true" title="More boards">▾</button>' +
+      (boardMenuOpen ? '<div class="boardmenu" role="menu">' + ordered.map(function (b) {
+        return '<div class="boardmenu-row' + (b.id === state.boardId ? ' current' : '') + '">' +
+          '<button class="boardmenu-go" data-board="' + b.id + '" role="menuitem">' + esc(b.title) + '</button>' +
+          '<button class="mv" data-boardup="' + b.id + '" title="Move up" aria-label="Move ' + esc(b.title) + ' up">↑</button>' +
+          '<button class="mv" data-boarddown="' + b.id + '" title="Move down" aria-label="Move ' + esc(b.title) + ' down">↓</button></div>';
+      }).join('') + '</div>' : '') + '</span>' +
       '<button class="add-inline" data-newboard title="New board">+ </button>';
     var tree = curTree();
     if (!tree) {
