@@ -46,7 +46,7 @@ Pending = requested but not yet built on this branch.
 
 - Single navbar: brand, boards, + board, + column.
 - Mobile navbar: hamburger toggles at both topbar edges — left opens the board list, right opens board controls + Settings.
-- Settings dialog holds language (EN placeholder) + v1 import; topbar right zone holds one user menu (Dicebear Landscape avatar when signed in, stored seed assigned once per user, Menu button when anonymous) with Share/Themes/Settings/Delete/Login-Logout — Share + swatches no longer sit in #boardctl.
+- Settings dialog holds language (EN placeholder) + v1 import; topbar right zone holds one user menu (server-generated DiceBear Landscape avatar via the official dicebear-go library, byte-identical to the old API output for the same stored seed, Menu button when anonymous) with Share/Themes/Settings/Delete/Login-Logout — Share + swatches no longer sit in #boardctl.
 - Settings General renames the current board (empty/unchanged is a no-op; disabled with a hint when no board is open).
 - Settings opens as a sidebar modal (General/Data/Account/Admin); theme + language persist locally and sync via GET/PUT /api/me/prefs when signed in.
 - Board scrolls horizontally; near-full-width columns under 700px.

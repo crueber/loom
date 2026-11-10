@@ -86,6 +86,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/api/images", h.uploadImage)
 	mux.HandleFunc("/images/", h.serveImage)
 	mux.HandleFunc("/icons/", h.serveIcon)
+	mux.HandleFunc("/avatar/", h.serveAvatar)
 	h.authRoutes(mux)
 }
 

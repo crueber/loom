@@ -2503,7 +2503,7 @@
     paintUserMenu();
   }
   // ---- Unified user menu (OSS-169, OSS-173): one dropdown in .actions ----
-  // Trigger = Dicebear Landscape avatar <img> when signed in, generic
+  // Trigger = generated landscape avatar <img> when signed in, generic
   // Menu button when anonymous. Items are conditional on auth state +
   // board selection and reuse the existing openShare / board PATCH /
   // savePrefs / openSettings / confirm-gated deleteBoard / /api/auth
@@ -2513,17 +2513,16 @@
   var userMenuBtn = document.getElementById('usermenu-btn');
   var userMenuPop = document.getElementById('usermenu-pop');
   var userMenuOpen = false;
-  // OSS-173: Landscape style (DiceBear 10.x Scenes, CC0 1.0), one URL
-  // base for every avatar. The seed is stored per user (avatar_seed via
+  // Server-generated landscape SVG (GET /avatar/{seed}.svg): one URL
+  // shape for every avatar. The seed is stored per user (avatar_seed via
   // /api/auth/status) and assigned once server-side — never regenerated
   // per visit.
-  var AVATAR_BASE = 'https://api.dicebear.com/10.x/landscape/svg';
   function userSeed() {
     var u = (state.auth && state.auth.user) || {};
     return u.avatar_seed || u.email || u.sub || u.name || 'user';
   }
   function avatarURL() {
-    return AVATAR_BASE + '?seed=' + encodeURIComponent(userSeed());
+    return '/avatar/' + encodeURIComponent(userSeed()) + '.svg';
   }
   // Letter-tile fallback when the avatar <img> fails (offline / blocked).
   function wireAvatarFallback(img) {

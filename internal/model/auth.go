@@ -97,8 +97,7 @@ type Session struct {
 }
 
 // NewUser builds a user row for an OIDC identity. The avatar seed is
-// assigned once here and never regenerated (OSS-173: Landscape avatar,
-// stored seed, stable across visits).
+// assigned once here and never regenerated (stable avatar across visits).
 func NewUser(issuer, subject, email, name string) User {
 	return User{ID: NewID(), Issuer: issuer, Subject: subject, Email: email, Name: name, AvatarSeed: NewID(), CreatedAt: now()}
 }
