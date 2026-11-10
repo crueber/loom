@@ -522,6 +522,10 @@ body[data-animations="off"] .column > h2 .coltitle {
   z-index: 2;
 }
 .card:hover .cardbar, .card:focus-within .cardbar, .card.showbar .cardbar { opacity: 1; pointer-events: auto; transform: none; }
+/* Editing hides the bar: while a note/todo/title is editable (or the
+   link composer is open) the floating toolbar would sit on top of the
+   text field, so it stays out of the way until the edit commits. */
+.card:has(.editing, .composer) .cardbar { opacity: 0; pointer-events: none; transform: translateY(2px); }
 .card .cardbar button {
   border: none; background: transparent; color: var(--muted);
   cursor: pointer; font-size: 14px; line-height: 1; padding: 4px 7px; border-radius: 6px;
