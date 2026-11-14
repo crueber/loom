@@ -1,0 +1,7 @@
+loom-data.json
+loom-data.json.tmp
+loom-verify
+loom-test
+verify*.db*
+verify*.log
+verify*.pid

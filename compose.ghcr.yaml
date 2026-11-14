@@ -1,0 +1,13 @@
+# Prebuilt-image Compose setup: pulls the published GHCR image
+# instead of building locally. Same ports/volume as compose.yaml.
+services:
+  loom:
+    image: ghcr.io/crueber/loom:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - loom-data:/data
+    restart: unless-stopped
+
+volumes:
+  loom-data:
